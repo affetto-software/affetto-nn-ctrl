@@ -7,9 +7,10 @@
 #   all-features: false
 #   with-sources: false
 #   generate-hashes: false
+#   universal: false
 
 -e file:.
-affctrllib @ git+https://github.com/affetto-software/affctrllib@41bc04f400897450ff3c036b68f973e8a0135395
+affctrllib @ git+https://github.com/affetto-software/affctrllib@c969601348f89a2fc84d3ffb07e69eaa054c9c1f
     # via affetto-nn-ctrl
 contourpy==1.2.1
     # via matplotlib
@@ -21,7 +22,7 @@ kiwisolver==1.4.5
     # via matplotlib
 matplotlib==3.9.0
     # via pyplotutil
-numpy==1.26.4
+numpy==2.1.0
     # via affctrllib
     # via contourpy
     # via matplotlib
@@ -36,14 +37,14 @@ pillow==10.3.0
     # via matplotlib
 pyparsing==3.1.2
     # via matplotlib
-pyplotutil @ git+https://github.com/hrshtst/pyplotutil.git@3548980300b967097cbf8aaa2dad3b4485a056ae
+pyplotutil @ git+https://github.com/hrshtst/pyplotutil.git@d544d794c57a52acfe7151f6b96edb93381c0f19
     # via affetto-nn-ctrl
 python-dateutil==2.9.0.post0
     # via matplotlib
     # via pandas
 pytz==2024.1
     # via pandas
-scipy==1.13.1
+scipy==1.14.1
     # via affctrllib
 six==1.16.0
     # via python-dateutil
