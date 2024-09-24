@@ -12,16 +12,34 @@
 -e file:.
 affctrllib @ git+https://github.com/affetto-software/affctrllib@c969601348f89a2fc84d3ffb07e69eaa054c9c1f
     # via affetto-nn-ctrl
+argcomplete==3.5.0
+    # via nox
+colorlog==6.8.2
+    # via nox
 contourpy==1.2.1
     # via matplotlib
+coverage==7.6.1
+    # via pytest-cov
 cycler==0.12.1
     # via matplotlib
+distlib==0.3.8
+    # via virtualenv
+execnet==2.1.1
+    # via pytest-xdist
+filelock==3.16.1
+    # via virtualenv
 fonttools==4.53.0
     # via matplotlib
+iniconfig==2.0.0
+    # via pytest
 kiwisolver==1.4.5
     # via matplotlib
 matplotlib==3.9.0
     # via pyplotutil
+mypy==1.11.2
+mypy-extensions==1.0.0
+    # via mypy
+nox==2024.4.15
 numpy==2.1.0
     # via affctrllib
     # via contourpy
@@ -31,24 +49,40 @@ numpy==2.1.0
     # via scipy
 packaging==24.0
     # via matplotlib
+    # via nox
+    # via pytest
 pandas==2.2.2
     # via pyplotutil
 pillow==10.3.0
     # via matplotlib
+platformdirs==4.3.6
+    # via virtualenv
+pluggy==1.5.0
+    # via pytest
 pyparsing==3.1.2
     # via matplotlib
 pyplotutil @ git+https://github.com/hrshtst/pyplotutil.git@d544d794c57a52acfe7151f6b96edb93381c0f19
     # via affetto-nn-ctrl
+pytest==8.3.3
+    # via pytest-cov
+    # via pytest-randomly
+    # via pytest-xdist
+pytest-cov==5.0.0
+pytest-randomly==3.15.0
+pytest-xdist==3.6.1
 python-dateutil==2.9.0.post0
     # via matplotlib
     # via pandas
 pytz==2024.1
     # via pandas
+ruff==0.6.7
 scipy==1.14.1
     # via affctrllib
 six==1.16.0
     # via python-dateutil
-tomli==2.0.1
-    # via affctrllib
+typing-extensions==4.12.2
+    # via mypy
 tzdata==2024.1
     # via pandas
+virtualenv==20.26.5
+    # via nox

@@ -48,7 +48,5 @@ scipy==1.14.1
     # via affctrllib
 six==1.16.0
     # via python-dateutil
-tomli==2.0.1
-    # via affctrllib
 tzdata==2024.1
     # via pandas
