@@ -24,7 +24,10 @@ T = TypeVar("T")
 
 
 def prepare_ctrl(
-    config: str, srate: float | None, crate: float | None, waiting_time: float = 5.0
+    config: str,
+    srate: float | None,
+    crate: float | None,
+    waiting_time: float = 5.0,
 ) -> tuple[AffComm, AffPosCtrl, AffStateThread]:
     comm = AffComm(config_path=config)
     comm.create_command_socket()
@@ -255,6 +258,102 @@ def control_command(
     print("")  # noqa: T201
     # return the last command sent to the valve
     return ca, cb
+
+
+class RandomTrajectory:
+    joints: list[int]
+    q0: np.ndarray
+    t0: float
+    update_t_range: tuple[float, float]
+    update_q_range: tuple[float, float]
+    q_limit: tuple[float, float]
+    q_limits: list[tuple[float, float]]
+    ptp_list: list[PTP]
+    profile: str
+
+    def __init__(
+        self,
+        joints: list[int],
+        q0: np.ndarray,
+        t0: float,
+        update_t_range: tuple[float, float],
+        update_q_range: tuple[float, float],
+        q_limit: tuple[float, float],
+        profile: str = "trapezoidal",
+        seed: int | None = None,
+    ) -> None:
+        self.joints = joints
+        self.q0 = q0.copy()
+        self.t0 = t0
+        self.update_t_range = update_t_range
+        self.update_q_range = update_q_range
+        self.q_limit = q_limit
+        self.q_limits = [self.q_limit for _ in self.joints]
+        for i, j in enumerate(self.joints):
+            if j == 0:
+                # Reduce limits of waist joint.
+                self.q_limits[i] = (40.0, 60.0)
+        self.profile = profile
+        if seed is not None:
+            random.seed(seed)
+            np.random.seed(seed)
+        self.ptp_list = self.initialize_ptp()
+
+    def _get_new_T_qdes(
+        self,
+        q0: float,
+        t_range: tuple[float, float],
+        q_range: tuple[float, float],
+        q_limit: tuple[float, float],
+    ) -> tuple[float, float]:
+        qmin, qmax = min(q_limit), max(q_limit)
+        qdes = q0
+        T = random.uniform(min(t_range), max(t_range))
+        ok = False
+        while not ok:
+            q_diff = random.uniform(min(q_range), max(q_range))
+            qdes = random.choice([-1, 1]) * q_diff + q0
+            if qdes < qmin:
+                qdes = qmin + (qmin - qdes)
+            elif qdes > qmax:
+                qdes = qmax - (qdes - qmax)
+            qdes = max(min(qmax, qdes), qmin)
+            if abs(qdes - q0) > 0.0001:
+                ok = True
+        return T, qdes
+
+    def initialize_ptp(self) -> list[PTP]:
+        ptp_list: list[PTP] = []
+        for i in self.joints:
+            T, qdes = self._get_new_T_qdes(self.q0[i], self.update_t_range, self.update_q_range, self.q_limits[i])
+            ptp_list.append(PTP(self.q0[i], qdes, T, self.t0, profile_name=self.profile))
+        return ptp_list
+
+    def update_ptp(self, t: float) -> None:
+        for i, ptp in enumerate(self.ptp_list):
+            if ptp.t0 + ptp.T < t:
+                new_t0 = ptp.t0 + ptp.T
+                new_q0 = ptp.qF
+                new_T, new_qdes = self._get_new_T_qdes(
+                    new_q0,
+                    self.update_t_range,
+                    self.update_q_range,
+                    self.q_limits[i],
+                )
+                new_ptp = PTP(new_q0, new_qdes, new_T, new_t0, profile_name=self.profile)
+                self.ptp_list[i] = new_ptp
+
+    def qdes(self, t: float) -> np.ndarray:
+        self.update_ptp(t)
+        qdes = self.q0.copy()
+        qdes[self.joints] = [ptp.q(t) for ptp in self.ptp_list]
+        return qdes
+
+    def dqdes(self, t: float) -> np.ndarray:
+        self.update_ptp(t)
+        dqdes = np.zeros(self.q0.shape)
+        dqdes[self.joints] = [ptp.dq(t) for ptp in self.ptp_list]
+        return dqdes
 
 
 # Local Variables:
