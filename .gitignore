@@ -1,3 +1,5 @@
+/apps/base_dir
+
 # python generated files
 __pycache__/
 *.py[oc]
