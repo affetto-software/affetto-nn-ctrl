@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from affetto_nn_ctrl import APPS_DIR_PATH, DEFAULT_BASE_DIR_PATH
+from affetto_nn_ctrl.event_logging import get_event_logger
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -69,31 +70,51 @@ def split_data_dir_path_by_date(data_dir_path: Path) -> tuple[Path, str | None, 
     return data_dir_path, None, None
 
 
+def _make_latest_symlink(path: Path, *, dry_run: bool) -> None:
+    event_logger = get_event_logger()
+    path_head, date, _ = split_data_dir_path_by_date(path)
+    if date is None:
+        msg = f"Trying to make latest symlink, but no date part has found: {path}"
+        if event_logger:
+            event_logger.warning(msg)
+        warnings.warn(msg, UserWarning, stacklevel=2)
+    else:
+        symlink_src = path_head / date
+        symlink_path = path_head / "latest"
+        if not symlink_path.exists() or symlink_path.is_symlink():
+            try:
+                os.remove(symlink_path)  # noqa: PTH107
+            except OSError:
+                pass
+            finally:
+                dst = symlink_src.absolute()
+                if not dry_run:
+                    os.symlink(dst, symlink_path)
+                if event_logger:
+                    msg = f"Symlink created: {symlink_path} -> {dst}"
+                    if dry_run:
+                        msg = f"Dry run: {msg}"
+                    event_logger.debug(msg)
+
+
 def prepare_data_dir_path(
     data_dir_path: str | Path,
     *,
     make_latest_symlink: bool = False,
     dry_run: bool = False,
 ) -> Path:
+    event_logger = get_event_logger()
     path = Path(data_dir_path)
     if not dry_run:
         path.mkdir(parents=True, exist_ok=True)
+    if event_logger:
+        msg = f"Directory created: {path}"
+        if dry_run:
+            msg = f"Dry run: {msg}"
+        event_logger.debug(msg)
+
     if make_latest_symlink:
-        path_head, date, _ = split_data_dir_path_by_date(path)
-        if date is None:
-            msg = f"Trying to make latest symlink, but no date part has found: {path}"
-            warnings.warn(msg, UserWarning, stacklevel=2)
-        else:
-            symlink_src = path_head / date
-            symlink_path = path_head / "latest"
-            if not symlink_path.exists() or symlink_path.is_symlink():
-                try:
-                    os.remove(symlink_path)  # noqa: PTH107
-                except OSError:
-                    pass
-                finally:
-                    if not dry_run:
-                        os.symlink(symlink_src.absolute(), symlink_path)
+        _make_latest_symlink(path, dry_run=dry_run)
     return path
 
 
@@ -103,6 +124,7 @@ def build_data_file_path(
     iterator: Iterator | None = None,
     ext: str | None = None,
 ) -> Path:
+    event_logger = get_event_logger()
     built_path: Path = Path(output_dir)
 
     # When ext is provided, generate a specific filename with prefix and iterator.
@@ -113,6 +135,8 @@ def build_data_file_path(
         filename = f"{prefix}{suffix}{ext}"
         if len(filename) == len(ext):
             msg = "Extension was given, but unable to determine filename"
+            if event_logger:
+                event_logger.error(msg)
             raise ValueError(msg)
         built_path /= filename
 

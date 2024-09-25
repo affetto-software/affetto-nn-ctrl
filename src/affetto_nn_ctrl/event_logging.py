@@ -76,18 +76,8 @@ def start_event_logging(
     return _event_logger
 
 
-def get_event_logger() -> logging.Logger:
-    if _event_logger is not None:
-        return _event_logger
-    msg = "Event logging has not been started!"
-    raise RuntimeError(msg)
-
-
-def log_event_debug(msg: str) -> None:
-    logger = get_event_logger()
-    if logger is None:
-        return
-    logger.debug(msg)
+def get_event_logger() -> logging.Logger | None:
+    return _event_logger
 
 
 # Local Variables:
