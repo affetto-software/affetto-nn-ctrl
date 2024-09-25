@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import datetime
 import itertools
+import os
+import re
+import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -52,6 +55,40 @@ def build_data_dir_path(
     return built_path
 
 
+def split_data_dir_path_by_date(data_dir_path: Path) -> tuple[Path, str | None, str | None]:
+    path = data_dir_path
+    parts: list[str] = []
+    date_pattern = re.compile(r"^[0-9]{8}T[0-9]{6}(?:\.[0-9]{6})?$")
+    while path.name != "":
+        name = path.name
+        path = path.parent
+        if date_pattern.match(name) is not None:
+            return path, name, "/".join(reversed(parts))
+        parts.append(name)
+    return data_dir_path, None, None
+
+
+def prepare_data_dir_path(data_dir_path: str | Path, *, make_latest_symlink: bool = False) -> Path:
+    path = Path(data_dir_path)
+    path.mkdir(parents=True, exist_ok=True)
+    if make_latest_symlink:
+        path_head, date, _ = split_data_dir_path_by_date(path)
+        if date is None:
+            msg = f"Trying to make latest symlink, but no date part has found: {path}"
+            warnings.warn(msg, UserWarning, stacklevel=2)
+        else:
+            symlink_src = path_head / date
+            symlink_path = path_head / "latest"
+            if not symlink_path.exists() or symlink_path.is_symlink():
+                try:
+                    os.remove(symlink_path)  # noqa: PTH107
+                except OSError:
+                    pass
+                finally:
+                    os.symlink(symlink_src.absolute(), symlink_path)
+    return path
+
+
 def build_data_file_path(
     output_dir: str | Path,
     prefix: str = "",
@@ -75,5 +112,5 @@ def build_data_file_path(
 
 
 # Local Variables:
-# jinx-local-words: "dT dir noqa sublabel"
+# jinx-local-words: "dT dir noqa sublabel symlink"
 # End:
