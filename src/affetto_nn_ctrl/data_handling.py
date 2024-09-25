@@ -22,14 +22,11 @@ def get_default_counter(start: int = 0, step: int = 1, fmt: str = "{:03d}") -> I
     return map(fmt.format, itertools.count(start, step))
 
 
-def get_data_path(
+def build_data_dir_path(
     base_dir: str | Path | None = None,
     app_name: str = "app",
     label: str = "test",
     sublabel: str | None = None,
-    ext: str | None = None,
-    prefix: str = "",
-    iterator: Iterator | None = None,
     *,
     split_by_date: bool = True,
     millisecond: bool = False,
@@ -51,6 +48,17 @@ def get_data_path(
     # Add the provided sublabel.
     if sublabel is not None and len(sublabel) > 0:
         built_path /= sublabel
+
+    return built_path
+
+
+def build_data_file_path(
+    output_dir: str | Path,
+    prefix: str = "",
+    iterator: Iterator | None = None,
+    ext: str | None = None,
+) -> Path:
+    built_path: Path = Path(output_dir)
 
     # When ext is provided, generate a specific filename with prefix and iterator.
     if ext is not None:
