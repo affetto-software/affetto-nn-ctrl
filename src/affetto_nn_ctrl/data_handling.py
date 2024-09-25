@@ -69,9 +69,15 @@ def split_data_dir_path_by_date(data_dir_path: Path) -> tuple[Path, str | None, 
     return data_dir_path, None, None
 
 
-def prepare_data_dir_path(data_dir_path: str | Path, *, make_latest_symlink: bool = False) -> Path:
+def prepare_data_dir_path(
+    data_dir_path: str | Path,
+    *,
+    make_latest_symlink: bool = False,
+    dry_run: bool = False,
+) -> Path:
     path = Path(data_dir_path)
-    path.mkdir(parents=True, exist_ok=True)
+    if not dry_run:
+        path.mkdir(parents=True, exist_ok=True)
     if make_latest_symlink:
         path_head, date, _ = split_data_dir_path_by_date(path)
         if date is None:
@@ -86,7 +92,8 @@ def prepare_data_dir_path(data_dir_path: str | Path, *, make_latest_symlink: boo
                 except OSError:
                     pass
                 finally:
-                    os.symlink(symlink_src.absolute(), symlink_path)
+                    if not dry_run:
+                        os.symlink(symlink_src.absolute(), symlink_path)
     return path
 
 
