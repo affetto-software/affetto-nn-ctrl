@@ -14,6 +14,7 @@ from affetto_nn_ctrl import DEFAULT_BASE_DIR_PATH, TESTS_DIR_PATH
 from affetto_nn_ctrl.data_handling import (
     build_data_dir_path,
     build_data_file_path,
+    get_default_base_dir,
     get_default_counter,
     prepare_data_dir_path,
     split_data_dir_path_by_date,
@@ -21,6 +22,28 @@ from affetto_nn_ctrl.data_handling import (
 
 if TYPE_CHECKING:
     from collections.abc import Generator
+
+
+@pytest.fixture
+def output_dir_path() -> Path:
+    return DEFAULT_BASE_DIR_PATH / "app" / "testing"
+
+
+@pytest.fixture
+def make_work_directory() -> Generator[Path, Any, Any]:
+    work_dir = TESTS_DIR_PATH / "work"
+    work_dir.mkdir(parents=True, exist_ok=True)
+    yield work_dir
+    shutil.rmtree(work_dir)
+
+
+def test_get_default_base_dir(make_work_directory: Path) -> None:
+    base_dir_config = make_work_directory / "base_dir"
+    expected = "/home/user/shared/data/affetto_nn_ctrl"
+    text = f""" {expected}\n"""
+    base_dir_config.write_text(text, encoding="utf-8")
+    default_base_dir = get_default_base_dir(base_dir_config)
+    assert str(default_base_dir) == expected
 
 
 @pytest.mark.parametrize(
@@ -139,19 +162,6 @@ def test_build_data_dir_path_sublabel_zero_length(
         expected = DEFAULT_BASE_DIR_PATH / app_name / label / today
         expected_re = re.compile(str(expected) + r"T[0-9]{6}$")
         assert expected_re.match(str(path)) is not None
-
-
-@pytest.fixture
-def output_dir_path() -> Path:
-    return DEFAULT_BASE_DIR_PATH / "app" / "testing"
-
-
-@pytest.fixture
-def make_work_directory() -> Generator[Path, Any, Any]:
-    work_dir = TESTS_DIR_PATH / "work"
-    work_dir.mkdir(parents=True, exist_ok=True)
-    yield work_dir
-    shutil.rmtree(work_dir)
 
 
 @pytest.mark.parametrize(("label", "date"), [("dataset", "20240925T113437"), ("good_data", "20240925T113441.618707")])
@@ -355,5 +365,5 @@ def test_build_data_file_path_when_ext_is_zero_make_directory(output_dir_path: P
 
 
 # Local Variables:
-# jinx-local-words: "csv dataset dir noqa png sublabel symlink"
+# jinx-local-words: "csv ctrl dataset dir nn noqa png sublabel symlink"
 # End:

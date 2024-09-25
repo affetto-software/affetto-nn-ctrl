@@ -14,10 +14,11 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 
-def get_default_base_dir() -> Path:
-    base_dir_config = APPS_DIR_PATH / "base_dir"
+def get_default_base_dir(base_dir_config: Path | None = None) -> Path:
+    if base_dir_config is None:
+        base_dir_config = APPS_DIR_PATH / "base_dir"
     if base_dir_config.exists():
-        return Path(base_dir_config.read_text())
+        return Path(base_dir_config.read_text().strip())
     return DEFAULT_BASE_DIR_PATH
 
 
