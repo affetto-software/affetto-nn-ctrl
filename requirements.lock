@@ -39,6 +39,12 @@ pyparsing==3.1.2
     # via matplotlib
 pyplotutil @ git+https://github.com/hrshtst/pyplotutil.git@d544d794c57a52acfe7151f6b96edb93381c0f19
     # via affetto-nn-ctrl
+pyqt6==6.7.1
+    # via affetto-nn-ctrl
+pyqt6-qt6==6.7.3
+    # via pyqt6
+pyqt6-sip==13.8.0
+    # via pyqt6
 python-dateutil==2.9.0.post0
     # via matplotlib
     # via pandas
