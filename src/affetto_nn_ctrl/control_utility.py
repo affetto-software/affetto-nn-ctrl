@@ -93,7 +93,7 @@ def create_const_trajectory(
         return q
 
     def dqdes_func(_: float) -> np.ndarray:
-        return np.zeros((len(q0),))
+        return np.zeros(len(q0), dtype=float)
 
     return qdes_func, dqdes_func
 
@@ -124,7 +124,7 @@ def control_position(
     header_text: str = "",
 ) -> tuple[np.ndarray, np.ndarray]:
     _reset_logger(logger, log_filename)
-    ca, cb = np.zeros((ctrl.dof,)), np.zeros((ctrl.dof,))
+    ca, cb = np.zeros(ctrl.dof, dtype=float), np.zeros(ctrl.dof, dtype=float)
     timer = Timer(rate=ctrl.freq)
 
     timer.start()
@@ -158,7 +158,7 @@ def control_valve(
     header_text: str = "",
 ) -> tuple[np.ndarray, np.ndarray]:
     _reset_logger(logger, log_filename)
-    ca, cb = np.zeros((ctrl.dof,)), np.zeros((ctrl.dof,))
+    ca, cb = np.zeros(ctrl.dof, dtype=float), np.zeros(ctrl.dof, dtype=float)
     timer = Timer(rate=ctrl.freq)
     dummy = np.asarray([-1.0 for _ in range(ctrl.dof)])
 
@@ -209,7 +209,7 @@ def get_back_home_valve(
     duration: float,
 ) -> tuple[np.ndarray, np.ndarray]:
     event_logger = get_event_logger()
-    ca0, cb0 = np.zeros((ctrl.dof,)), np.zeros((ctrl.dof,))
+    ca0, cb0 = np.zeros(ctrl.dof, dtype=float), np.zeros(ctrl.dof, dtype=float)
     ptp_ca = PTP(ca0, ca_home, duration, profile_name="const")
     ptp_cb = PTP(cb0, cb_home, duration, profile_name="const")
     ca_func, cb_func = ptp_ca.q, ptp_cb.q
