@@ -37,6 +37,8 @@ def start_event_logging(
 ) -> logging.Logger:
     if fmt is None:
         fmt = DEFAULT_LOG_FORMATTER
+    if name is None:
+        name = __name__
 
     global _event_logger  # noqa: PLW0603
     if _event_logger is not None and _event_logger.name == name:
@@ -70,6 +72,7 @@ def start_event_logging(
 
     # Always log command arguments.
     logger.debug("Start event logging")
+    logger.debug("logger name: %s", logger.name)
     cmd = "python " + " ".join(argv)
     logger.debug(cmd)
 
