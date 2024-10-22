@@ -1,13 +1,14 @@
 # ruff: noqa: S311
 from __future__ import annotations
 
-import random
 import sys
 import time
+import warnings
 from typing import TYPE_CHECKING
 
 import numpy as np
 from affctrllib import PTP, AffComm, AffPosCtrl, AffStateThread, Logger, Timer
+from numpy.random import Generator, default_rng
 
 from affetto_nn_ctrl.event_logging import get_event_logger
 
@@ -16,12 +17,47 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
+__SEED: int | None = None
+__GLOBAL_RNG: Generator = default_rng()
+
+
+class GetGlobalRngT:
+    pass
+
+
+GET_GLOBAL_RNG = GetGlobalRngT()
+
+
 def set_seed(seed: int | None) -> None:
-    random.seed(seed)
-    np.random.seed(seed)  # noqa: NPY002
+    global __SEED  # noqa: PLW0603
+    global __GLOBAL_RNG  # noqa: PLW0603
+    if isinstance(seed, int | None):
+        __SEED = seed
+        __GLOBAL_RNG = default_rng(__SEED)
+        np.random.seed(__SEED)  # noqa: NPY002
+    else:
+        msg = f"`seed` is expected to be an `int` or `None`, not {type(seed)}"
+        raise TypeError(msg)
 
 
-EPSILON = 1e-4
+def get_seed() -> int | None:
+    return __SEED
+
+
+def get_rng(seed: int | Generator | GetGlobalRngT | None = GET_GLOBAL_RNG) -> Generator:
+    if isinstance(seed, GetGlobalRngT):
+        return __GLOBAL_RNG
+    if isinstance(seed, Generator):
+        return seed
+    if isinstance(seed, int | None):
+        return default_rng(seed)
+    msg = f"`seed` is expected to be an `int` or `None`, not {type(seed)}"
+    raise TypeError(msg)
+
+
+MIN_UPDATE_Q_DELTA = 1e-4
+WAIST_JOINT_INDEX = 0
+WAIST_JOINT_LIMIT = (40.0, 60.0)
 
 
 def create_controller(
@@ -223,97 +259,205 @@ def get_back_home_valve(
 
 
 class RandomTrajectory:
-    joints: list[int]
+    active_joints: list[int]
     q0: np.ndarray
     t0: float
-    update_t_range: tuple[float, float]
-    update_q_range: tuple[float, float]
-    q_limit: tuple[float, float]
-    q_limits: list[tuple[float, float]]
-    ptp_list: list[PTP]
-    profile: str
+    update_t_range_list: list[tuple[float, float]]
+    update_q_range_list: list[tuple[float, float]]
+    update_q_limit_list: list[tuple[float, float]]
+    update_profile: str
+    async_update: bool
+    sync_updater: PTP
+    async_updater: list[PTP]
 
     def __init__(
         self,
-        joints: list[int],
+        active_joints: list[int],
         q0: np.ndarray,
         t0: float,
-        update_t_range: tuple[float, float],
-        update_q_range: tuple[float, float],
-        q_limit: tuple[float, float],
-        profile: str = "trapezoidal",
-        seed: int | None = None,
+        update_t_range: tuple[float, float] | list[tuple[float, float]],
+        update_q_range: tuple[float, float] | list[tuple[float, float]],
+        update_q_limit: tuple[float, float] | list[tuple[float, float]],
+        update_profile: str = "trapezoidal",
+        seed: int | GetGlobalRngT | None = GET_GLOBAL_RNG,
+        *,
+        async_update: bool = False,
     ) -> None:
-        self.joints = joints
+        self.active_joints = active_joints
         self.q0 = q0.copy()
         self.t0 = t0
-        self.update_t_range = update_t_range
-        self.update_q_range = update_q_range
-        self.q_limit = q_limit
-        self.q_limits = [self.q_limit for _ in self.joints]
-        for i, j in enumerate(self.joints):
-            if j == 0:
-                # Reduce limits of waist joint.
-                self.q_limits[i] = (40.0, 60.0)
-        self.profile = profile
-        set_seed(seed)
-        self.ptp_list = self.initialize_ptp()
+        self.set_update_t_range(active_joints, update_t_range)
+        self.set_update_q_range(active_joints, update_q_range)
+        self.set_update_q_limit(active_joints, update_q_limit)
+        self.update_profile = update_profile
+        if not isinstance(seed, GetGlobalRngT):
+            set_seed(seed)
+        self.async_update = async_update
+        self.initialize_updater()
 
-    def _get_new_T_qdes(
+    @staticmethod
+    def get_list_of_range(
+        active_joints: list[int],
+        given_range: tuple[float, float] | list[tuple[float, float]],
+    ) -> list[tuple[float, float]]:
+        if isinstance(given_range, tuple):
+            x = (min(given_range), max(given_range))
+            range_list = [x for _ in active_joints]
+        elif len(active_joints) == len(given_range):
+            range_list = [(min(x), max(x)) for x in given_range]
+        else:
+            msg = (
+                "Lengths of lists (active joints / range list) are mismatch: "
+                f"{len(active_joints)} vs {len(given_range)}"
+            )
+            raise ValueError(msg)
+        return range_list
+
+    def set_update_t_range(
         self,
+        active_joints: list[int],
+        update_t_range: tuple[float, float] | list[tuple[float, float]],
+    ) -> list[tuple[float, float]]:
+        self.update_t_range_list = self.get_list_of_range(active_joints, update_t_range)
+        return self.update_t_range_list
+
+    def set_update_q_range(
+        self,
+        active_joints: list[int],
+        update_q_range: tuple[float, float] | list[tuple[float, float]],
+    ) -> list[tuple[float, float]]:
+        self.update_q_range_list = self.get_list_of_range(active_joints, update_q_range)
+        return self.update_q_range_list
+
+    def set_update_q_limit(
+        self,
+        active_joints: list[int],
+        update_q_limit: tuple[float, float] | list[tuple[float, float]],
+    ) -> list[tuple[float, float]]:
+        self.update_q_limit_list = self.get_list_of_range(active_joints, update_q_limit)
+        if isinstance(update_q_limit, tuple) and WAIST_JOINT_INDEX in active_joints:
+            # When update_q_limit is given as tuple and waist joint is included in active
+            # joints list, reduce limits of the waist joint.
+            waist_index = active_joints.index(WAIST_JOINT_INDEX)
+            self.update_q_limit_list[waist_index] = WAIST_JOINT_LIMIT
+        return self.update_q_limit_list
+
+    @staticmethod
+    def generate_new_duration(t_range: tuple[float, float]) -> float:
+        return get_rng().uniform(min(t_range), max(t_range))
+
+    @staticmethod
+    def generate_new_position(
         q0: float,
-        t_range: tuple[float, float],
         q_range: tuple[float, float],
         q_limit: tuple[float, float],
-    ) -> tuple[float, float]:
+        min_update_q_delta: float = MIN_UPDATE_Q_DELTA,
+    ) -> float:
+        dmin, dmax = min(q_range), max(q_range)
         qmin, qmax = min(q_limit), max(q_limit)
         qdes = q0
-        T = random.uniform(min(t_range), max(t_range))
         ok = False
         while not ok:
-            q_diff = random.uniform(min(q_range), max(q_range))
-            qdes = random.choice([-1, 1]) * q_diff + q0
+            delta = get_rng().uniform(dmin, dmax)
+            qdes = q0 + get_rng().choice([-1, 1]) * delta
             if qdes < qmin:
                 qdes = qmin + (qmin - qdes)
             elif qdes > qmax:
                 qdes = qmax - (qdes - qmax)
             qdes = max(min(qmax, qdes), qmin)
-            if abs(qdes - q0) > EPSILON:
+            qdiff = abs(qdes - q0)
+            if qdiff > min_update_q_delta:
                 ok = True
-        return T, qdes
+        return qdes
 
-    def initialize_ptp(self) -> list[PTP]:
+    def initialize_sync_updater(self) -> PTP:
+        if not all(x == self.update_t_range_list[0] for x in self.update_t_range_list):
+            msg = "Enabled sync update but various update t range is given."
+            warnings.warn(msg, stacklevel=2)
+
+        q0 = self.q0[self.active_joints]
+        duration = self.generate_new_duration(self.update_t_range_list[0])
+        qdes = np.array(
+            [
+                self.generate_new_position(q0[i], self.update_q_range_list[i], self.update_q_limit_list[i])
+                for i in range(len(self.active_joints))
+            ],
+        )
+        return PTP(q0, qdes, duration, self.t0, profile_name=self.update_profile)
+
+    def initialize_async_updater(self) -> list[PTP]:
         ptp_list: list[PTP] = []
-        for i in self.joints:
-            T, qdes = self._get_new_T_qdes(self.q0[i], self.update_t_range, self.update_q_range, self.q_limits[i])
-            ptp_list.append(PTP(self.q0[i], qdes, T, self.t0, profile_name=self.profile))
+        for i, j in enumerate(self.active_joints):
+            q0 = self.q0[j]
+            duration = self.generate_new_duration(self.update_t_range_list[i])
+            qdes = self.generate_new_position(q0, self.update_q_range_list[i], self.update_q_limit_list[i])
+            ptp_list.append(PTP(q0, qdes, duration, self.t0, profile_name=self.update_profile))
         return ptp_list
 
-    def update_ptp(self, t: float) -> None:
-        for i, ptp in enumerate(self.ptp_list):
+    def initialize_updater(self) -> None:
+        if self.async_update:
+            self.async_updater = self.initialize_async_updater()
+        else:
+            self.sync_updater = self.initialize_sync_updater()
+
+    def update_sync_updater(self, t: float) -> None:
+        ptp = self.sync_updater
+        if ptp.t0 + ptp.T < t:
+            new_t0 = ptp.t0 + ptp.T
+            new_q0 = ptp.qF
+            new_duration = self.generate_new_duration(self.update_t_range_list[0])
+            new_qdes = np.array(
+                [
+                    self.generate_new_position(new_q0[i], self.update_q_range_list[i], self.update_q_limit_list[i])
+                    for i in range(len(self.active_joints))
+                ],
+            )
+            new_ptp = PTP(new_q0, new_qdes, new_duration, new_t0, profile_name=self.update_profile)
+            self.sync_updater = new_ptp
+
+    def update_async_updater(self, t: float) -> None:
+        for i, ptp in enumerate(self.async_updater):
             if ptp.t0 + ptp.T < t:
                 new_t0 = ptp.t0 + ptp.T
                 new_q0 = ptp.qF
-                new_T, new_qdes = self._get_new_T_qdes(
-                    new_q0,
-                    self.update_t_range,
-                    self.update_q_range,
-                    self.q_limits[i],
-                )
-                new_ptp = PTP(new_q0, new_qdes, new_T, new_t0, profile_name=self.profile)
-                self.ptp_list[i] = new_ptp
+                new_duration = self.generate_new_duration(self.update_t_range_list[i])
+                new_qdes = self.generate_new_position(new_q0, self.update_q_range_list[i], self.update_q_limit_list[i])
+                new_ptp = PTP(new_q0, new_qdes, new_duration, new_t0, profile_name=self.update_profile)
+                self.async_updater[i] = new_ptp
 
-    def qdes(self, t: float) -> np.ndarray:
-        self.update_ptp(t)
-        qdes = self.q0.copy()
-        qdes[self.joints] = [ptp.q(t) for ptp in self.ptp_list]
-        return qdes
+    def get_qdes_func(self) -> Callable[[float], np.ndarray]:
+        def qdes_async(t: float) -> np.ndarray:
+            self.update_async_updater(t)
+            qdes = self.q0.copy()
+            qdes[self.active_joints] = [ptp.q(t) for ptp in self.async_updater]
+            return qdes
 
-    def dqdes(self, t: float) -> np.ndarray:
-        self.update_ptp(t)
-        dqdes = np.zeros(self.q0.shape)
-        dqdes[self.joints] = [ptp.dq(t) for ptp in self.ptp_list]
-        return dqdes
+        def qdes_sync(t: float) -> np.ndarray:
+            self.update_sync_updater(t)
+            qdes = self.q0.copy()
+            qdes[self.active_joints] = self.sync_updater.q(t)
+            return qdes
+
+        if self.async_update:
+            return qdes_async
+        return qdes_sync
+
+    def get_dqdes_func(self) -> Callable[[float], np.ndarray]:
+        def dqdes_async(t: float) -> np.ndarray:
+            self.update_async_updater(t)
+            dqdes = np.zeros(self.q0.shape, dtype=float)
+            dqdes[self.active_joints] = [ptp.dq(t) for ptp in self.async_updater]
+            return dqdes
+
+        def dqdes_sync(t: float) -> np.ndarray:
+            self.update_sync_updater(t)
+            dqdes = np.zeros(self.q0.shape, dtype=float)
+            dqdes[self.active_joints] = self.sync_updater.dq(t)
+            return dqdes
+
+        if self.async_update:
+            return dqdes_async
+        return dqdes_sync
 
 
 # Local Variables:
