@@ -6,6 +6,7 @@ import argparse
 from pathlib import Path
 
 from affetto_nn_ctrl import DEFAULT_SEED
+from affetto_nn_ctrl.control_utility import GetGlobalRngT
 from affetto_nn_ctrl.data_handling import build_data_dir_path, get_default_base_dir, prepare_data_dir_path
 from affetto_nn_ctrl.event_logging import get_event_logger, start_event_logging
 
@@ -23,12 +24,12 @@ def run(
     sfreq: float | None,
     cfreq: float | None,
     duration: float,
-    seed: int | None,
     t_range: tuple[float, float],
     q_range: tuple[float, float],
     q_limit: tuple[float, float],
     n_repeat: int,
     output_dir_path: Path,
+    seed: int | GetGlobalRngT | None,
     *,
     overwrite: bool,
 ) -> None:
