@@ -369,7 +369,7 @@ class TestRandomTrajectoryData:
     ) -> Path:
         joints_str = "all" if len(active_joints) == DOF else "-".join(map(str, active_joints))
         sync_str = "async" if async_update else "sync"
-        filename = f"rand_traj_{update_profile}_{sync_str}_{joints_str}.dat"
+        filename = f"rand_traj_{update_profile}_{sync_str}_{joints_str}.csv"
         return base_directory / filename
 
     def generate_data(
@@ -381,8 +381,8 @@ class TestRandomTrajectoryData:
         async_update: bool,
     ) -> None:
         set_seed(123456)
-        total_duration = 20
-        dt = 1e-3
+        total_duration = 10
+        dt = 1e-2
         n_step = int(total_duration / dt)
         q0 = np.full(DOF, 50.0, dtype=float)
         rt = RandomTrajectory(
@@ -408,8 +408,8 @@ class TestRandomTrajectoryData:
         "active_joints",
         [
             [0, 1, 2],
-            # [1, 3, 5, 7],
-            # list(range(DOF)),
+            [1, 3, 5, 7],
+            list(range(DOF)),
         ],
     )
     @pytest.mark.parametrize(
@@ -419,8 +419,7 @@ class TestRandomTrajectoryData:
             "step",
         ],
     )
-    # @pytest.mark.parametrize("async_update", [False, True])
-    @pytest.mark.parametrize("async_update", [False])
+    @pytest.mark.parametrize("async_update", [False, True])
     def test_check_trajectory_sync(
         self,
         make_work_directory: Path,
@@ -526,5 +525,5 @@ if __name__ == "__main__":
 
 
 # Local Variables:
-# jinx-local-words: "async const dat dq noqa traj trapez"
+# jinx-local-words: "async const csv dat dq noqa traj trapez"
 # End:
