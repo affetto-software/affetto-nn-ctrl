@@ -42,14 +42,6 @@ def assert_file_contents(expected: Path, actual: Path) -> None:
     assert diff == [], "Unexpected file differences:\n" + "".join(diff)
 
 
-@pytest.fixture(scope="class")
-def make_work_directory() -> Generator[Path, Any, Any]:
-    work_dir = TESTS_DIR_PATH / "work"
-    work_dir.mkdir(parents=True, exist_ok=True)
-    yield work_dir
-    shutil.rmtree(work_dir)
-
-
 def test_set_seed() -> None:
     set_seed(0)
     rng = get_rng()
@@ -358,14 +350,36 @@ class TestRandomTrajectory:
             assert q_limit[0] < qdes < q_limit[1]
 
 
+@pytest.fixture(scope="class")
+def make_work_directory() -> Generator[Path, Any, Any]:
+    work_dir = TESTS_DIR_PATH / "work"
+    work_dir.mkdir(parents=True, exist_ok=True)
+    yield work_dir
+    shutil.rmtree(work_dir)
+
+
 class TestRandomTrajectoryData:
-    def make_output_path(self, base_directory: Path, active_joints: list[int], *, async_update: bool) -> Path:
+    def make_output_path(
+        self,
+        base_directory: Path,
+        active_joints: list[int],
+        update_profile: str,
+        *,
+        async_update: bool,
+    ) -> Path:
         joints_str = "all" if len(active_joints) == DOF else "-".join(map(str, active_joints))
         sync_str = "async" if async_update else "sync"
-        filename = f"rand_traj_{sync_str}_{joints_str}.dat"
+        filename = f"rand_traj_{update_profile}_{sync_str}_{joints_str}.dat"
         return base_directory / filename
 
-    def generate_data(self, output: Path | None, active_joints: list[int], *, async_update: bool) -> None:
+    def generate_data(
+        self,
+        output: Path | None,
+        active_joints: list[int],
+        update_profile: str,
+        *,
+        async_update: bool,
+    ) -> None:
         set_seed(123456)
         total_duration = 20
         dt = 1e-3
@@ -378,6 +392,7 @@ class TestRandomTrajectoryData:
             DEFAULT_UPDATE_T_RANGE,
             DEFAULT_UPDATE_Q_RANGE,
             DEFAULT_UPDATE_Q_LIMIT,
+            update_profile=update_profile,
             async_update=async_update,
         )
         logger = Logger()
@@ -397,39 +412,45 @@ class TestRandomTrajectoryData:
             # list(range(DOF)),
         ],
     )
+    @pytest.mark.parametrize(
+        "update_profile",
+        [
+            "trapez",
+            "step",
+        ],
+    )
     # @pytest.mark.parametrize("async_update", [False, True])
     @pytest.mark.parametrize("async_update", [False])
     def test_check_trajectory_sync(
         self,
         make_work_directory: Path,
         active_joints: list[int],
+        update_profile: str,
         async_update: bool,  # noqa: FBT001
     ) -> None:
-        output = self.make_output_path(make_work_directory, active_joints, async_update=async_update)
-        self.generate_data(output, active_joints, async_update=async_update)
+        output = self.make_output_path(make_work_directory, active_joints, update_profile, async_update=async_update)
+        self.generate_data(output, active_joints, update_profile, async_update=async_update)
         assert_file_contents(TESTS_DATA_DIR_PATH / output.name, output)
 
 
-def generate_data(active_joints: list[int], *, async_update: bool) -> Path:
+def generate_data(active_joints: list[int], update_profile: str, *, async_update: bool) -> Path:
     event_logger = get_event_logger()
     generator = TestRandomTrajectoryData()
-    output = generator.make_output_path(TESTS_DATA_DIR_PATH, active_joints, async_update=async_update)
+    output = generator.make_output_path(TESTS_DATA_DIR_PATH, active_joints, update_profile, async_update=async_update)
     output.parent.mkdir(parents=True, exist_ok=True)
-    generator.generate_data(output, active_joints, async_update=async_update)
+    generator.generate_data(output, active_joints, update_profile, async_update=async_update)
     if event_logger:
         event_logger.info("Data generated: %s", output)
     return output
 
 
-def plot_generated_data(output: Path) -> None:
+def plot_generated_data(output: Path, xlim: tuple[float, float] | None = None, *, show_legend: bool = True) -> None:
     import matplotlib.pyplot as plt
     from pyplotutil.datautil import Data
 
     event_logger = get_event_logger()
 
     # Setup
-    xlim: tuple[float, float] | None = None
-    xlim = (0, 5)
     show_legend = False
     data = Data(output)
     if event_logger:
@@ -463,17 +484,41 @@ def plot_generated_data(output: Path) -> None:
     plt.show()
 
 
+def check_generated_data(active_joints: list[int], update_profile: str, *, async_update: bool, show_plot: bool) -> None:
+    output = generate_data(active_joints, update_profile, async_update=async_update)
+    if show_plot:
+        plot_generated_data(output, xlim=None, show_legend=False)
+
+
+def generate_expected_data(*, show_plot: bool = True) -> None:
+    active_joints_list: list[list[int]] = [
+        [0, 1, 2],
+        [1, 3, 5, 7],
+        list(range(DOF)),
+    ]
+    update_profile_list = [
+        "trapez",
+        "step",
+    ]
+    async_update_list: list[bool] = [
+        False,
+        True,
+    ]
+    for active_joints in active_joints_list:
+        for update_profile in update_profile_list:
+            for async_update in async_update_list:
+                check_generated_data(active_joints, update_profile, async_update=async_update, show_plot=show_plot)
+
+
 def main() -> None:
     import sys
 
     start_event_logging(sys.argv, logging_level="INFO")
     if len(sys.argv) == 1:
-        active_joints = [0, 1, 2]
-        async_update = False
-        output = generate_data(active_joints, async_update=async_update)
+        generate_expected_data(show_plot=True)
     else:
         output = Path(sys.argv[1])
-    plot_generated_data(output)
+        plot_generated_data(output)
 
 
 if __name__ == "__main__":
@@ -481,5 +526,5 @@ if __name__ == "__main__":
 
 
 # Local Variables:
-# jinx-local-words: "async dat dq noqa traj"
+# jinx-local-words: "async const dat dq noqa traj trapez"
 # End:
