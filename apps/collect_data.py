@@ -34,7 +34,7 @@ def run(
 ) -> None:
     event_logger = get_event_logger()
     if event_logger:
-        event_logger.debug("Config: %s", config)
+        event_logger.debug("Loading config file: %s", config)
 
 
 def make_output_dir(

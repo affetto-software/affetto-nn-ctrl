@@ -68,10 +68,8 @@ def create_controller(
 ) -> tuple[AffComm, AffPosCtrl, AffStateThread]:
     event_logger = get_event_logger()
     if event_logger:
-        msg = f"Loaded config: {config}"
-        event_logger.info(msg)
-        msg = f"sensor frequency: {sfreq}, control frequency: {cfreq}"
-        event_logger.debug(msg)
+        event_logger.info("Loaded config: %s", config)
+        event_logger.debug("sensor frequency: %s, control frequency: %s", sfreq, cfreq)
 
     comm = AffComm(config_path=config)
     comm.create_command_socket()
@@ -83,8 +81,7 @@ def create_controller(
         event_logger.debug("Controller created.")
 
     if event_logger:
-        msg = f"Waiting until robot gets stationary for {waiting_time} s..."
-        event_logger.info(msg)
+        event_logger.info("Waiting until robot gets stationary for %s s...", waiting_time)
     time.sleep(waiting_time)
 
     return comm, ctrl, state
@@ -143,8 +140,7 @@ def _reset_logger(logger: Logger | None, log_filename: str | Path | None) -> Log
         if log_filename is not None:
             logger.set_filename(log_filename)
             if event_logger:
-                msg = f"Logger filename is updated: {log_filename}"
-                event_logger.debug(msg)
+                event_logger.debug("Logger filename is updated: %s", log_filename)
     return logger
 
 
