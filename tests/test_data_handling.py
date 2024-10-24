@@ -38,6 +38,68 @@ def make_work_directory() -> Generator[Path, Any, Any]:
     shutil.rmtree(work_dir)
 
 
+class DateDirMaker(Protocol):
+    def __call__(
+        self,
+        base_dir: Path,
+        app_name: str,
+        label: str,
+        *,
+        make_latest_symlink: bool = True,
+    ) -> Path: ...
+
+
+def make_date_directories(
+    base_dir: Path,
+    app_name: str,
+    label: str,
+    *,
+    make_latest_symlink: bool = True,
+) -> Path:
+    labeled_dir = base_dir / app_name / label
+    random_date_strings = [
+        "20241024T144633",
+        "20241024T145114",
+        "20241025T021116",
+        "20241025T021232",
+    ]
+    for date in random_date_strings:
+        (labeled_dir / date).mkdir(parents=True, exist_ok=True)
+    if make_latest_symlink:
+        target = labeled_dir / sorted(random_date_strings)[-1]
+        link = labeled_dir / "latest"
+        if link.exists():
+            link.unlink()
+        os.symlink(target.absolute(), link)
+    return labeled_dir
+
+
+def make_date_directories_millisecond(
+    base_dir: Path,
+    app_name: str,
+    label: str,
+    *,
+    make_latest_symlink: bool = True,
+) -> Path:
+    labeled_dir = base_dir / app_name / label
+    random_date_strings = [
+        "20241024T144633.942693",
+        "20241024T145114.311196",
+        "20241025T021116.011509",
+        "20241025T021232.467673",
+        "20241025T021232.527792",
+    ]
+    for date in random_date_strings:
+        (labeled_dir / date).mkdir(parents=True, exist_ok=True)
+    if make_latest_symlink:
+        target = labeled_dir / sorted(random_date_strings)[-1]
+        link = labeled_dir / "latest"
+        if link.exists():
+            link.unlink()
+        os.symlink(target.absolute(), link)
+    return labeled_dir
+
+
 def test_get_default_base_dir(make_work_directory: Path) -> None:
     base_dir_config = make_work_directory / "base_dir"
     expected = "/home/user/shared/data/affetto_nn_ctrl"
@@ -165,66 +227,62 @@ def test_build_data_dir_path_sublabel_zero_length(
         assert expected_re.match(str(path)) is not None
 
 
-def make_date_directories(
-    base_dir: Path,
+@pytest.mark.parametrize(
+    ("app_name", "label", "sublabel", "specified_date"),
+    [
+        ("app", "test", None, "20241024T164152"),
+        ("performance", "testing", "sub", "20241024T164152.564412"),
+    ],
+)
+def test_build_data_dir_path_specify_date_string(
     app_name: str,
     label: str,
-    *,
-    make_latest_symlink: bool = True,
-) -> Path:
-    labeled_dir = base_dir / app_name / label
-    random_date_strings = [
-        "20241024T144633",
-        "20241024T145114",
-        "20241025T021116",
-        "20241025T021232",
-    ]
-    for date in random_date_strings:
-        (labeled_dir / date).mkdir(parents=True, exist_ok=True)
-    if make_latest_symlink:
-        target = labeled_dir / sorted(random_date_strings)[-1]
-        link = labeled_dir / "latest"
-        if link.exists():
-            link.unlink()
-        os.symlink(target.absolute(), link)
-    return labeled_dir
+    sublabel: str | None,
+    specified_date: str,
+) -> None:
+    path = build_data_dir_path(
+        base_dir=None,
+        app_name=app_name,
+        label=label,
+        sublabel=sublabel,
+        specified_date=specified_date,
+    )
+    if sublabel is not None:
+        expected = DEFAULT_BASE_DIR_PATH / app_name / label / specified_date / sublabel
+    else:
+        expected = DEFAULT_BASE_DIR_PATH / app_name / label / specified_date
+    assert path == expected
 
 
-def make_date_directories_millisecond(
-    base_dir: Path,
+@pytest.mark.parametrize(
+    ("app_name", "label", "sublabel", "date_dir_maker", "expected_date"),
+    [
+        ("app", "test", None, make_date_directories, "20241025T021232"),
+        ("performance", "testing", "sub", make_date_directories_millisecond, "20241025T021232.527792"),
+    ],
+)
+def test_build_data_dir_path_specify_latest(
+    make_work_directory: Path,
     app_name: str,
     label: str,
-    *,
-    make_latest_symlink: bool = True,
-) -> Path:
-    labeled_dir = base_dir / app_name / label
-    random_date_strings = [
-        "20241024T144633.942693",
-        "20241024T145114.311196",
-        "20241025T021116.011509",
-        "20241025T021232.467673",
-        "20241025T021232.527792",
-    ]
-    for date in random_date_strings:
-        (labeled_dir / date).mkdir(parents=True, exist_ok=True)
-    if make_latest_symlink:
-        target = labeled_dir / sorted(random_date_strings)[-1]
-        link = labeled_dir / "latest"
-        if link.exists():
-            link.unlink()
-        os.symlink(target.absolute(), link)
-    return labeled_dir
-
-
-class DateDirMaker(Protocol):
-    def __call__(
-        self,
-        base_dir: Path,
-        app_name: str,
-        label: str,
-        *,
-        make_latest_symlink: bool = True,
-    ) -> Path: ...
+    sublabel: str | None,
+    date_dir_maker: DateDirMaker,
+    expected_date: str,
+) -> None:
+    base_dir = make_work_directory
+    labeled_data_dir_path = date_dir_maker(base_dir, app_name, label)
+    path = build_data_dir_path(
+        base_dir=base_dir,
+        app_name=app_name,
+        label=label,
+        sublabel=sublabel,
+        specified_date="latest",
+    )
+    if sublabel is not None:
+        expected = labeled_data_dir_path / expected_date / sublabel
+    else:
+        expected = labeled_data_dir_path / expected_date
+    assert path == expected
 
 
 @pytest.mark.parametrize(

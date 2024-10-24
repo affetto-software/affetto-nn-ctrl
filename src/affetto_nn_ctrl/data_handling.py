@@ -32,6 +32,7 @@ def build_data_dir_path(
     app_name: str = "app",
     label: str = "test",
     sublabel: str | None = None,
+    specified_date: str | None = None,
     *,
     split_by_date: bool = True,
     millisecond: bool = False,
@@ -43,7 +44,12 @@ def build_data_dir_path(
     built_path: Path = Path(base_dir) / app_name / label
 
     # Split directory into sub-directory by date.
-    if split_by_date:
+    if specified_date is not None:
+        if specified_date == "latest":
+            built_path = find_latest_data_dir_path(base_dir, app_name, label)
+        else:
+            built_path /= specified_date
+    elif split_by_date:
         fmt = "%Y%m%dT%H%M%S"
         if millisecond:
             fmt += ".%f"
