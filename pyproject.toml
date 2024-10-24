@@ -15,7 +15,6 @@ maintainers = [
 dependencies = [
     "affctrllib @ git+https://github.com/affetto-software/affctrllib@develop",
     "pyplotutil @ git+https://github.com/hrshtst/pyplotutil.git@develop",
-    "pyqt6>=6.7.1",
 ]
 readme = "README.md"
 requires-python = ">= 3.10"

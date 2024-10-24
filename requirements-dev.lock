@@ -10,7 +10,7 @@
 #   universal: false
 
 -e file:.
-affctrllib @ git+https://github.com/affetto-software/affctrllib@e0a5e94da87e4694dca481c1e4e83dd33a219f04
+affctrllib @ git+https://github.com/affetto-software/affctrllib@84b7c10dace0c0e241fcb1c0048fa5e33a6c1d1f
     # via affetto-nn-ctrl
 argcomplete==3.5.0
     # via nox
@@ -61,10 +61,10 @@ pluggy==1.5.0
     # via pytest
 pyparsing==3.1.2
     # via matplotlib
-pyplotutil @ git+https://github.com/hrshtst/pyplotutil.git@d544d794c57a52acfe7151f6b96edb93381c0f19
+pyplotutil @ git+https://github.com/hrshtst/pyplotutil.git@e415fe05ed1b9d90a6aae184b5ac65e71385aa8e
     # via affetto-nn-ctrl
 pyqt6==6.7.1
-    # via affetto-nn-ctrl
+    # via pyplotutil
 pyqt6-qt6==6.7.3
     # via pyqt6
 pyqt6-sip==13.8.0
