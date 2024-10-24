@@ -40,7 +40,7 @@ def make_work_directory() -> Generator[Path, Any, Any]:
 def test_get_default_base_dir(make_work_directory: Path) -> None:
     base_dir_config = make_work_directory / "base_dir"
     expected = "/home/user/shared/data/affetto_nn_ctrl"
-    text = f""" {expected}\n"""
+    text = f" {expected}" + "\n"  # intentionally include white spaces
     base_dir_config.write_text(text, encoding="utf-8")
     default_base_dir = get_default_base_dir(base_dir_config)
     assert str(default_base_dir) == expected
