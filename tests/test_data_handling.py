@@ -6,7 +6,7 @@ import os
 import re
 import shutil
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 import pytest
 
@@ -14,6 +14,7 @@ from affetto_nn_ctrl import DEFAULT_BASE_DIR_PATH, TESTS_DIR_PATH
 from affetto_nn_ctrl.data_handling import (
     build_data_dir_path,
     build_data_file_path,
+    find_latest_data_dir_path,
     get_default_base_dir,
     get_default_counter,
     prepare_data_dir_path,
@@ -162,6 +163,212 @@ def test_build_data_dir_path_sublabel_zero_length(
         expected = DEFAULT_BASE_DIR_PATH / app_name / label / today
         expected_re = re.compile(str(expected) + r"T[0-9]{6}$")
         assert expected_re.match(str(path)) is not None
+
+
+def make_date_directories(
+    base_dir: Path,
+    app_name: str,
+    label: str,
+    *,
+    make_latest_symlink: bool = True,
+) -> Path:
+    labeled_dir = base_dir / app_name / label
+    random_date_strings = [
+        "20241024T144633",
+        "20241024T145114",
+        "20241025T021116",
+        "20241025T021232",
+    ]
+    for date in random_date_strings:
+        (labeled_dir / date).mkdir(parents=True, exist_ok=True)
+    if make_latest_symlink:
+        target = labeled_dir / sorted(random_date_strings)[-1]
+        link = labeled_dir / "latest"
+        if link.exists():
+            link.unlink()
+        os.symlink(target.absolute(), link)
+    return labeled_dir
+
+
+def make_date_directories_millisecond(
+    base_dir: Path,
+    app_name: str,
+    label: str,
+    *,
+    make_latest_symlink: bool = True,
+) -> Path:
+    labeled_dir = base_dir / app_name / label
+    random_date_strings = [
+        "20241024T144633.942693",
+        "20241024T145114.311196",
+        "20241025T021116.011509",
+        "20241025T021232.467673",
+        "20241025T021232.527792",
+    ]
+    for date in random_date_strings:
+        (labeled_dir / date).mkdir(parents=True, exist_ok=True)
+    if make_latest_symlink:
+        target = labeled_dir / sorted(random_date_strings)[-1]
+        link = labeled_dir / "latest"
+        if link.exists():
+            link.unlink()
+        os.symlink(target.absolute(), link)
+    return labeled_dir
+
+
+class DateDirMaker(Protocol):
+    def __call__(
+        self,
+        base_dir: Path,
+        app_name: str,
+        label: str,
+        *,
+        make_latest_symlink: bool = True,
+    ) -> Path: ...
+
+
+@pytest.mark.parametrize(
+    ("app_name", "label", "date_dir_maker", "expected_date"),
+    [
+        ("dataset", "find_latest", make_date_directories, "20241025T021232"),
+        ("dataset", "find_latest", make_date_directories_millisecond, "20241025T021232.527792"),
+    ],
+)
+def test_find_latest_data_dir_path(
+    make_work_directory: Path,
+    app_name: str,
+    label: str,
+    date_dir_maker: DateDirMaker,
+    expected_date: str,
+) -> None:
+    base_dir = make_work_directory
+    labeled_data_dir_path = date_dir_maker(base_dir, app_name, label)
+    expected_latest_dir_path = labeled_data_dir_path / expected_date
+    found_dir_path = find_latest_data_dir_path(base_dir, app_name, label)
+    assert found_dir_path == expected_latest_dir_path
+
+
+@pytest.mark.parametrize(
+    ("app_name", "label", "date_dir_maker", "expected_date"),
+    [
+        ("dataset", "find_latest", make_date_directories, "20241025T021232"),
+        ("dataset", "find_latest", make_date_directories_millisecond, "20241025T021232.527792"),
+    ],
+)
+def test_find_latest_data_dir_path_specify_search_dir(
+    make_work_directory: Path,
+    app_name: str,
+    label: str,
+    date_dir_maker: DateDirMaker,
+    expected_date: str,
+) -> None:
+    base_dir = make_work_directory
+    search_dir = base_dir / app_name / label
+    labeled_data_dir_path = date_dir_maker(base_dir, app_name, label)
+    expected_latest_dir_path = labeled_data_dir_path / expected_date
+    found_dir_path = find_latest_data_dir_path(search_dir)
+    assert found_dir_path == expected_latest_dir_path
+
+
+@pytest.mark.parametrize(
+    ("app_name", "label", "date_dir_maker", "expected_date"),
+    [
+        ("dataset", "find_latest", make_date_directories, "20241025T021232"),
+        ("dataset", "find_latest", make_date_directories_millisecond, "20241025T021232.527792"),
+    ],
+)
+def test_find_latest_data_dir_path_link_not_exist(
+    make_work_directory: Path,
+    app_name: str,
+    label: str,
+    date_dir_maker: DateDirMaker,
+    expected_date: str,
+) -> None:
+    base_dir = make_work_directory
+    labeled_data_dir_path = date_dir_maker(base_dir, app_name, label, make_latest_symlink=False)
+    expected_latest_dir_path = labeled_data_dir_path / expected_date
+    found_dir_path = find_latest_data_dir_path(base_dir, app_name, label)
+    assert found_dir_path == expected_latest_dir_path
+
+
+@pytest.mark.parametrize(
+    ("app_name", "label", "date_dir_maker", "expected_date"),
+    [
+        ("dataset", "find_latest", make_date_directories, "20241025T021232"),
+        ("dataset", "find_latest", make_date_directories_millisecond, "20241025T021232.527792"),
+    ],
+)
+def test_find_latest_data_dir_path_link_exists_but_no_target(
+    make_work_directory: Path,
+    app_name: str,
+    label: str,
+    date_dir_maker: DateDirMaker,
+    expected_date: str,
+) -> None:
+    base_dir = make_work_directory
+    app_name = "dataset"
+    label = "find_latest"
+    labeled_data_dir_path = date_dir_maker(base_dir, app_name, label, make_latest_symlink=False)
+    link = labeled_data_dir_path / "latest"
+    os.symlink("/not/exist/directory", link)
+    expected_latest_dir_path = labeled_data_dir_path / expected_date
+    found_dir_path = find_latest_data_dir_path(base_dir, app_name, label)
+    assert found_dir_path == expected_latest_dir_path
+
+
+@pytest.mark.parametrize(
+    ("app_name", "label", "date_dir_maker", "expected_date", "fake_date"),
+    [
+        ("dataset", "find_latest", make_date_directories, "20241025T021232", "20241025T021116"),
+        (
+            "dataset",
+            "find_latest",
+            make_date_directories_millisecond,
+            "20241025T021232.527792",
+            "20241025T021232.467673",
+        ),
+    ],
+)
+def test_find_latest_data_dir_path_force_find_by_pattern(
+    make_work_directory: Path,
+    app_name: str,
+    label: str,
+    date_dir_maker: DateDirMaker,
+    expected_date: str,
+    fake_date: str,
+) -> None:
+    base_dir = make_work_directory
+    app_name = "dataset"
+    label = "find_latest"
+    labeled_data_dir_path = date_dir_maker(base_dir, app_name, label, make_latest_symlink=False)
+    link = labeled_data_dir_path / "latest"
+    # intentionally make symlink to not latest directory
+    target = labeled_data_dir_path / fake_date
+    os.symlink(target, link)
+    expected_latest_dir_path = labeled_data_dir_path / expected_date
+    found_dir_path = find_latest_data_dir_path(base_dir, app_name, label, force_find_by_pattern=True)
+    assert found_dir_path == expected_latest_dir_path
+
+
+@pytest.mark.parametrize(
+    ("app_name", "label", "date_dir_maker"),
+    [
+        ("dataset", "find_latest", make_date_directories),
+        ("dataset", "find_latest", make_date_directories_millisecond),
+    ],
+)
+def test_find_latest_data_dir_path_error_invalid_pattern(
+    make_work_directory: Path,
+    app_name: str,
+    label: str,
+    date_dir_maker: DateDirMaker,
+) -> None:
+    base_dir = make_work_directory
+    app_name = "dataset"
+    label = "find_latest"
+    date_dir_maker(base_dir, app_name, label)
+    with pytest.raises(ValueError, match="Unable to find data directories with given glob pattern"):
+        find_latest_data_dir_path(base_dir, app_name, label, glob_pattern="1970*T*", force_find_by_pattern=True)
 
 
 @pytest.mark.parametrize(("label", "date"), [("dataset", "20240925T113437"), ("good_data", "20240925T113441.618707")])

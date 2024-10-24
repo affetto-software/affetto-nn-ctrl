@@ -118,6 +118,32 @@ def prepare_data_dir_path(
     return path
 
 
+def find_latest_data_dir_path(
+    base_dir: str | Path,
+    app_name: str | None = None,
+    label: str | None = None,
+    glob_pattern: str = "**/20*T*",
+    *,
+    force_find_by_pattern: bool = False,
+) -> Path:
+    if app_name is not None and label is not None:
+        search_dir_path = Path(base_dir) / app_name / label
+    elif app_name is None and label is None:
+        search_dir_path = Path(base_dir)
+    else:
+        msg = "Invalid base directory specification"
+        raise RuntimeError(msg)
+
+    symlink = search_dir_path / "latest"
+    if not force_find_by_pattern and symlink.is_symlink() and symlink.exists():
+        return symlink.resolve()
+    sorted_dirs = sorted(search_dir_path.glob(glob_pattern), key=lambda path: path.name)
+    if len(sorted_dirs) == 0:
+        msg = f"Unable to find data directories with given glob pattern: {glob_pattern}"
+        raise ValueError(msg)
+    return sorted_dirs[-1]
+
+
 def build_data_file_path(
     output_dir: str | Path,
     prefix: str = "",
