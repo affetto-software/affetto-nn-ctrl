@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pytest
 from affctrllib.logger import Logger
+from numpy.testing import assert_array_equal, assert_raises
 
 from affetto_nn_ctrl import TESTS_DIR_PATH
 from affetto_nn_ctrl.control_utility import (
@@ -380,7 +381,6 @@ class TestRandomTrajectoryData:
         *,
         async_update: bool,
     ) -> None:
-        set_seed(123456)
         total_duration = 10
         dt = 1e-2
         n_step = int(total_duration / dt)
@@ -394,6 +394,7 @@ class TestRandomTrajectoryData:
             DEFAULT_UPDATE_Q_LIMIT,
             update_profile=update_profile,
             async_update=async_update,
+            seed=123456,
         )
         logger = Logger()
         logger.set_labels("t", [f"q{i}" for i in range(DOF)], [f"dq{i}" for i in range(DOF)])
@@ -430,6 +431,46 @@ class TestRandomTrajectoryData:
         output = self.make_output_path(make_work_directory, active_joints, update_profile, async_update=async_update)
         self.generate_data(output, active_joints, update_profile, async_update=async_update)
         assert_file_contents(TESTS_DATA_DIR_PATH / output.name, output)
+
+    def test_reset_updater(self) -> None:
+        active_joints = [0, 1, 2]
+        q0 = np.full((DOF,), 50.0, dtype=float)
+        rt = RandomTrajectory(
+            active_joints,
+            q0,
+            0.0,
+            DEFAULT_UPDATE_T_RANGE,
+            DEFAULT_UPDATE_Q_RANGE,
+            DEFAULT_UPDATE_Q_LIMIT,
+        )
+        n = 10
+        dt = 1e-3
+        qdes, dqdes = rt.get_qdes_func(), rt.get_dqdes_func()
+
+        # Generate random trajectory
+        data_q_1: list[np.ndarray] = []
+        data_dq_1: list[np.ndarray] = []
+        for i in range(n):
+            t = i * dt
+            data_q_1.append(qdes(t))
+            data_dq_1.append(dqdes(t))
+        # Reset generator
+        rt.reset_updater()
+        # Generate random trajectory again
+        data_q_2: list[np.ndarray] = []
+        data_dq_2: list[np.ndarray] = []
+        for i in range(n):
+            t = i * dt
+            data_q_2.append(qdes(t))
+            data_dq_2.append(dqdes(t))
+
+        # First values are equal
+        assert_array_equal(data_q_1[0], data_q_2[0])
+        assert_array_equal(data_dq_1[0], data_dq_2[0])
+        # Then values are diversified
+        for i in range(1, n):
+            assert_raises(AssertionError, assert_array_equal, data_q_1[i], data_q_2[i])
+            assert_raises(AssertionError, assert_array_equal, data_dq_1[i], data_dq_2[i])
 
 
 def generate_data(active_joints: list[int], update_profile: str, *, async_update: bool) -> Path:

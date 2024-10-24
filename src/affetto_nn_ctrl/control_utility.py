@@ -289,7 +289,7 @@ class RandomTrajectory:
         self.update_profile = update_profile
         self.async_update = async_update
         self.rng = get_rng(seed)
-        self.initialize_updater()
+        self.reset_updater()
 
     @staticmethod
     def get_list_of_range(
@@ -365,35 +365,35 @@ class RandomTrajectory:
                 ok = True
         return qdes
 
-    def initialize_sync_updater(self) -> PTP:
+    def initialize_sync_updater(self, t0: float, q0: np.ndarray) -> PTP:
         if not all(x == self.update_t_range_list[0] for x in self.update_t_range_list):
             msg = "Enabled sync update but various update t range is given."
             warnings.warn(msg, stacklevel=2)
 
-        q0 = self.q0[self.active_joints]
+        active_q0 = q0[self.active_joints]
         duration = self.generate_new_duration(self.update_t_range_list[0])
         qdes = np.array(
             [
-                self.generate_new_position(q0[i], self.update_q_range_list[i], self.update_q_limit_list[i])
+                self.generate_new_position(active_q0[i], self.update_q_range_list[i], self.update_q_limit_list[i])
                 for i in range(len(self.active_joints))
             ],
         )
-        return PTP(q0, qdes, duration, self.t0, profile_name=self.update_profile)
+        return PTP(active_q0, qdes, duration, t0, profile_name=self.update_profile)
 
-    def initialize_async_updater(self) -> list[PTP]:
+    def initialize_async_updater(self, t0: float, q0: np.ndarray) -> list[PTP]:
         ptp_list: list[PTP] = []
         for i, j in enumerate(self.active_joints):
-            q0 = self.q0[j]
+            active_q0 = q0[j]
             duration = self.generate_new_duration(self.update_t_range_list[i])
-            qdes = self.generate_new_position(q0, self.update_q_range_list[i], self.update_q_limit_list[i])
-            ptp_list.append(PTP(q0, qdes, duration, self.t0, profile_name=self.update_profile))
+            qdes = self.generate_new_position(active_q0, self.update_q_range_list[i], self.update_q_limit_list[i])
+            ptp_list.append(PTP(active_q0, qdes, duration, t0, profile_name=self.update_profile))
         return ptp_list
 
-    def initialize_updater(self) -> None:
+    def initialize_updater(self, t0: float, q0: np.ndarray) -> None:
         if self.async_update:
-            self.async_updater = self.initialize_async_updater()
+            self.async_updater = self.initialize_async_updater(t0, q0)
         else:
-            self.sync_updater = self.initialize_sync_updater()
+            self.sync_updater = self.initialize_sync_updater(t0, q0)
 
     def update_sync_updater(self, t: float) -> None:
         ptp = self.sync_updater
@@ -419,6 +419,19 @@ class RandomTrajectory:
                 new_qdes = self.generate_new_position(new_q0, self.update_q_range_list[i], self.update_q_limit_list[i])
                 new_ptp = PTP(new_q0, new_qdes, new_duration, new_t0, profile_name=self.update_profile)
                 self.async_updater[i] = new_ptp
+
+    def reset_updater(self, t0: float | None = None, q0: np.ndarray | None = None) -> None:
+        if t0 is not None:
+            self.t0 = t0
+        else:
+            t0 = self.t0
+
+        if q0 is not None:
+            self.q0 = q0
+        else:
+            q0 = self.q0
+
+        self.initialize_updater(t0, q0)
 
     def get_qdes_func(self) -> Callable[[float], np.ndarray]:
         def qdes_async(t: float) -> np.ndarray:
