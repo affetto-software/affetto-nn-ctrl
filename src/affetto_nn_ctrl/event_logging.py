@@ -72,9 +72,10 @@ def start_event_logging(
 
     # Always log command arguments.
     logger.debug("Start event logging")
-    logger.debug("logger name: %s", logger.name)
+    logger.debug("Logger name: %s", logger.name)
+    logger.debug("Log filename: %s", event_log_filename)
     cmd = "python " + " ".join(argv)
-    logger.debug(cmd)
+    logger.debug("Command: %s", cmd)
 
     _event_logger = logger
     return _event_logger
