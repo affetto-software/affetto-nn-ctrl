@@ -263,6 +263,7 @@ class RandomTrajectory:
     update_q_limit_list: list[tuple[float, float]]
     update_profile: str
     async_update: bool
+    rng: Generator
     sync_updater: PTP
     async_updater: list[PTP]
 
@@ -286,9 +287,8 @@ class RandomTrajectory:
         self.set_update_q_range(active_joints, update_q_range)
         self.set_update_q_limit(active_joints, update_q_limit)
         self.update_profile = update_profile
-        if not isinstance(seed, GetGlobalRngT):
-            set_seed(seed)
         self.async_update = async_update
+        self.rng = get_rng(seed)
         self.initialize_updater()
 
     @staticmethod
@@ -338,12 +338,11 @@ class RandomTrajectory:
             self.update_q_limit_list[waist_index] = WAIST_JOINT_LIMIT
         return self.update_q_limit_list
 
-    @staticmethod
-    def generate_new_duration(t_range: tuple[float, float]) -> float:
-        return get_rng().uniform(min(t_range), max(t_range))
+    def generate_new_duration(self, t_range: tuple[float, float]) -> float:
+        return self.rng.uniform(min(t_range), max(t_range))
 
-    @staticmethod
     def generate_new_position(
+        self,
         q0: float,
         q_range: tuple[float, float],
         q_limit: tuple[float, float],
@@ -354,8 +353,8 @@ class RandomTrajectory:
         qdes = q0
         ok = False
         while not ok:
-            delta = get_rng().uniform(dmin, dmax)
-            qdes = q0 + get_rng().choice([-1, 1]) * delta
+            delta = self.rng.uniform(dmin, dmax)
+            qdes = q0 + self.rng.choice([-1, 1]) * delta
             if qdes < qmin:
                 qdes = qmin + (qmin - qdes)
             elif qdes > qmax:
