@@ -16,6 +16,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
+    from affetto_nn_ctrl import CONTROLLER_T
+
 
 __SEED: int | None = None
 __GLOBAL_RNG: Generator = default_rng()
@@ -65,7 +67,7 @@ def create_controller(
     sfreq: float | None,
     cfreq: float | None,
     waiting_time: float = 5.0,
-) -> tuple[AffComm, AffPosCtrl, AffStateThread]:
+) -> CONTROLLER_T:
     event_logger = get_event_logger()
     if event_logger:
         event_logger.info("Loaded config: %s", config)
@@ -145,9 +147,7 @@ def _reset_logger(logger: Logger | None, log_filename: str | Path | None) -> Log
 
 
 def control_position(
-    comm: AffComm,
-    ctrl: AffPosCtrl,
-    state: AffStateThread,
+    controller: CONTROLLER_T,
     qdes_func: Callable[[float], np.ndarray | float],
     dqdes_func: Callable[[float], np.ndarray | float],
     duration: float,
@@ -156,6 +156,7 @@ def control_position(
     header_text: str = "",
 ) -> tuple[np.ndarray, np.ndarray]:
     _reset_logger(logger, log_filename)
+    comm, ctrl, state = controller
     ca, cb = np.zeros(ctrl.dof, dtype=float), np.zeros(ctrl.dof, dtype=float)
     timer = Timer(rate=ctrl.freq)
 
@@ -179,9 +180,7 @@ def control_position(
 
 
 def control_valve(
-    comm: AffComm,
-    ctrl: AffPosCtrl,
-    state: AffStateThread,
+    controller: CONTROLLER_T,
     ca_func: Callable[[float], np.ndarray | float],
     cb_func: Callable[[float], np.ndarray | float],
     duration: float,
@@ -190,6 +189,7 @@ def control_valve(
     header_text: str = "",
 ) -> tuple[np.ndarray, np.ndarray]:
     _reset_logger(logger, log_filename)
+    comm, ctrl, state = controller
     ca, cb = np.zeros(ctrl.dof, dtype=float), np.zeros(ctrl.dof, dtype=float)
     timer = Timer(rate=ctrl.freq)
     dummy = np.asarray([-1.0 for _ in range(ctrl.dof)])
@@ -213,34 +213,32 @@ def control_valve(
 
 
 def get_back_home_position(
-    comm: AffComm,
-    ctrl: AffPosCtrl,
-    state: AffStateThread,
+    controller: CONTROLLER_T,
     q_home: np.ndarray,
     duration: float,
 ) -> tuple[np.ndarray, np.ndarray]:
     event_logger = get_event_logger()
+    comm, ctrl, state = controller
     q0 = state.q
     ptp = PTP(q0, q_home, duration)
     qdes_func, dqdes_func = ptp.q, ptp.dq
     msg = "Getting back to home position..."
     if event_logger:
         event_logger.debug(msg)
-    ca, cb = control_position(comm, ctrl, state, qdes_func, dqdes_func, duration, header_text=msg)
+    ca, cb = control_position(controller, qdes_func, dqdes_func, duration, header_text=msg)
     if event_logger:
         event_logger.debug("Done")
     return ca, cb
 
 
 def get_back_home_valve(
-    comm: AffComm,
-    ctrl: AffPosCtrl,
-    state: AffStateThread,
+    controller: CONTROLLER_T,
     ca_home: np.ndarray,
     cb_home: np.ndarray,
     duration: float,
 ) -> tuple[np.ndarray, np.ndarray]:
     event_logger = get_event_logger()
+    comm, ctrl, state = controller
     ca0, cb0 = np.zeros(ctrl.dof, dtype=float), np.zeros(ctrl.dof, dtype=float)
     ptp_ca = PTP(ca0, ca_home, duration, profile_name="const")
     ptp_cb = PTP(cb0, cb_home, duration, profile_name="const")
@@ -248,7 +246,7 @@ def get_back_home_valve(
     msg = "Getting back to home position (by valve)..."
     if event_logger:
         event_logger.debug(msg)
-    ca, cb = control_valve(comm, ctrl, state, ca_func, cb_func, duration, header_text=msg)
+    ca, cb = control_valve(controller, ca_func, cb_func, duration, header_text=msg)
     if event_logger:
         event_logger.debug("Done")
     return ca, cb
