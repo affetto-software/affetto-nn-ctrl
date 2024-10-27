@@ -179,7 +179,7 @@ def control_position(
     return ca, cb
 
 
-def control_valve(
+def control_pressure(
     controller: CONTROLLER_T,
     ca_func: Callable[[float], np.ndarray | float],
     cb_func: Callable[[float], np.ndarray | float],
@@ -231,7 +231,7 @@ def get_back_home_position(
     return ca, cb
 
 
-def get_back_home_valve(
+def get_back_home_pressure(
     controller: CONTROLLER_T,
     ca_home: np.ndarray,
     cb_home: np.ndarray,
@@ -246,7 +246,7 @@ def get_back_home_valve(
     msg = "Getting back to home position (by valve)..."
     if event_logger:
         event_logger.debug(msg)
-    ca, cb = control_valve(controller, ca_func, cb_func, duration, header_text=msg)
+    ca, cb = control_pressure(controller, ca_func, cb_func, duration, header_text=msg)
     if event_logger:
         event_logger.debug("Done")
     return ca, cb
