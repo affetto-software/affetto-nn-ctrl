@@ -151,6 +151,18 @@ def _reset_logger(logger: Logger | None, log_filename: str | Path | None) -> Log
     return logger
 
 
+def _select_time_updater(timer: Timer, time_updater: str) -> Callable[[], float]:
+    current_time_func: Callable[[], float]
+    if time_updater == "elapsed":
+        current_time_func = timer.elapsed_time
+    elif time_updater == "accumulated":
+        current_time_func = timer.accumulated_time
+    else:
+        msg = f"unrecognized time updater: {time_updater}"
+        raise ValueError(msg)
+    return current_time_func
+
+
 def control_position(
     controller: CONTROLLER_T,
     qdes_func: Callable[[float], np.ndarray | float],
@@ -158,18 +170,20 @@ def control_position(
     duration: float,
     logger: Logger | None = None,
     log_filename: str | Path | None = None,
+    time_updater: str = "elapsed",
     header_text: str = "",
 ) -> tuple[np.ndarray, np.ndarray]:
     _reset_logger(logger, log_filename)
     comm, ctrl, state = controller
     ca, cb = np.zeros(ctrl.dof, dtype=float), np.zeros(ctrl.dof, dtype=float)
     timer = Timer(rate=ctrl.freq)
+    current_time = _select_time_updater(timer, time_updater)
 
     timer.start()
     t = 0.0
     while t < duration:
         sys.stdout.write(f"\r{header_text} [{t:6.2f}/{duration:.2f}]")
-        t = timer.elapsed_time()
+        t = current_time()
         rq, rdq, rpa, rpb = state.get_raw_states()
         q, dq, pa, pb = state.get_states()
         qdes = qdes_func(t)
@@ -191,6 +205,7 @@ def control_pressure(
     duration: float,
     logger: Logger | None = None,
     log_filename: str | Path | None = None,
+    time_updater: str = "elapsed",
     header_text: str = "",
 ) -> tuple[np.ndarray, np.ndarray]:
     _reset_logger(logger, log_filename)
@@ -198,12 +213,13 @@ def control_pressure(
     ca, cb = np.zeros(ctrl.dof, dtype=float), np.zeros(ctrl.dof, dtype=float)
     timer = Timer(rate=ctrl.freq)
     dummy = np.asarray([-1.0 for _ in range(ctrl.dof)])
+    current_time = _select_time_updater(timer, time_updater)
 
     timer.start()
     t = 0.0
     while t < duration:
         sys.stdout.write(f"\r{header_text} [{t:6.2f}/{duration:.2f}]")
-        t = timer.elapsed_time()
+        t = current_time()
         rq, rdq, rpa, rpb = state.get_raw_states()
         q, dq, pa, pb = state.get_states()
         ca = np.asarray(ca_func(t))
