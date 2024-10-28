@@ -404,5 +404,5 @@ if __name__ == "__main__":
     main()
 
 # Local Variables:
-# jinx-local-words: "cb cfreq csv dataset dir env init noqa sfreq sublabel symlink usr vv"
+# jinx-local-words: "async cb cfreq csv dataset dir env init noqa sfreq sublabel symlink usr vv"
 # End:
