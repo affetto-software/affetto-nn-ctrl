@@ -80,12 +80,14 @@ def run(
     overwrite: bool,
 ) -> None:
     event_logger = get_event_logger()
-    if event_logger:
-        event_logger.debug("Loading config file: %s", config)
 
     # Create controller and data logger.
     comm, ctrl, state = create_controller(config, sfreq, cfreq)
     data_logger = create_default_logger(ctrl.dof)
+    if event_logger:
+        event_logger.debug("Loading config file: %s", config)
+        event_logger.debug("Controller created: sfreq=%s cfreq=%s", state.freq, ctrl.freq)
+        event_logger.debug("Default logger created: DOF=%s", ctrl.dof)
 
     # Initialize robot pose.
     initializer = RobotInitializer(
@@ -98,23 +100,31 @@ def run(
         cb_init=cb_init,
     )
     initializer.get_back_home((comm, ctrl, state))
-
-    # Create random trajectory generator.
     q0 = state.q
     if initializer.get_manner() == "position":
         q0 = initializer.get_q_init()
     t0 = 0.0
+    if event_logger:
+        event_logger.debug("Initializer created: manner=%s", initializer.get_manner())
+        event_logger.debug("Initial posture: %s", q0)
+
+    # Create random trajectory generator.
     rt = RandomTrajectory(joints, q0, t0, t_range, q_range, q_limit, profile, seed, async_update=async_mode)
 
-    # Generate dataset.
+    # Create data file counter.
+    n = 0
     if not overwrite:
         n = len(list(output_dir_path.glob(f"{output_prefix}*.csv")))
-        cnt = get_default_counter(n)
-    else:
-        cnt = get_default_counter()
+    cnt = get_default_counter(n)
+    if event_logger:
+        event_logger.debug("Data file counter initialized with %s", n)
+
+    # Generate dataset.
     for i in range(n_repeat):
         data_file_path = build_data_file_path(output_dir_path, prefix=output_prefix, iterator=cnt, ext=".csv")
         header_text = f"[{i+1}/{n_repeat}] Collecting motion data..."
+        if event_logger:
+            event_logger.debug(header_text)
         record_data(
             (comm, ctrl, state),
             data_logger,
@@ -123,10 +133,14 @@ def run(
             data_file_path,
             header_text=header_text,
         )
+        if event_logger:
+            event_logger.debug("Data saved: %s", data_file_path)
         # Prepare for next record.
         initializer.get_back_home((comm, ctrl, state))
 
     # Finish stuff.
+    if event_logger:
+        event_logger.debug("Data collection finished")
     comm.close_command_socket()
     state.join()
 
