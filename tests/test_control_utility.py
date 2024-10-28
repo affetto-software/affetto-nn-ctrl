@@ -320,8 +320,8 @@ class TestRobotInitializer:
 def default_random_trajectory() -> RandomTrajectory:
     return RandomTrajectory(
         list(range(DOF)),
-        np.zeros(DOF),
         0.0,
+        np.zeros(DOF),
         DEFAULT_UPDATE_T_RANGE,
         DEFAULT_UPDATE_Q_RANGE,
         DEFAULT_UPDATE_Q_LIMIT,
@@ -344,8 +344,8 @@ class TestRandomTrajectory:
     ) -> None:
         rt = RandomTrajectory(
             active_joints,
-            np.zeros(DOF),
             0.0,
+            np.zeros(DOF),
             update_t_range,
             DEFAULT_UPDATE_Q_RANGE,
             DEFAULT_UPDATE_Q_LIMIT,
@@ -369,8 +369,8 @@ class TestRandomTrajectory:
     ) -> None:
         rt = RandomTrajectory(
             active_joints,
-            np.zeros(DOF),
             0.0,
+            np.zeros(DOF),
             update_t_range_list,
             DEFAULT_UPDATE_Q_RANGE,
             DEFAULT_UPDATE_Q_LIMIT,
@@ -387,8 +387,8 @@ class TestRandomTrajectory:
         with pytest.raises(ValueError, match=msg):
             _ = RandomTrajectory(
                 active_joints,
-                np.zeros(DOF),
                 0.0,
+                np.zeros(DOF),
                 update_t_range_list,
                 DEFAULT_UPDATE_Q_RANGE,
                 DEFAULT_UPDATE_Q_LIMIT,
@@ -401,8 +401,8 @@ class TestRandomTrajectory:
         with pytest.warns(UserWarning) as record:
             _ = RandomTrajectory(
                 active_joints,
-                np.zeros(DOF),
                 0.0,
+                np.zeros(DOF),
                 update_t_range_list,
                 DEFAULT_UPDATE_Q_RANGE,
                 DEFAULT_UPDATE_Q_LIMIT,
@@ -427,8 +427,8 @@ class TestRandomTrajectory:
     ) -> None:
         rt = RandomTrajectory(
             active_joints,
-            np.zeros(DOF),
             0.0,
+            np.zeros(DOF),
             DEFAULT_UPDATE_T_RANGE,
             update_q_range,
             DEFAULT_UPDATE_Q_LIMIT,
@@ -452,8 +452,8 @@ class TestRandomTrajectory:
     ) -> None:
         rt = RandomTrajectory(
             active_joints,
-            np.zeros(DOF),
             0.0,
+            np.zeros(DOF),
             DEFAULT_UPDATE_T_RANGE,
             update_q_range_list,
             DEFAULT_UPDATE_Q_LIMIT,
@@ -469,8 +469,8 @@ class TestRandomTrajectory:
         with pytest.raises(ValueError, match=msg):
             _ = RandomTrajectory(
                 active_joints,
-                np.zeros(DOF),
                 0.0,
+                np.zeros(DOF),
                 DEFAULT_UPDATE_T_RANGE,
                 update_q_range_list,
                 DEFAULT_UPDATE_Q_LIMIT,
@@ -491,8 +491,8 @@ class TestRandomTrajectory:
     ) -> None:
         rt = RandomTrajectory(
             active_joints,
-            np.zeros(DOF),
             0.0,
+            np.zeros(DOF),
             DEFAULT_UPDATE_T_RANGE,
             DEFAULT_UPDATE_Q_RANGE,
             update_q_limit,
@@ -518,8 +518,8 @@ class TestRandomTrajectory:
     ) -> None:
         rt = RandomTrajectory(
             active_joints,
-            np.zeros(DOF),
             0.0,
+            np.zeros(DOF),
             DEFAULT_UPDATE_T_RANGE,
             DEFAULT_UPDATE_Q_RANGE,
             update_q_limit_list,
@@ -546,8 +546,8 @@ class TestRandomTrajectory:
     ) -> None:
         rt = RandomTrajectory(
             active_joints,
-            np.zeros(DOF),
             0.0,
+            np.zeros(DOF),
             DEFAULT_UPDATE_T_RANGE,
             DEFAULT_UPDATE_Q_RANGE,
             update_q_limit_list,
@@ -566,8 +566,8 @@ class TestRandomTrajectory:
         with pytest.raises(ValueError, match=msg):
             _ = RandomTrajectory(
                 active_joints,
-                np.zeros(DOF),
                 0.0,
+                np.zeros(DOF),
                 DEFAULT_UPDATE_T_RANGE,
                 DEFAULT_UPDATE_Q_RANGE,
                 update_q_limit_list,
@@ -634,8 +634,8 @@ class TestRandomTrajectoryData:
         q0 = np.full(DOF, 50.0, dtype=float)
         rt = RandomTrajectory(
             active_joints,
-            q0,
             0.0,
+            q0,
             DEFAULT_UPDATE_T_RANGE,
             DEFAULT_UPDATE_Q_RANGE,
             DEFAULT_UPDATE_Q_LIMIT,
@@ -684,8 +684,8 @@ class TestRandomTrajectoryData:
         q0 = np.full((DOF,), 50.0, dtype=float)
         rt = RandomTrajectory(
             active_joints,
-            q0,
             0.0,
+            q0,
             DEFAULT_UPDATE_T_RANGE,
             DEFAULT_UPDATE_Q_RANGE,
             DEFAULT_UPDATE_Q_LIMIT,

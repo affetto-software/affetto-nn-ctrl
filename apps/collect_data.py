@@ -109,7 +109,7 @@ def run(
         event_logger.debug("Initial posture: %s", q0)
 
     # Create random trajectory generator.
-    rt = RandomTrajectory(joints, q0, t0, t_range, q_range, q_limit, profile, seed, async_update=async_mode)
+    rt = RandomTrajectory(joints, t0, q0, t_range, q_range, q_limit, profile, seed, async_update=async_mode)
 
     # Create data file counter.
     n = 0

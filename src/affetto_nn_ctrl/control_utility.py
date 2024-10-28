@@ -421,8 +421,8 @@ class RobotInitializer:
 
 class RandomTrajectory:
     active_joints: list[int]
-    q0: np.ndarray
     t0: float
+    q0: np.ndarray
     update_t_range_list: list[tuple[float, float]]
     update_q_range_list: list[tuple[float, float]]
     update_q_limit_list: list[tuple[float, float]]
@@ -435,8 +435,8 @@ class RandomTrajectory:
     def __init__(
         self,
         active_joints: list[int],
-        q0: np.ndarray,
         t0: float,
+        q0: np.ndarray,
         update_t_range: tuple[float, float] | list[tuple[float, float]],
         update_q_range: tuple[float, float] | list[tuple[float, float]],
         update_q_limit: tuple[float, float] | list[tuple[float, float]],
@@ -446,8 +446,8 @@ class RandomTrajectory:
         async_update: bool = False,
     ) -> None:
         self.active_joints = active_joints
-        self.q0 = q0.copy()
         self.t0 = t0
+        self.q0 = q0.copy()
         self.set_update_t_range(active_joints, update_t_range)
         self.set_update_q_range(active_joints, update_q_range)
         self.set_update_q_limit(active_joints, update_q_limit)
