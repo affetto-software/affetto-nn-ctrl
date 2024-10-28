@@ -409,11 +409,13 @@ class RobotInitializer:
         cb_init = init_config.get("cb", None)
         self._update_values(duration, manner, q_init, ca_init, cb_init)
 
-    def get_back_home(self, controller: CONTROLLER_T) -> tuple[np.ndarray, np.ndarray]:
+    def get_back_home(self, controller: CONTROLLER_T, duration: float | None = None) -> tuple[np.ndarray, np.ndarray]:
+        if duration is None:
+            duration = self.duration
         if self.get_manner() == "pressure":
-            ca, cb = get_back_home_pressure(controller, self.get_ca_init(), self.get_cb_init(), self.duration)
+            ca, cb = get_back_home_pressure(controller, self.get_ca_init(), self.get_cb_init(), duration)
         else:
-            ca, cb = get_back_home_position(controller, self.get_q_init(), self.duration)
+            ca, cb = get_back_home_position(controller, self.get_q_init(), duration)
         return ca, cb
 
 
