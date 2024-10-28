@@ -1,0 +1,174 @@
+[affetto]
+name = "affetto"
+
+[[affetto.chain.link]]
+name = "torso"
+jointtype = "fixed"
+frame = [
+  [ 1, 0, 0, 0 ],
+  [ 0, 1, 0, 0 ],
+  [ 0, 0, 1, 0 ],
+]
+
+[[affetto.chain.link]]
+name = "waist"
+jointtype = "revolute"
+range = []
+frame = []
+parent =  "torso"
+
+[[affetto.chain.link]]
+name = "left shoulder elevation"
+jointtype = "revolute"
+range = []
+frame = []
+parent = "waist"
+
+[[affetto.chain.link]]
+name = "left shoulder abduction"
+jointtype = "revolute"
+range = []
+frame = []
+parent = "left shoulder elevation"
+
+[[affetto.chain.link]]
+name = "left shoulder flexion"
+jointtype = "revolute"
+range = []
+frame = []
+parent = "left shoulder abduction"
+
+[[affetto.chain.link]]
+name = "left elbow rotation"
+jointtype = "revolute"
+range = []
+frame = []
+parent = "left shoulder flexion"
+
+[[affetto.chain.link]]
+name = "left elbow flexion"
+jointtype = "revolute"
+range = []
+frame = []
+parent = "left elbow rotation"
+
+[[affetto.chain.link]]
+name = "left wrist supination"
+jointtype = "revolute"
+range = []
+frame = []
+parent = "left elbow flexion"
+
+[[affetto.chain.link]]
+name = "left hand"
+jointtype = "fixed"
+range = []
+frame = []
+parent = "left wrist supination"
+
+[[affetto.chain.link]]
+name = "right shoulder elevation"
+jointtype = "revolute"
+range = []
+frame = []
+parent = "waist"
+
+[[affetto.chain.link]]
+name = "right shoulder abduction"
+jointtype = "revolute"
+range = []
+frame = []
+parent = "right shoulder elevation"
+
+[[affetto.chain.link]]
+name = "right shoulder flexion"
+jointtype = "revolute"
+range = []
+frame = []
+parent = "right shoulder abduction"
+
+[[affetto.chain.link]]
+name = "right elbow rotation"
+jointtype = "revolute"
+range = []
+frame = []
+parent = "right shoulder flexion"
+
+[[affetto.chain.link]]
+name = "right elbow flexion"
+jointtype = "revolute"
+range = []
+frame = []
+parent = "right elbow rotation"
+
+[[affetto.chain.link]]
+name = "right wrist supination"
+jointtype = "revolute"
+range = []
+frame = []
+parent = "right elbow flexion"
+
+[[affetto.chain.link]]
+name = "right hand"
+jointtype = "fixed"
+range = []
+frame = []
+parent = "right wrist supination"
+
+
+[affetto.comm]
+[affetto.comm.remote]
+host = "192.168.5.10"
+port = 50010
+
+[affetto.comm.local]
+host = "192.168.5.77"
+port = 50000
+
+[affetto.mock]
+[affetto.mock.remote]
+host = "localhost"
+port = 50000
+
+[affetto.mock.local]
+host = "localhost"
+port = 50010
+
+[affetto.mock.sensor]
+rate = 30
+
+[affetto.mock.valve]
+rate = 30
+
+
+[affetto.state]
+freq = 100
+
+
+[affetto.ctrl]
+freq = 30
+scheme = "PID"
+input_range = [0, 600]  # kPa
+
+[affetto.ctrl.pid]
+kP = [4.5, 1.6, 5.48, 3.08, 3.64, 3.4, 3.16, 1.6, 5.6, 3.04, 2.96, 3.32, 3.16]
+kD = [0.021, 0.008, 0.044, 0.148, 0.016, 0.016, 0.052, 0.004, 0.055, 0.164, 0.02, 0.048, 0.06]
+kI = [0.001, 0.0008, 0.0005, 0.0036, 0.001, 0.0009, 0.0, 0.0008, 0.0005, 0.0052, 0.001, 0.0009, 0.0]
+stiff = [400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0]
+
+[affetto.ctrl.pidf]
+kP = [1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5]
+kD = [0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02]
+kI = [0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001]
+stiff = [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400]
+
+[affetto.init]
+duration = 5
+manner = "position"
+q = [50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0]
+ca = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+cb = [120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0]
+
+# Local Variables:
+# jinx-local-words: "cb ctrl init jointtype kD kI kP kPa pid pidf"
+# End:

@@ -4,6 +4,7 @@ from __future__ import annotations
 import sys
 import time
 import warnings
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -12,9 +13,13 @@ from numpy.random import Generator, default_rng
 
 from affetto_nn_ctrl.event_logging import get_event_logger
 
+if sys.version_info < (3, 11):
+    import tomli as tomllib  # type: ignore[reportMissingImport,import-not-found]
+else:
+    import tomllib
+
 if TYPE_CHECKING:
-    from collections.abc import Callable
-    from pathlib import Path
+    from collections.abc import Callable, Sequence
 
     from affetto_nn_ctrl import CONTROLLER_T
 
@@ -222,10 +227,12 @@ def get_back_home_position(
     q0 = state.q
     ptp = PTP(q0, q_home, duration)
     qdes_func, dqdes_func = ptp.q, ptp.dq
-    msg = "Getting back to home position..."
+    header_text = "Getting back to home position..."
     if event_logger:
-        event_logger.debug(msg)
-    ca, cb = control_position(controller, qdes_func, dqdes_func, duration, header_text=msg)
+        event_logger.debug(header_text)
+        event_logger.debug("  duration: %s", duration)
+        event_logger.debug("  q_home  : %s", q_home)
+    ca, cb = control_position(controller, qdes_func, dqdes_func, duration, header_text=header_text)
     if event_logger:
         event_logger.debug("Done")
     return ca, cb
@@ -243,13 +250,155 @@ def get_back_home_pressure(
     ptp_ca = PTP(ca0, ca_home, duration, profile_name="const")
     ptp_cb = PTP(cb0, cb_home, duration, profile_name="const")
     ca_func, cb_func = ptp_ca.q, ptp_cb.q
-    msg = "Getting back to home position (by valve)..."
+    header_text = "Getting back to home position (by valve)..."
     if event_logger:
-        event_logger.debug(msg)
-    ca, cb = control_pressure(controller, ca_func, cb_func, duration, header_text=msg)
+        event_logger.debug(header_text)
+        event_logger.debug("  duration: %s", duration)
+        event_logger.debug("  ca_home : %s", ca_home)
+        event_logger.debug("  cb_home : %s", cb_home)
+    ca, cb = control_pressure(controller, ca_func, cb_func, duration, header_text=header_text)
     if event_logger:
         event_logger.debug("Done")
     return ca, cb
+
+
+class RobotInitializer:
+    _dof: int
+    _duration: float
+    _manner: str
+    _q_init: np.ndarray
+    _ca_init: np.ndarray
+    _cb_init: np.ndarray
+
+    DEFAULT_DURATION = 5.0
+    DEFAULT_MANNER = "position"
+    DEFAULT_Q_INIT = 50.0
+    DEFAULT_CA_INIT = 0.0
+    DEFAULT_CB_INIT = 120.0
+
+    def __init__(
+        self,
+        dof: int,
+        *,
+        config: str | Path | None = None,
+        duration: float | None = None,
+        manner: str | None = None,
+        q_init: Sequence[float] | np.ndarray | float | None = None,
+        ca_init: Sequence[float] | np.ndarray | float | None = None,
+        cb_init: Sequence[float] | np.ndarray | float | None = None,
+    ) -> None:
+        self._dof = dof
+        # Set default values
+        self.duration = self.DEFAULT_DURATION
+        self.set_manner(self.DEFAULT_MANNER)
+        self.set_q_init(self.DEFAULT_Q_INIT)
+        self.set_ca_init(self.DEFAULT_CA_INIT)
+        self.set_cb_init(self.DEFAULT_CB_INIT)
+        # Update values based on config file
+        if config is not None:
+            self.load_config(config)
+        # Update values based on arguments
+        self._update_values(duration, manner, q_init, ca_init, cb_init)
+
+    @property
+    def dof(self) -> int:
+        return self._dof
+
+    @property
+    def duration(self) -> float:
+        return self._duration
+
+    @duration.setter
+    def duration(self, duration: float) -> None:
+        self._duration = duration
+
+    def get_manner(self) -> str:
+        return self._manner
+
+    def set_manner(self, manner: str) -> str:
+        match manner:
+            case "position" | "pos" | "p" | "q":
+                self._manner = "position"
+            case "pressure" | "pres" | "pre" | "valve" | "v":
+                self._manner = "pressure"
+            case _:
+                msg = f"Unrecognized manner for RobotInitializer: {manner}"
+                raise ValueError(msg)
+        return self._manner
+
+    @staticmethod
+    def normalize_array(dof: int, given_value: Sequence[float] | np.ndarray | float) -> np.ndarray:
+        if isinstance(given_value, float | int):
+            array = np.full((dof,), given_value, dtype=float)
+        elif len(given_value) == dof:
+            array = np.array(given_value, dtype=float)
+        elif len(given_value) == 1:
+            array = np.full((dof,), given_value[0], dtype=float)
+        else:
+            msg = f"Unable to set values due to size mismatch: dof={dof}, given_value={given_value}"
+            raise ValueError(msg)
+        return array
+
+    def get_q_init(self) -> np.ndarray:
+        return self._q_init
+
+    def set_q_init(self, q_init: Sequence[float] | np.ndarray | float) -> np.ndarray:
+        self._q_init = self.normalize_array(self.dof, q_init)
+        return self._q_init
+
+    def get_ca_init(self) -> np.ndarray:
+        return self._ca_init
+
+    def set_ca_init(self, ca_init: Sequence[float] | np.ndarray | float) -> np.ndarray:
+        self._ca_init = self.normalize_array(self.dof, ca_init)
+        return self._ca_init
+
+    def get_cb_init(self) -> np.ndarray:
+        return self._cb_init
+
+    def set_cb_init(self, cb_init: Sequence[float] | np.ndarray | float) -> np.ndarray:
+        self._cb_init = self.normalize_array(self.dof, cb_init)
+        return self._cb_init
+
+    def _update_values(
+        self,
+        duration: float | None,
+        manner: str | None,
+        q_init: Sequence[float] | np.ndarray | float | None,
+        ca_init: Sequence[float] | np.ndarray | float | None,
+        cb_init: Sequence[float] | np.ndarray | float | None,
+    ) -> None:
+        if duration is not None:
+            self.duration = duration
+        if manner is not None:
+            self.set_manner(manner)
+        if q_init is not None:
+            self.set_q_init(q_init)
+        if ca_init is not None:
+            self.set_ca_init(ca_init)
+        if cb_init is not None:
+            self.set_cb_init(cb_init)
+
+    def load_config(self, config: str | Path) -> None:
+        with Path(config).open("rb") as f:
+            c = tomllib.load(f)
+        affetto_config = c["affetto"]
+        init_config = affetto_config.get("init", None)
+        if init_config is None:
+            return
+        duration = init_config.get("duration", None)
+        manner = init_config.get("manner", None)
+        q_init = init_config.get("q", None)
+        ca_init = init_config.get("ca", None)
+        cb_init = init_config.get("cb", None)
+        self._update_values(duration, manner, q_init, ca_init, cb_init)
+
+    def get_back_home(self, controller: CONTROLLER_T) -> tuple[np.ndarray, np.ndarray]:
+        if self.get_manner() == "pressure":
+            ca, cb = get_back_home_pressure(controller, self.get_ca_init(), self.get_cb_init(), self.duration)
+        else:
+            ca, cb = get_back_home_position(controller, self.get_q_init(), self.duration)
+        return ca, cb
 
 
 class RandomTrajectory:
@@ -467,5 +616,5 @@ class RandomTrajectory:
 
 
 # Local Variables:
-# jinx-local-words: "cb const dT dq dqdes noqa pb qdes rdq rpa rpb rq"
+# jinx-local-words: "cb const dT dof dq dqdes init noqa pb pos qdes rb rdq rpa rpb rq"
 # End:

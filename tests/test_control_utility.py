@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import re
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Sequence
 
 import numpy as np
 import pytest
@@ -16,6 +17,7 @@ from affetto_nn_ctrl.control_utility import (
     WAIST_JOINT_INDEX,
     WAIST_JOINT_LIMIT,
     RandomTrajectory,
+    RobotInitializer,
     get_rng,
     set_seed,
 )
@@ -67,6 +69,251 @@ def test_get_rng_reset_seed() -> None:
     set_seed(0)
     rng2 = get_rng()
     assert rng1 is not rng2
+
+
+@pytest.fixture
+def default_robot_initializer() -> RobotInitializer:
+    return RobotInitializer(13, duration=5.0, manner="position", q_init=50.0)
+
+
+class TestRobotInitializer:
+    def test_init_defaults(self) -> None:
+        dof = 13
+        init = RobotInitializer(dof)
+        assert init.dof == dof
+        assert init.duration == RobotInitializer.DEFAULT_DURATION
+        assert init.get_manner() == "position"
+        assert_array_equal(init.get_q_init(), np.full((dof,), RobotInitializer.DEFAULT_Q_INIT))
+        assert_array_equal(init.get_ca_init(), np.full((dof,), RobotInitializer.DEFAULT_CA_INIT))
+        assert_array_equal(init.get_cb_init(), np.full((dof,), RobotInitializer.DEFAULT_CB_INIT))
+
+    @pytest.mark.parametrize("dof", [1, 4, 13])
+    def test_init_dof(self, dof: int) -> None:
+        init = RobotInitializer(dof)
+        assert init.dof == dof
+
+    @pytest.mark.parametrize("duration", [3, 5, 10])
+    def test_set_duration(self, duration: float) -> None:
+        init = RobotInitializer(13)
+        init.duration = duration
+        assert init.duration == duration
+
+    @pytest.mark.parametrize(
+        ("manner", "expected"),
+        [
+            ("position", "position"),
+            ("pos", "position"),
+            ("p", "position"),
+            ("q", "position"),
+            ("pressure", "pressure"),
+            ("pre", "pressure"),
+            ("pres", "pressure"),
+            ("valve", "pressure"),
+            ("v", "pressure"),
+        ],
+    )
+    def test_set_manner(self, manner: str, expected: str) -> None:
+        init = RobotInitializer(13)
+        init.set_manner(manner)
+        assert init.get_manner() == expected
+
+    def test_set_manner_error_invalid_value(self) -> None:
+        init = RobotInitializer(13)
+        invalid_manner = "invalid_manner"
+        msg = f"Unrecognized manner for RobotInitializer: {invalid_manner}"
+        with pytest.raises(ValueError, match=msg):
+            init.set_manner(invalid_manner)
+
+    @pytest.mark.parametrize(("dof", "q_init"), [(1, 10.0), (2, 15.0), (10, 50), (13, 75)])
+    def test_set_q_init_float(self, dof: int, q_init: float) -> None:
+        init = RobotInitializer(dof)
+        init.set_q_init(q_init)
+        expected = np.full((dof,), q_init)
+        assert_array_equal(init.get_q_init(), expected)
+        assert init.get_q_init().dtype == float
+
+    @pytest.mark.parametrize(
+        ("dof", "q_init", "expected"),
+        [
+            (1, [10], np.array([10.0])),
+            (2, (10, 20), np.array([10.0, 20.0])),
+            (3, np.array([60, 60, 60]), np.array([60, 60, 60])),
+            (2, (30,), np.array([30.0, 30.0])),
+            (3, (75.0,), np.array([75.0, 75.0, 75.0])),
+        ],
+    )
+    def test_set_q_init_array(self, dof: int, q_init: Sequence[float], expected: np.ndarray) -> None:
+        init = RobotInitializer(dof)
+        init.set_q_init(q_init)
+        assert_array_equal(init.get_q_init(), expected)
+        assert init.get_q_init().dtype == float
+
+    @pytest.mark.parametrize(
+        ("dof", "q_init"),
+        [
+            (1, (10, 20)),
+            (3, (10, 20)),
+            (3, (10, 20, 30, 40)),
+        ],
+    )
+    def test_set_q_init_error_size_mismatch(self, dof: int, q_init: Sequence[float]) -> None:
+        init = RobotInitializer(dof)
+        msg = rf"Unable to set values due to size mismatch: dof={dof}, given_value={q_init}"
+        with pytest.raises(ValueError, match=re.escape(msg)):
+            init.set_q_init(q_init)
+
+    @pytest.mark.parametrize(("dof", "ca_init"), [(1, 0.0), (2, 15.0), (10, 100), (13, 125)])
+    def test_set_ca_init_float(self, dof: int, ca_init: float) -> None:
+        init = RobotInitializer(dof)
+        init.set_ca_init(ca_init)
+        expected = np.full((dof,), ca_init)
+        assert_array_equal(init.get_ca_init(), expected)
+        assert init.get_ca_init().dtype == float
+
+    @pytest.mark.parametrize(
+        ("dof", "ca_init", "expected"),
+        [
+            (1, [0], np.array([0.0])),
+            (2, (10, 20), np.array([10.0, 20.0])),
+            (3, np.array([100, 90, 80]), np.array([100.0, 90.0, 80.0])),
+            (2, (250,), np.array([250.0, 250.0])),
+            (3, (175.0,), np.array([175.0, 175.0, 175.0])),
+        ],
+    )
+    def test_set_ca_init_array(self, dof: int, ca_init: Sequence[float], expected: np.ndarray) -> None:
+        init = RobotInitializer(dof)
+        init.set_ca_init(ca_init)
+        assert_array_equal(init.get_ca_init(), expected)
+        assert init.get_ca_init().dtype == float
+
+    @pytest.mark.parametrize(
+        ("dof", "ca_init"),
+        [
+            (1, (0, 200)),
+            (3, (0, 200)),
+            (3, (0, 50, 100, 200)),
+        ],
+    )
+    def test_set_ca_init_error_size_mismatch(self, dof: int, ca_init: Sequence[float]) -> None:
+        init = RobotInitializer(dof)
+        msg = rf"Unable to set values due to size mismatch: dof={dof}, given_value={ca_init}"
+        with pytest.raises(ValueError, match=re.escape(msg)):
+            init.set_ca_init(ca_init)
+
+    @pytest.mark.parametrize(("dof", "cb_init"), [(1, 10.0), (2, 10.0), (10, 90), (13, 130)])
+    def test_set_cb_init_float(self, dof: int, cb_init: float) -> None:
+        init = RobotInitializer(dof)
+        init.set_cb_init(cb_init)
+        expected = np.full((dof,), cb_init)
+        assert_array_equal(init.get_cb_init(), expected)
+        assert init.get_cb_init().dtype == float
+
+    @pytest.mark.parametrize(
+        ("dof", "cb_init", "expected"),
+        [
+            (1, [0], np.array([0.0])),
+            (2, (20, 30), np.array([20.0, 30.0])),
+            (3, np.array([120, 130, 140]), np.array([120.0, 130.0, 140.0])),
+            (2, (255,), np.array([255.0, 255.0])),
+            (3, (150.0,), np.array([150.0, 150.0, 150.0])),
+        ],
+    )
+    def test_set_cb_init_array(self, dof: int, cb_init: Sequence[float], expected: np.ndarray) -> None:
+        init = RobotInitializer(dof)
+        init.set_cb_init(cb_init)
+        assert_array_equal(init.get_cb_init(), expected)
+        assert init.get_cb_init().dtype == float
+
+    @pytest.mark.parametrize(
+        ("dof", "cb_init"),
+        [
+            (1, (0, 200)),
+            (3, (0, 200)),
+            (3, (0, 50, 100, 200)),
+        ],
+    )
+    def test_set_cb_init_error_size_mismatch(self, dof: int, cb_init: Sequence[float]) -> None:
+        init = RobotInitializer(dof)
+        msg = rf"Unable to set values due to size mismatch: dof={dof}, given_value={cb_init}"
+        with pytest.raises(ValueError, match=re.escape(msg)):
+            init.set_cb_init(cb_init)
+
+    def test_load_config(self) -> None:
+        dof = 13
+        config = TESTS_DATA_DIR_PATH / "affetto.toml"
+        init = RobotInitializer(dof)
+        init.load_config(config)
+        expected_duration = 7
+        expected_manner = "pressure"
+        expected_q_init = np.full((dof,), 45.0, dtype=float)
+        expected_ca_init = np.full((dof,), 10.0, dtype=float)
+        expected_cb_init = np.full((dof,), 100.0, dtype=float)
+        assert init.duration == expected_duration
+        assert init.get_manner() == expected_manner
+        assert_array_equal(init.get_q_init(), expected_q_init)
+        assert_array_equal(init.get_ca_init(), expected_ca_init)
+        assert_array_equal(init.get_cb_init(), expected_cb_init)
+
+    def test_load_config_set_default_when_no_entry(self) -> None:
+        dof = 13
+        config = TESTS_DATA_DIR_PATH / "dummy.toml"
+        init = RobotInitializer(dof)
+        init.load_config(config)
+        expected_q_init = np.full((dof,), RobotInitializer.DEFAULT_Q_INIT, dtype=float)
+        expected_ca_init = np.full((dof,), RobotInitializer.DEFAULT_CA_INIT, dtype=float)
+        expected_cb_init = np.full((dof,), RobotInitializer.DEFAULT_CB_INIT, dtype=float)
+        assert init.duration == RobotInitializer.DEFAULT_DURATION
+        assert init.get_manner() == RobotInitializer.DEFAULT_MANNER
+        assert_array_equal(init.get_q_init(), expected_q_init)
+        assert_array_equal(init.get_ca_init(), expected_ca_init)
+        assert_array_equal(init.get_cb_init(), expected_cb_init)
+
+    def test_init_update_by_config(self) -> None:
+        dof = 13
+        config = TESTS_DATA_DIR_PATH / "affetto.toml"
+        init = RobotInitializer(dof, config=config)
+
+        # Confirm that the following expected values match values defined in "tests/data/affetto.toml"
+        ########
+        expected_duration = 7
+        expected_manner = "pressure"
+        expected_q_init = np.full((dof,), 45.0, dtype=float)
+        expected_ca_init = np.full((dof,), 10.0, dtype=float)
+        expected_cb_init = np.full((dof,), 100.0, dtype=float)
+        ########
+
+        assert init.duration == expected_duration
+        assert init.get_manner() == expected_manner
+        assert_array_equal(init.get_q_init(), expected_q_init)
+        assert_array_equal(init.get_ca_init(), expected_ca_init)
+        assert_array_equal(init.get_cb_init(), expected_cb_init)
+
+    def test_init_update_by_arguments(self) -> None:
+        dof = 13
+        config = TESTS_DATA_DIR_PATH / "affetto.toml"
+        expected_duration = 12
+        expected_manner = "pressure"
+        expected_q_init = np.full((dof,), 55.0, dtype=float)
+        expected_cb_init = np.full((dof,), 155.0, dtype=float)
+        init = RobotInitializer(
+            dof,
+            config=config,
+            duration=expected_duration,
+            manner=expected_manner,
+            q_init=expected_q_init,
+            # ca_init=expected_ca_init, # ca_init intentionally omitted # noqa: ERA001
+            cb_init=expected_cb_init,
+        )
+        assert init.duration == expected_duration
+        assert init.get_manner() == expected_manner
+        assert_array_equal(init.get_q_init(), expected_q_init)
+        assert_array_equal(init.get_cb_init(), expected_cb_init)
+
+        # Confirm that the following expected values match values defined in "tests/data/affetto.toml"
+        ########
+        expected_ca_init = np.full((dof,), 10.0, dtype=float)
+        ########
+        assert_array_equal(init.get_ca_init(), expected_ca_init)
 
 
 @pytest.fixture
@@ -566,5 +813,5 @@ if __name__ == "__main__":
 
 
 # Local Variables:
-# jinx-local-words: "async const csv dat dq noqa traj trapez"
+# jinx-local-words: "async cb const csv dat dof dq init noqa pos traj trapez"
 # End:
