@@ -4,7 +4,7 @@ import re
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pytest
@@ -24,7 +24,7 @@ from affetto_nn_ctrl.control_utility import (
 from affetto_nn_ctrl.event_logging import get_event_logger, start_event_logging
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Generator, Sequence
 
 
 DOF = 13
