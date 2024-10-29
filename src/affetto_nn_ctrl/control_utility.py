@@ -508,6 +508,17 @@ class RobotInitializer:
         return ca, cb
 
 
+def release_pressure(controller: CONTROLLER_T, duration: float = 0.1) -> tuple[np.ndarray, np.ndarray]:
+    initializer = RobotInitializer(
+        controller[1].dof,
+        duration=duration,
+        manner="pressure",
+        ca_init=0.0,
+        cb_init=0.0,
+    )
+    return initializer.get_back_home(controller, header_text="Releasing pressure...")
+
+
 class RandomTrajectory:
     active_joints: list[int]
     t0: float
