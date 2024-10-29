@@ -10,7 +10,7 @@
 #   universal: false
 
 -e file:.
-affctrllib @ git+https://github.com/affetto-software/affctrllib@9b108d3c2bc046ac44a65ac22966c2c7604f8e90
+affctrllib @ git+https://github.com/affetto-software/affctrllib@aa2b8324e85e644767b37f5bc1f7fa6aa14ca1f4
     # via affetto-nn-ctrl
 contourpy==1.2.1
     # via matplotlib
