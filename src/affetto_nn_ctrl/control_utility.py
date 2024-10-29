@@ -238,13 +238,13 @@ def get_back_home_position(
     controller: CONTROLLER_T,
     q_home: np.ndarray,
     duration: float,
+    header_text: str = "Getting back to home position...",
 ) -> tuple[np.ndarray, np.ndarray]:
     event_logger = get_event_logger()
     comm, ctrl, state = controller
     q0 = state.q
     ptp = PTP(q0, q_home, duration)
     qdes_func, dqdes_func = ptp.q, ptp.dq
-    header_text = "Getting back to home position..."
     if event_logger:
         event_logger.debug(header_text)
         event_logger.debug("  duration: %s", duration)
@@ -260,6 +260,7 @@ def get_back_home_pressure(
     ca_home: np.ndarray,
     cb_home: np.ndarray,
     duration: float,
+    header_text: str = "Getting back to home position (by valve)...",
 ) -> tuple[np.ndarray, np.ndarray]:
     event_logger = get_event_logger()
     comm, ctrl, state = controller
@@ -267,7 +268,6 @@ def get_back_home_pressure(
     ptp_ca = PTP(ca0, ca_home, duration, profile_name="const")
     ptp_cb = PTP(cb0, cb_home, duration, profile_name="const")
     ca_func, cb_func = ptp_ca.q, ptp_cb.q
-    header_text = "Getting back to home position (by valve)..."
     if event_logger:
         event_logger.debug(header_text)
         event_logger.debug("  duration: %s", duration)
@@ -480,13 +480,31 @@ class RobotInitializer:
         cb_init = init_config.get("cb", None)
         self._update_values(duration, manner, q_init, ca_init, cb_init)
 
-    def get_back_home(self, controller: CONTROLLER_T, duration: float | None = None) -> tuple[np.ndarray, np.ndarray]:
+    def get_back_home(
+        self,
+        controller: CONTROLLER_T,
+        duration: float | None = None,
+        header_text: str | None = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
         if duration is None:
             duration = self.duration
+        if header_text is None:
+            header_text = f"Getting back to home position (by {self.get_manner()})..."
         if self.get_manner() == "pressure":
-            ca, cb = get_back_home_pressure(controller, self.get_ca_init(), self.get_cb_init(), duration)
+            ca, cb = get_back_home_pressure(
+                controller,
+                self.get_ca_init(),
+                self.get_cb_init(),
+                duration,
+                header_text=header_text,
+            )
         else:
-            ca, cb = get_back_home_position(controller, self.get_q_init(), duration)
+            ca, cb = get_back_home_position(
+                controller,
+                self.get_q_init(),
+                duration,
+                header_text=header_text,
+            )
         return ca, cb
 
 
