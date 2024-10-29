@@ -138,7 +138,7 @@ def create_const_trajectory(
     return qdes_func, dqdes_func
 
 
-def _reset_logger(logger: Logger | None, log_filename: str | Path | None) -> Logger | None:
+def reset_logger(logger: Logger | None, log_filename: str | Path | None) -> Logger | None:
     event_logger = get_event_logger()
     if logger is not None:
         logger.erase_data()
@@ -173,7 +173,7 @@ def control_position(
     time_updater: str = "elapsed",
     header_text: str = "",
 ) -> tuple[np.ndarray, np.ndarray]:
-    _reset_logger(logger, log_filename)
+    reset_logger(logger, log_filename)
     comm, ctrl, state = controller
     ca, cb = np.zeros(ctrl.dof, dtype=float), np.zeros(ctrl.dof, dtype=float)
     timer = Timer(rate=ctrl.freq)
@@ -208,7 +208,7 @@ def control_pressure(
     time_updater: str = "elapsed",
     header_text: str = "",
 ) -> tuple[np.ndarray, np.ndarray]:
-    _reset_logger(logger, log_filename)
+    reset_logger(logger, log_filename)
     comm, ctrl, state = controller
     ca, cb = np.zeros(ctrl.dof, dtype=float), np.zeros(ctrl.dof, dtype=float)
     timer = Timer(rate=ctrl.freq)
