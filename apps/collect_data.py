@@ -13,6 +13,7 @@ from affetto_nn_ctrl.control_utility import (
     control_position,
     create_controller,
     create_default_logger,
+    resolve_joints_str,
 )
 from affetto_nn_ctrl.data_handling import (
     build_data_dir_path,
@@ -56,9 +57,9 @@ def record_data(
     )
 
 
-def run(
+def run(  # noqa: C901
     config: str,
-    joints: list[int],
+    joints_str: list[str] | None,
     sfreq: float | None,
     cfreq: float | None,
     init_duration: float | None,
@@ -109,7 +110,12 @@ def run(
         event_logger.debug("Initial posture: %s", q0)
 
     # Create random trajectory generator.
-    rt = RandomTrajectory(joints, t0, q0, t_range, q_range, q_limit, profile, seed, async_update=async_mode)
+    active_joints = resolve_joints_str(joints_str)
+    rt = RandomTrajectory(active_joints, t0, q0, t_range, q_range, q_limit, profile, seed, async_update=async_mode)
+    if event_logger:
+        event_logger.debug("Random trajectory generator created: profile=%s, async=%s", profile, async_mode)
+        event_logger.debug("  t_range: %s, q_range: %s, q_limit: %s", t_range, q_range, q_limit)
+        event_logger.debug("Resolved active joints: %s", active_joints)
 
     # Create data file counter.
     n = 0
@@ -194,8 +200,7 @@ def parse() -> argparse.Namespace:
         "-j",
         "--joints",
         nargs="*",
-        type=int,
-        help="Active joint index list to make motion.",
+        help="Active joint index list allowing to move.",
     )
     parser.add_argument(
         "-F",
