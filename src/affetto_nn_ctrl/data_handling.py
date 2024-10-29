@@ -23,7 +23,7 @@ def get_default_base_dir(base_dir_config: Path | None = None) -> Path:
     return DEFAULT_BASE_DIR_PATH
 
 
-def get_default_counter(start: int = 0, step: int = 1, fmt: str = "{:03d}") -> Iterator:
+def get_default_counter(start: int = 0, step: int = 1, fmt: str = "_{:03d}") -> Iterator:
     return map(fmt.format, itertools.count(start, step))
 
 

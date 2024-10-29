@@ -580,7 +580,7 @@ def test_build_data_file_path_ext_with_default_counter(output_dir_path: Path, pr
         iterator=cnt,
         ext=ext,
     )
-    expected = output_dir_path / f"{prefix}000{ext}"
+    expected = output_dir_path / f"{prefix}_000{ext}"
     assert path == expected
 
     # 1
@@ -590,7 +590,7 @@ def test_build_data_file_path_ext_with_default_counter(output_dir_path: Path, pr
         iterator=cnt,
         ext=ext,
     )
-    expected = output_dir_path / f"{prefix}001{ext}"
+    expected = output_dir_path / f"{prefix}_001{ext}"
     assert path == expected
 
 
@@ -605,7 +605,7 @@ def test_build_data_file_path_ext_raise_error_when_no_prefix_iterator(output_dir
         )
 
 
-@pytest.mark.parametrize(("prefix"), [("directory"), ("dir_")])
+@pytest.mark.parametrize(("prefix"), [("directory"), ("dir")])
 def test_build_data_file_path_when_ext_is_zero_make_directory(output_dir_path: Path, prefix: str) -> None:
     cnt = get_default_counter()
     # 0
@@ -615,7 +615,7 @@ def test_build_data_file_path_when_ext_is_zero_make_directory(output_dir_path: P
         iterator=cnt,
         ext="",
     )
-    expected = output_dir_path / f"{prefix}000"
+    expected = output_dir_path / f"{prefix}_000"
     assert path == expected
 
     # 1
@@ -625,7 +625,7 @@ def test_build_data_file_path_when_ext_is_zero_make_directory(output_dir_path: P
         iterator=cnt,
         ext="",
     )
-    expected = output_dir_path / f"{prefix}001"
+    expected = output_dir_path / f"{prefix}_001"
     assert path == expected
 
 

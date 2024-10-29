@@ -305,7 +305,7 @@ def parse() -> argparse.Namespace:
     )
     parser.add_argument(
         "--output-prefix",
-        default="motion_data_",
+        default="motion_data",
         help="Filename prefix that will be added to generated data file.",
     )
     parser.add_argument(
