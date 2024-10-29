@@ -72,7 +72,7 @@ def create_controller(
     config: str,
     sfreq: float | None,
     cfreq: float | None,
-    waiting_time: float = 5.0,
+    waiting_time: float = 0.0,
 ) -> CONTROLLER_T:
     event_logger = get_event_logger()
     if event_logger:
@@ -88,9 +88,10 @@ def create_controller(
     if event_logger:
         event_logger.debug("Controller created.")
 
-    if event_logger:
-        event_logger.info("Waiting until robot gets stationary for %s s...", waiting_time)
-    time.sleep(waiting_time)
+    if waiting_time > 0:
+        if event_logger:
+            event_logger.info("Waiting until robot gets stationary for %s s...", waiting_time)
+        time.sleep(waiting_time)
 
     return comm, ctrl, state
 
