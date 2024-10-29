@@ -19,12 +19,13 @@ from affetto_nn_ctrl.control_utility import (
     RandomTrajectory,
     RobotInitializer,
     get_rng,
+    resolve_joints_str,
     set_seed,
 )
 from affetto_nn_ctrl.event_logging import get_event_logger, start_event_logging
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Sequence
+    from collections.abc import Generator, Iterable, Sequence
 
 
 DOF = 13
@@ -69,6 +70,89 @@ def test_get_rng_reset_seed() -> None:
     set_seed(0)
     rng2 = get_rng()
     assert rng1 is not rng2
+
+
+@pytest.mark.parametrize(
+    ("dof", "expected"),
+    [
+        (1, [0]),
+        (3, [0, 1, 2]),
+        (10, list(range(10))),
+        (DOF, list(range(DOF))),
+    ],
+)
+def test_resolve_joints_str_return_all(dof: int, expected: list[int]) -> None:
+    assert resolve_joints_str(None, dof=dof) == expected
+
+
+def test_resolve_joints_str_error_no_dof_given() -> None:
+    msg = "Unable to resolve given joints string: None" + ", Hint: provide an optional DOF argument"
+    with pytest.raises(ValueError, match=msg):
+        resolve_joints_str(None)
+
+
+@pytest.mark.parametrize(
+    ("joints_str", "expected"),
+    [
+        ("1", [1]),
+        ("10", [10]),
+        ("0-1", [0, 1]),
+        ("0-3", [0, 1, 2, 3]),
+        ("11-13", [11, 12, 13]),
+        ("0-2-4", [0, 1, 2, 3, 4]),
+        ("1--3", [1, 2, 3]),
+        ("1,2", [1, 2]),
+        ("1,3,5,7", [1, 3, 5, 7]),
+        (",1", [1]),
+        ("1,2,", [1, 2]),
+        ("2 4", [2, 4]),
+        (" 6  8", [6, 8]),
+        ("2 4  6 ,  8 ", [2, 4, 6, 8]),
+        ("3,2,1", [1, 2, 3]),
+        ("4,3,2-6,0", [0, 2, 3, 4, 5, 6]),
+    ],
+)
+def test_resolve_joints_str_single_string(joints_str: str, expected: list[int]) -> None:
+    assert resolve_joints_str(joints_str) == expected
+
+
+@pytest.mark.parametrize(
+    ("joints_str", "err_msg"),
+    [
+        ("0.1", "0.1"),
+        ("1.3", "1.3"),
+        ("-3", "-3"),
+        ("5-", "5-"),
+        ("-7-", "-7-"),
+        ("1-1.5", "1-1.5"),
+        ("3.0-4", "3.0-4"),
+        ("1,2.3", "2.3"),
+        ("1,2,3-", "3-"),
+        ("1,-2,3-", "-2"),
+    ],
+)
+def test_resolve_joints_str_single_str_error(joints_str: str, err_msg: str) -> None:
+    msg = f"Unable to resolve given joints string: {err_msg}"
+    with pytest.raises(ValueError, match=msg):
+        resolve_joints_str(joints_str)
+
+
+@pytest.mark.parametrize(
+    ("joints_str", "expected"),
+    [
+        (["1"], [1]),
+        (("2", "3", "4"), [2, 3, 4]),
+        (map(str, range(DOF)), list(range(DOF))),
+        (["0-2", "4,6"], [0, 1, 2, 4, 6]),
+        (["0 2", "4,6", "8-10"], [0, 2, 4, 6, 8, 9, 10]),
+        (["0-2-4", "3-6"], [0, 1, 2, 3, 4, 5, 6]),
+        (["2--4", "0,3", ""], [0, 2, 3, 4]),
+        (("1,3,5,", ",2,4"), [1, 2, 3, 4, 5]),
+        ((" 8,,2 ,0", ", 2  4,"), [0, 2, 4, 8]),
+    ],
+)
+def test_resolve_joints_str_multi_strings(joints_str: Iterable[str], expected: list[int]) -> None:
+    assert resolve_joints_str(joints_str) == expected
 
 
 @pytest.fixture
@@ -813,5 +897,5 @@ if __name__ == "__main__":
 
 
 # Local Variables:
-# jinx-local-words: "async cb const csv dat dof dq init noqa pos traj trapez"
+# jinx-local-words: "async cb const csv dat dof dq init msg noqa pos str traj trapez"
 # End:

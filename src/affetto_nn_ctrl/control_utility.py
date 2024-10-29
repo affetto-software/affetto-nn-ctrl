@@ -1,6 +1,7 @@
 # ruff: noqa: S311
 from __future__ import annotations
 
+import re
 import sys
 import time
 import warnings
@@ -19,7 +20,7 @@ else:
     import tomllib
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable, Iterable, Sequence
 
     from affetto_nn_ctrl import CONTROLLER_T
 
@@ -276,6 +277,76 @@ def get_back_home_pressure(
     if event_logger:
         event_logger.debug("Done")
     return ca, cb
+
+
+ERR_MSG_RESOLVE_JOINTS_STR = "Unable to resolve given joints string"
+
+
+def _resolve_single_digit(s: str) -> int:
+    try:
+        return int(s)
+    except ValueError:
+        msg = f"{ERR_MSG_RESOLVE_JOINTS_STR}: {s}"
+        raise ValueError(msg) from None
+
+
+def _resolve_consecutive_digits(s: str) -> list[int]:
+    digits = s.split("-")
+    if len(digits) > 1:
+        try:
+            beg = int(digits[0])
+            end = int(digits[-1])
+            return list(range(beg, end + 1))
+        except ValueError:
+            pass
+    msg = f"{ERR_MSG_RESOLVE_JOINTS_STR}: {s}"
+    raise ValueError(msg)
+
+
+def _split_joints_str(s: str, delim: str) -> Iterable[str]:
+    return re.split(delim, s)
+
+
+def _resolve_joints_str(joints_str: str) -> list[int]:
+    resolved_joints: list[int] = []
+    for s in _split_joints_str(joints_str, r"[\s,]+"):
+        if len(s) == 0:
+            # Skip for zero-length string
+            continue
+
+        if s.isdigit():
+            # Resolve single digit string
+            resolved_joints.append(_resolve_single_digit(s))
+
+        elif "-" in s:
+            # Resolve consecutive digits string
+            resolved_joints.extend(_resolve_consecutive_digits(s))
+
+        else:
+            msg = f"{ERR_MSG_RESOLVE_JOINTS_STR}: {s}"
+            raise ValueError(msg)
+
+    return resolved_joints
+
+
+def _sort_and_remove_duplicates(resolved_joints: list[int]) -> list[int]:
+    return sorted(set(resolved_joints))
+
+
+def resolve_joints_str(joints_str: str | Iterable[str] | None, dof: int | None = None) -> list[int]:
+    if joints_str is None:
+        if dof is not None:
+            return list(range(dof))
+        msg = f"{ERR_MSG_RESOLVE_JOINTS_STR}: {joints_str}, Hint: provide an optional DOF argument"
+        raise ValueError(msg)
+
+    if isinstance(joints_str, str):
+        joints_str = [joints_str]
+    resolved_joints: list[int] = []
+    for s in joints_str:
+        resolved_joints.extend(_resolve_joints_str(s))
+
+    return _sort_and_remove_duplicates(resolved_joints)
 
 
 class RobotInitializer:
