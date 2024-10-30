@@ -157,7 +157,7 @@ def test_resolve_joints_str_multi_strings(joints_str: Iterable[str], expected: l
 
 @pytest.fixture
 def default_robot_initializer() -> RobotInitializer:
-    return RobotInitializer(13, duration=5.0, manner="position", q_init=50.0)
+    return RobotInitializer(13, duration=5.0, duration_keep_steady=5.0, manner="position", q_init=50.0)
 
 
 class TestRobotInitializer:
@@ -166,6 +166,7 @@ class TestRobotInitializer:
         init = RobotInitializer(dof)
         assert init.dof == dof
         assert init.duration == RobotInitializer.DEFAULT_DURATION
+        assert init.duration == RobotInitializer.DEFAULT_DURATION_KEEP_STEADY
         assert init.get_manner() == "position"
         assert_array_equal(init.get_q_init(), np.full((dof,), RobotInitializer.DEFAULT_Q_INIT))
         assert_array_equal(init.get_ca_init(), np.full((dof,), RobotInitializer.DEFAULT_CA_INIT))
@@ -181,6 +182,12 @@ class TestRobotInitializer:
         init = RobotInitializer(13)
         init.duration = duration
         assert init.duration == duration
+
+    @pytest.mark.parametrize("duration_keep_steady", [3, 5, 10])
+    def test_set_duration_keep_steady(self, duration_keep_steady: float) -> None:
+        init = RobotInitializer(13)
+        init.duration_keep_steady = duration_keep_steady
+        assert init.duration_keep_steady == duration_keep_steady
 
     @pytest.mark.parametrize(
         ("manner", "expected"),
@@ -328,11 +335,13 @@ class TestRobotInitializer:
         init = RobotInitializer(dof)
         init.load_config(config)
         expected_duration = 7
+        expected_duration_keep_steady = 4
         expected_manner = "pressure"
         expected_q_init = np.full((dof,), 45.0, dtype=float)
         expected_ca_init = np.full((dof,), 10.0, dtype=float)
         expected_cb_init = np.full((dof,), 100.0, dtype=float)
         assert init.duration == expected_duration
+        assert init.duration_keep_steady == expected_duration_keep_steady
         assert init.get_manner() == expected_manner
         assert_array_equal(init.get_q_init(), expected_q_init)
         assert_array_equal(init.get_ca_init(), expected_ca_init)
@@ -347,6 +356,7 @@ class TestRobotInitializer:
         expected_ca_init = np.full((dof,), RobotInitializer.DEFAULT_CA_INIT, dtype=float)
         expected_cb_init = np.full((dof,), RobotInitializer.DEFAULT_CB_INIT, dtype=float)
         assert init.duration == RobotInitializer.DEFAULT_DURATION
+        assert init.duration_keep_steady == RobotInitializer.DEFAULT_DURATION_KEEP_STEADY
         assert init.get_manner() == RobotInitializer.DEFAULT_MANNER
         assert_array_equal(init.get_q_init(), expected_q_init)
         assert_array_equal(init.get_ca_init(), expected_ca_init)
@@ -360,6 +370,7 @@ class TestRobotInitializer:
         # Confirm that the following expected values match values defined in "tests/data/affetto.toml"
         ########
         expected_duration = 7
+        expected_duration_keep_steady = 4
         expected_manner = "pressure"
         expected_q_init = np.full((dof,), 45.0, dtype=float)
         expected_ca_init = np.full((dof,), 10.0, dtype=float)
@@ -367,6 +378,7 @@ class TestRobotInitializer:
         ########
 
         assert init.duration == expected_duration
+        assert init.duration_keep_steady == expected_duration_keep_steady
         assert init.get_manner() == expected_manner
         assert_array_equal(init.get_q_init(), expected_q_init)
         assert_array_equal(init.get_ca_init(), expected_ca_init)
@@ -376,6 +388,7 @@ class TestRobotInitializer:
         dof = 13
         config = TESTS_DATA_DIR_PATH / "affetto.toml"
         expected_duration = 12
+        expected_duration_keep_steady = 8
         expected_manner = "pressure"
         expected_q_init = np.full((dof,), 55.0, dtype=float)
         expected_cb_init = np.full((dof,), 155.0, dtype=float)
@@ -383,12 +396,14 @@ class TestRobotInitializer:
             dof,
             config=config,
             duration=expected_duration,
+            duration_keep_steady=expected_duration_keep_steady,
             manner=expected_manner,
             q_init=expected_q_init,
             # ca_init=expected_ca_init, # ca_init intentionally omitted # noqa: ERA001
             cb_init=expected_cb_init,
         )
         assert init.duration == expected_duration
+        assert init.duration_keep_steady == expected_duration_keep_steady
         assert init.get_manner() == expected_manner
         assert_array_equal(init.get_q_init(), expected_q_init)
         assert_array_equal(init.get_cb_init(), expected_cb_init)

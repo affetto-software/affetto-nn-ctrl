@@ -239,18 +239,20 @@ def get_back_home_position(
     controller: CONTROLLER_T,
     q_home: np.ndarray,
     duration: float,
+    duration_keep_steady: float = 0.0,
     header_text: str = "Getting back to home position...",
 ) -> tuple[np.ndarray, np.ndarray]:
     event_logger = get_event_logger()
     comm, ctrl, state = controller
     q0 = state.q
     ptp = PTP(q0, q_home, duration)
+    total_duration = duration + duration_keep_steady
     qdes_func, dqdes_func = ptp.q, ptp.dq
     if event_logger:
         event_logger.debug(header_text)
-        event_logger.debug("  duration: %s", duration)
+        event_logger.debug("  duration: %s, total: %s", duration, total_duration)
         event_logger.debug("  q_home  : %s", q_home)
-    ca, cb = control_position(controller, qdes_func, dqdes_func, duration, header_text=header_text)
+    ca, cb = control_position(controller, qdes_func, dqdes_func, total_duration, header_text=header_text)
     if event_logger:
         event_logger.debug("Done")
     return ca, cb
@@ -261,6 +263,7 @@ def get_back_home_pressure(
     ca_home: np.ndarray,
     cb_home: np.ndarray,
     duration: float,
+    duration_keep_steady: float = 0.0,
     header_text: str = "Getting back to home position (by valve)...",
 ) -> tuple[np.ndarray, np.ndarray]:
     event_logger = get_event_logger()
@@ -268,13 +271,14 @@ def get_back_home_pressure(
     ca0, cb0 = np.zeros(ctrl.dof, dtype=float), np.zeros(ctrl.dof, dtype=float)
     ptp_ca = PTP(ca0, ca_home, duration, profile_name="const")
     ptp_cb = PTP(cb0, cb_home, duration, profile_name="const")
+    total_duration = duration + duration_keep_steady
     ca_func, cb_func = ptp_ca.q, ptp_cb.q
     if event_logger:
         event_logger.debug(header_text)
-        event_logger.debug("  duration: %s", duration)
+        event_logger.debug("  duration: %s, total: %s", duration, total_duration)
         event_logger.debug("  ca_home : %s", ca_home)
         event_logger.debug("  cb_home : %s", cb_home)
-    ca, cb = control_pressure(controller, ca_func, cb_func, duration, header_text=header_text)
+    ca, cb = control_pressure(controller, ca_func, cb_func, total_duration, header_text=header_text)
     if event_logger:
         event_logger.debug("Done")
     return ca, cb
@@ -353,12 +357,14 @@ def resolve_joints_str(joints_str: str | Iterable[str] | None, dof: int | None =
 class RobotInitializer:
     _dof: int
     _duration: float
+    _duration_keep_steady: float
     _manner: str
     _q_init: np.ndarray
     _ca_init: np.ndarray
     _cb_init: np.ndarray
 
     DEFAULT_DURATION = 5.0
+    DEFAULT_DURATION_KEEP_STEADY = 5.0
     DEFAULT_MANNER = "position"
     DEFAULT_Q_INIT = 50.0
     DEFAULT_CA_INIT = 0.0
@@ -370,6 +376,7 @@ class RobotInitializer:
         *,
         config: str | Path | None = None,
         duration: float | None = None,
+        duration_keep_steady: float | None = None,
         manner: str | None = None,
         q_init: Sequence[float] | np.ndarray | float | None = None,
         ca_init: Sequence[float] | np.ndarray | float | None = None,
@@ -378,6 +385,7 @@ class RobotInitializer:
         self._dof = dof
         # Set default values
         self.duration = self.DEFAULT_DURATION
+        self.duration_keep_steady = self.DEFAULT_DURATION_KEEP_STEADY
         self.set_manner(self.DEFAULT_MANNER)
         self.set_q_init(self.DEFAULT_Q_INIT)
         self.set_ca_init(self.DEFAULT_CA_INIT)
@@ -386,7 +394,7 @@ class RobotInitializer:
         if config is not None:
             self.load_config(config)
         # Update values based on arguments
-        self._update_values(duration, manner, q_init, ca_init, cb_init)
+        self._update_values(duration, duration_keep_steady, manner, q_init, ca_init, cb_init)
 
     @property
     def dof(self) -> int:
@@ -399,6 +407,18 @@ class RobotInitializer:
     @duration.setter
     def duration(self, duration: float) -> None:
         self._duration = duration
+
+    @property
+    def duration_keep_steady(self) -> float:
+        return self._duration_keep_steady
+
+    @duration_keep_steady.setter
+    def duration_keep_steady(self, duration_keep_steady: float) -> None:
+        self._duration_keep_steady = duration_keep_steady
+
+    @property
+    def total_duration(self) -> float:
+        return self.duration + self.duration_keep_steady
 
     def get_manner(self) -> str:
         return self._manner
@@ -451,6 +471,7 @@ class RobotInitializer:
     def _update_values(
         self,
         duration: float | None,
+        duration_keep_steady: float | None,
         manner: str | None,
         q_init: Sequence[float] | np.ndarray | float | None,
         ca_init: Sequence[float] | np.ndarray | float | None,
@@ -458,6 +479,8 @@ class RobotInitializer:
     ) -> None:
         if duration is not None:
             self.duration = duration
+        if duration_keep_steady is not None:
+            self.duration_keep_steady = duration_keep_steady
         if manner is not None:
             self.set_manner(manner)
         if q_init is not None:
@@ -475,20 +498,24 @@ class RobotInitializer:
         if init_config is None:
             return
         duration = init_config.get("duration", None)
+        duration_keep_steady = init_config.get("duration_keep_steady", None)
         manner = init_config.get("manner", None)
         q_init = init_config.get("q", None)
         ca_init = init_config.get("ca", None)
         cb_init = init_config.get("cb", None)
-        self._update_values(duration, manner, q_init, ca_init, cb_init)
+        self._update_values(duration, duration_keep_steady, manner, q_init, ca_init, cb_init)
 
     def get_back_home(
         self,
         controller: CONTROLLER_T,
         duration: float | None = None,
+        duration_keep_steady: float | None = None,
         header_text: str | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
         if duration is None:
             duration = self.duration
+        if duration_keep_steady is None:
+            duration_keep_steady = self.duration_keep_steady
         if header_text is None:
             header_text = f"Getting back to home position (by {self.get_manner()})..."
         if self.get_manner() == "pressure":
@@ -497,6 +524,7 @@ class RobotInitializer:
                 self.get_ca_init(),
                 self.get_cb_init(),
                 duration,
+                duration_keep_steady,
                 header_text=header_text,
             )
         else:
@@ -504,15 +532,21 @@ class RobotInitializer:
                 controller,
                 self.get_q_init(),
                 duration,
+                duration_keep_steady,
                 header_text=header_text,
             )
         return ca, cb
 
 
-def release_pressure(controller: CONTROLLER_T, duration: float = 0.1) -> tuple[np.ndarray, np.ndarray]:
+def release_pressure(
+    controller: CONTROLLER_T,
+    duration: float = 1.0,
+    duration_keep_steady: float = 0.0,
+) -> tuple[np.ndarray, np.ndarray]:
     initializer = RobotInitializer(
         controller[1].dof,
         duration=duration,
+        duration_keep_steady=duration_keep_steady,
         manner="pressure",
         ca_init=0.0,
         cb_init=0.0,
