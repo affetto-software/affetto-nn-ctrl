@@ -4,6 +4,7 @@ import datetime
 import itertools
 import os
 import re
+import shutil
 import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -122,6 +123,24 @@ def prepare_data_dir_path(
     if make_latest_symlink:
         _make_latest_symlink(path, dry_run=dry_run)
     return path
+
+
+def copy_config(
+    config: str | Path,
+    output_dir: Path,
+    *,
+    dry_run: bool = False,
+) -> None:
+    event_logger = get_event_logger()
+    target_dir_path = output_dir / "config"
+    if not dry_run:
+        target_dir_path.mkdir(parents=True, exist_ok=True)
+    if event_logger:
+        msg = f"Directory created: {target_dir_path}"
+        if dry_run:
+            msg = f"Dry run: {msg}"
+        event_logger.debug(msg)
+    shutil.copy(config, target_dir_path)
 
 
 def find_latest_data_dir_path(

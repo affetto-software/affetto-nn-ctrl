@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import argparse
-import logging
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from affetto_nn_ctrl.control_utility import (
     RobotInitializer,
@@ -14,10 +14,14 @@ from affetto_nn_ctrl.control_utility import (
 )
 from affetto_nn_ctrl.data_handling import (
     build_data_dir_path,
+    copy_config,
     get_default_base_dir,
     prepare_data_dir_path,
 )
 from affetto_nn_ctrl.event_logging import get_event_logger, start_event_logging
+
+if TYPE_CHECKING:
+    import logging
 
 DEFAULT_DURATION = 10
 APP_NAME_COLLECT_DATA = "initializer_test"
@@ -249,10 +253,10 @@ def main() -> None:
         split_by_date=args.split_by_date,
     )
     prepare_data_dir_path(output_dir, make_latest_symlink=args.make_latest_symlink)
+    copy_config(args.config, output_dir)
     event_logger = start_logging(sys.argv, output_dir, args.verbose)
     if event_logger:
         event_logger.info("Output directory: %s", output_dir)
-    prepare_data_dir_path(output_dir, make_latest_symlink=args.make_latest_symlink)
 
     # Start mainloop
     run(
