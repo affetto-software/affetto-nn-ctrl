@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import argparse
 import time
-from pathlib import Path
-from typing import TYPE_CHECKING
 
 from affetto_nn_ctrl.control_utility import (
     RobotInitializer,
@@ -13,15 +11,12 @@ from affetto_nn_ctrl.control_utility import (
     release_pressure,
 )
 from affetto_nn_ctrl.data_handling import (
-    build_data_dir_path,
     copy_config,
     get_default_base_dir,
+    get_output_dir_path,
     prepare_data_dir_path,
 )
-from affetto_nn_ctrl.event_logging import get_event_logger, start_event_logging
-
-if TYPE_CHECKING:
-    import logging
+from affetto_nn_ctrl.event_logging import get_event_logger, start_logging
 
 DEFAULT_DURATION = 10
 APP_NAME_COLLECT_DATA = "initializer_test"
@@ -87,33 +82,6 @@ def run(
         event_logger.debug("Test initializer finished")
     comm.close_command_socket()
     state.join()
-
-
-def make_output_dir(
-    base_dir: str,
-    output: str | None,
-    label: str | None,
-    sublabel: str | None,
-    specified_date: str | None,
-    *,
-    split_by_date: bool,
-) -> Path:
-    output_dir_path: Path
-    if output is not None:
-        output_dir_path = Path(output)
-    else:
-        if label is None:
-            label = "testing"
-        output_dir_path = build_data_dir_path(
-            base_dir,
-            APP_NAME_COLLECT_DATA,
-            label,
-            sublabel,
-            specified_date,
-            split_by_date=split_by_date,
-            millisecond=False,
-        )
-    return output_dir_path
 
 
 def parse() -> argparse.Namespace:
@@ -239,26 +207,15 @@ def parse() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def start_logging(argv: list[str], output_dir: Path, verbose_count: int) -> logging.Logger:
-    match verbose_count:
-        case 0:
-            logging_level = "WARNING"
-        case 1:
-            logging_level = "INFO"
-        case _:
-            logging_level = "DEBUG"
-
-    return start_event_logging(argv, output_dir, name=__name__, logging_level=logging_level)
-
-
 def main() -> None:
     import sys
 
     args = parse()
 
     # Prepare input/output
-    output_dir = make_output_dir(
+    output_dir = get_output_dir_path(
         args.base_dir,
+        APP_NAME_COLLECT_DATA,
         args.output,
         args.label,
         args.sublabel,
