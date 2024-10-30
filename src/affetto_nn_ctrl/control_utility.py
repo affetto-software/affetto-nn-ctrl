@@ -200,6 +200,45 @@ def control_position(
     return ca, cb
 
 
+def record_motion(
+    active_joints: list[int],
+    q0: np.ndarray,
+    controller: CONTROLLER_T,
+    duration: float,
+    logger: Logger,
+    data_file_path: Path,
+    time_updater: str = "elapsed",
+    header_text: str = "",
+) -> tuple[np.ndarray, np.ndarray]:
+    reset_logger(logger, data_file_path)
+    comm, ctrl, state = controller
+    ca, cb = np.zeros(ctrl.dof, dtype=float), np.zeros(ctrl.dof, dtype=float)
+    timer = Timer(rate=ctrl.freq)
+    current_time = _select_time_updater(timer, time_updater)
+
+    # Make active joints inactive in controller.
+    ctrl.set_inactive_joints(active_joints, pressure=0.0)
+    # Let the controller keep the initial position.
+    qdes = q0.copy()
+    dqdes = np.zeros(ctrl.dof, dtype=float)
+
+    timer.start()
+    t = 0.0
+    while t < duration:
+        sys.stdout.write(f"\r{header_text} [{t:6.2f}/{duration:.2f}]")
+        t = current_time()
+        rq, rdq, rpa, rpb = state.get_raw_states()
+        q, dq, pa, pb = state.get_states()
+        ca, cb = ctrl.update(t, q, dq, pa, pb, qdes, dqdes)
+        comm.send_commands(ca, cb)
+        if logger is not None:
+            logger.store(t, rq, rdq, rpa, rpb, q, dq, pa, pb, ca, cb, qdes, dqdes)
+        timer.block()
+    sys.stdout.write("\n")
+    # Return the last commands that have been sent to the valve.
+    return ca, cb
+
+
 def control_pressure(
     controller: CONTROLLER_T,
     ca_func: Callable[[float], np.ndarray | float],
