@@ -118,7 +118,7 @@ def make_output_dir(
 
 def parse() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Test pose initializer.",
+        description="Test robot pose initializer.",
     )
     default_base_dir = get_default_base_dir()
     # Configuration
