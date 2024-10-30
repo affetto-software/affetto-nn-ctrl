@@ -19,7 +19,7 @@ from affetto_nn_ctrl.data_handling import (
 from affetto_nn_ctrl.event_logging import get_event_logger, start_logging
 
 DEFAULT_DURATION = 10
-APP_NAME_COLLECT_DATA = "initializer_test"
+APP_NAME_TEST_INITIALIZER = "initializer_test"
 
 
 def run(
@@ -215,7 +215,7 @@ def main() -> None:
     # Prepare input/output
     output_dir = get_output_dir_path(
         args.base_dir,
-        APP_NAME_COLLECT_DATA,
+        APP_NAME_TEST_INITIALIZER,
         args.output,
         args.label,
         args.sublabel,
