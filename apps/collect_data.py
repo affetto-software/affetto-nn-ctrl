@@ -12,6 +12,7 @@ from affetto_nn_ctrl.control_utility import (
     control_position,
     create_controller,
     create_default_logger,
+    release_pressure,
     resolve_joints_str,
 )
 from affetto_nn_ctrl.data_handling import (
@@ -57,6 +58,7 @@ def record_data(
         time_updater="accumulated",
         header_text=header_text,
     )
+    data_logger.dump(quiet=True)
 
 
 def run(  # noqa: C901
@@ -131,8 +133,11 @@ def run(  # noqa: C901
 
     # Generate dataset.
     for i in range(n_repeat):
+        if i > 0:
+            # Initialize robot pose again.
+            initializer.get_back_home((comm, ctrl, state))
         data_file_path = build_data_file_path(output_dir_path, prefix=output_prefix, iterator=cnt, ext=".csv")
-        header_text = f"[{i+1}/{n_repeat}] Collecting motion data..."
+        header_text = f"[{i+1}/{n_repeat}] Collecting random motion data..."
         if event_logger:
             event_logger.debug(header_text)
         record_data(
@@ -145,8 +150,9 @@ def run(  # noqa: C901
         )
         if event_logger:
             event_logger.debug("Data saved: %s", data_file_path)
-        # Prepare for next record.
-        initializer.get_back_home((comm, ctrl, state))
+
+    # Release all joints.
+    release_pressure((comm, ctrl, state))
 
     # Finish stuff.
     if event_logger:
@@ -238,6 +244,7 @@ def parse() -> argparse.Namespace:
         "-s",
         "--seed",
         default=DEFAULT_SEED,
+        type=int,
         help="Seed value given to random number generator.",
     )
     parser.add_argument(
@@ -359,6 +366,7 @@ def main() -> None:
     event_logger = start_logging(sys.argv, output_dir, args.verbose)
     if event_logger:
         event_logger.info("Output directory: %s", output_dir)
+        event_logger.debug("%s", args)
 
     # Start mainloop
     run(
@@ -376,9 +384,9 @@ def main() -> None:
         # input
         # parameters
         args.duration,
-        args.t_range,
-        args.q_range,
-        args.q_limit,
+        tuple(args.t_range),
+        tuple(args.q_range),
+        tuple(args.q_limit),
         args.profile,
         args.n_repeat,
         args.seed,
