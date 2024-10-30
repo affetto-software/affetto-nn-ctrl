@@ -227,6 +227,7 @@ def main() -> None:
     event_logger = start_logging(sys.argv, output_dir, args.verbose)
     if event_logger:
         event_logger.info("Output directory: %s", output_dir)
+        event_logger.debug("%s", args)
 
     # Start mainloop
     run(

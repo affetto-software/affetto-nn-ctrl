@@ -104,6 +104,7 @@ def run(
         time_updater="accumulated",
         header_text=header_text,
     )
+    data_logger.dump(quiet=True)
     if event_logger:
         event_logger.debug("Motion reference saved: %s", data_file_path)
 
@@ -271,6 +272,7 @@ def main() -> None:
     event_logger = start_logging(sys.argv, output_dir, args.verbose)
     if event_logger:
         event_logger.info("Output directory: %s", output_dir)
+        event_logger.debug("%s", args)
 
     # Start mainloop
     run(
