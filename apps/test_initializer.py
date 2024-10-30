@@ -32,6 +32,7 @@ def run(
     sfreq: float | None,
     cfreq: float | None,
     init_duration: float | None,
+    init_duration_keep_steady: float | None,
     init_manner: str | None,
     q_init: list[float] | None,
     ca_init: list[float] | None,
@@ -51,6 +52,7 @@ def run(
         ctrl.dof,
         config=config,
         duration=init_duration,
+        duration_keep_steady=init_duration_keep_steady,
         manner=init_manner,
         q_init=q_init,
         ca_init=ca_init,
@@ -60,7 +62,13 @@ def run(
     if event_logger:
         event_logger.debug("Initialized robot pose:")
         event_logger.debug("  config=%s", config)
-        event_logger.debug("  duration=%s, manner=%s", initializer.duration, initializer.get_manner())
+        event_logger.debug(
+            "  total_duration=%s (%s + %s), manner=%s",
+            initializer.total_duration,
+            initializer.duration,
+            initializer.duration_keep_steady,
+            initializer.get_manner(),
+        )
         event_logger.info("Expected initialized pose: %s", initializer.get_q_init())
         event_logger.info("Final valve commands (ca): %s", initializer.get_ca_init())
         event_logger.info("Final valve commands (cb): %s", initializer.get_cb_init())
@@ -150,6 +158,11 @@ def parse() -> argparse.Namespace:
         "--init-duration",
         type=float,
         help="Time duration for making the robot get back to home position.",
+    )
+    parser.add_argument(
+        "--init-duration-keep-steady",
+        type=float,
+        help="Time duration for keep steady after making the robot get back to home position.",
     )
     parser.add_argument(
         "--init-manner",
@@ -265,6 +278,7 @@ def main() -> None:
         args.sfreq,
         args.cfreq,
         args.init_duration,
+        args.init_duration_keep_steady,
         args.init_manner,
         args.q_init,
         args.ca_init,
