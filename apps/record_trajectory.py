@@ -3,42 +3,31 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-import numpy as np
-from affctrllib import Logger
-
-from affetto_nn_ctrl import CONTROLLER_T
 from affetto_nn_ctrl.control_utility import (
     RobotInitializer,
     create_controller,
     create_default_logger,
-    reset_logger,
+    record_motion,
+    release_pressure,
     resolve_joints_str,
 )
 from affetto_nn_ctrl.data_handling import (
-    build_data_dir_path,
+    build_data_file_path,
+    copy_config,
     get_default_base_dir,
     get_default_counter,
+    get_output_dir_path,
     prepare_data_dir_path,
 )
-from affetto_nn_ctrl.event_logging import get_event_logger, start_event_logging
+from affetto_nn_ctrl.event_logging import get_event_logger, start_logging
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 DEFAULT_DURATION = 10
-APP_NAME_COLLECT_DATA = "reference_trajectory"
-
-
-def record_motion(
-    controller: CONTROLLER_T,
-    data_logger: Logger,
-    active_joints: list[int],
-    duration: float,
-    data_file_path: Path,
-    header_text: str,
-) -> None:
-    reset_logger(data_logger, data_file_path)
-    comm, ctrl, state = controller
-    ca, cb = np.zeros(ctrl.dof, dtype=float), np.zeros(ctrl.dof, dtype=float)
+APP_NAME_RECORD_TRAJECTORY = "reference_trajectory"
 
 
 def run(
@@ -47,6 +36,7 @@ def run(
     sfreq: float | None,
     cfreq: float | None,
     init_duration: float | None,
+    init_duration_keep_steady: float | None,
     init_manner: str | None,
     q_init: list[float] | None,
     ca_init: list[float] | None,
@@ -72,6 +62,7 @@ def run(
         ctrl.dof,
         config=config,
         duration=init_duration,
+        duration_keep_steady=init_duration_keep_steady,
         manner=init_manner,
         q_init=q_init,
         ca_init=ca_init,
@@ -81,7 +72,6 @@ def run(
     q0 = state.q
     if initializer.get_manner() == "position":
         q0 = initializer.get_q_init()
-    t0 = 0.0
     if event_logger:
         event_logger.debug("Initializer created: manner=%s", initializer.get_manner())
         event_logger.debug("Initial posture: %s", q0)
@@ -99,32 +89,32 @@ def run(
     if event_logger:
         event_logger.debug("Data file counter initialized with %s", n)
 
+    # Record motion trajectory.
+    data_file_path = build_data_file_path(output_dir_path, prefix=output_prefix, iterator=cnt, ext=".csv")
+    header_text = "Started recording motion!"
+    if event_logger:
+        event_logger.debug(header_text)
+    record_motion(
+        active_joints,
+        q0,
+        (comm, ctrl, state),
+        duration,
+        data_logger,
+        data_file_path,
+        time_updater="accumulated",
+        header_text=header_text,
+    )
+    if event_logger:
+        event_logger.debug("Motion reference saved: %s", data_file_path)
 
-def make_output_dir(
-    base_dir: str,
-    output: str | None,
-    label: str | None,
-    sublabel: str | None,
-    specified_date: str | None,
-    *,
-    split_by_date: bool,
-) -> Path:
-    output_dir_path: Path
-    if output is not None:
-        output_dir_path = Path(output)
-    else:
-        if label is None:
-            label = "testing"
-        output_dir_path = build_data_dir_path(
-            base_dir,
-            APP_NAME_COLLECT_DATA,
-            label,
-            sublabel,
-            specified_date,
-            split_by_date=split_by_date,
-            millisecond=False,
-        )
-    return output_dir_path
+    # Release all joints.
+    release_pressure((comm, ctrl, state))
+
+    # Finish stuff.
+    if event_logger:
+        event_logger.debug("Data collection finished")
+    comm.close_command_socket()
+    state.join()
 
 
 def parse() -> argparse.Namespace:
@@ -169,6 +159,11 @@ def parse() -> argparse.Namespace:
         "--init-duration",
         type=float,
         help="Time duration for making the robot get back to home position.",
+    )
+    parser.add_argument(
+        "--init-duration-keep-steady",
+        type=float,
+        help="Time duration for keep steady after making the robot get back to home position.",
     )
     parser.add_argument(
         "--init-manner",
@@ -256,37 +251,26 @@ def parse() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def start_logging(argv: list[str], output_dir: Path, verbose_count: int) -> None:
-    match verbose_count:
-        case 0:
-            logging_level = "WARNING"
-        case 1:
-            logging_level = "INFO"
-        case _:
-            logging_level = "DEBUG"
-
-    start_event_logging(argv, output_dir, name=__name__, logging_level=logging_level)
-
-
 def main() -> None:
     import sys
 
     args = parse()
 
     # Prepare input/output
-    output_dir = make_output_dir(
+    output_dir = get_output_dir_path(
         args.base_dir,
+        APP_NAME_RECORD_TRAJECTORY,
         args.output,
         args.label,
         args.sublabel,
         args.specify_date,
         split_by_date=args.split_by_date,
     )
-    start_logging(sys.argv, output_dir, args.verbose)
-    event_logger = get_event_logger()
+    prepare_data_dir_path(output_dir, make_latest_symlink=args.make_latest_symlink)
+    copy_config(args.config, output_dir)
+    event_logger = start_logging(sys.argv, output_dir, args.verbose)
     if event_logger:
         event_logger.info("Output directory: %s", output_dir)
-    prepare_data_dir_path(output_dir, make_latest_symlink=args.make_latest_symlink, dry_run=True)
 
     # Start mainloop
     run(
@@ -296,6 +280,7 @@ def main() -> None:
         args.sfreq,
         args.cfreq,
         args.init_duration,
+        args.init_duration_keep_steady,
         args.init_manner,
         args.q_init,
         args.ca_init,
