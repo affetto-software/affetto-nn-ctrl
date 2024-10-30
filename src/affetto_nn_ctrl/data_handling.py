@@ -64,6 +64,35 @@ def build_data_dir_path(
     return built_path
 
 
+def get_output_dir_path(
+    base_dir: str,
+    app_name: str,
+    given_output: str | None,
+    label: str | None,
+    sublabel: str | None,
+    specified_date: str | None,
+    *,
+    split_by_date: bool,
+    millisecond: bool = False,
+) -> Path:
+    output_dir_path: Path
+    if given_output is not None:
+        output_dir_path = Path(given_output)
+    else:
+        if label is None:
+            label = "testing"
+        output_dir_path = build_data_dir_path(
+            base_dir,
+            app_name,
+            label,
+            sublabel,
+            specified_date,
+            split_by_date=split_by_date,
+            millisecond=millisecond,
+        )
+    return output_dir_path
+
+
 def split_data_dir_path_by_date(data_dir_path: Path) -> tuple[Path, str | None, str | None]:
     path = data_dir_path
     parts: list[str] = []
