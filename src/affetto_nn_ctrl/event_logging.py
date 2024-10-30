@@ -86,6 +86,18 @@ def get_event_logger() -> logging.Logger | None:
     return _event_logger
 
 
+def start_logging(argv: list[str], output_dir: Path, verbose_count: int) -> logging.Logger:
+    match verbose_count:
+        case 0:
+            logging_level = "WARNING"
+        case 1:
+            logging_level = "INFO"
+        case _:
+            logging_level = "DEBUG"
+
+    return start_event_logging(argv, output_dir, name=__name__, logging_level=logging_level)
+
+
 # Local Variables:
 # jinx-local-words: "asctime levelname lineno noqa"
 # End:
