@@ -12,10 +12,10 @@ import numpy as np
 from affctrllib import PTP, AffComm, AffPosCtrl, AffStateThread, Logger, Timer
 from numpy.random import Generator, default_rng
 
-from affetto_nn_ctrl.event_logging import get_event_logger
+from affetto_nn_ctrl.event_logging import event_logger
 
 if sys.version_info < (3, 11):
-    import tomli as tomllib  # type: ignore[reportMissingImport,import-not-found]
+    import tomli as tomllib  # type: ignore[import-not-found]
 else:
     import tomllib
 
@@ -74,10 +74,8 @@ def create_controller(
     cfreq: float | None,
     waiting_time: float = 0.0,
 ) -> CONTROLLER_T:
-    event_logger = get_event_logger()
-    if event_logger:
-        event_logger.info("Loaded config: %s", config)
-        event_logger.debug("sensor frequency: %s, control frequency: %s", sfreq, cfreq)
+    event_logger().info("Loaded config: %s", config)
+    event_logger().debug("sensor frequency: %s, control frequency: %s", sfreq, cfreq)
 
     comm = AffComm(config_path=config)
     comm.create_command_socket()
@@ -85,19 +83,16 @@ def create_controller(
     ctrl = AffPosCtrl(config_path=config, freq=cfreq)
     state.prepare()
     state.start()
-    if event_logger:
-        event_logger.debug("Controller created.")
+    event_logger().debug("Controller created.")
 
     if waiting_time > 0:
-        if event_logger:
-            event_logger.info("Waiting until robot gets stationary for %s s...", waiting_time)
+        event_logger().info("Waiting until robot gets stationary for %s s...", waiting_time)
         time.sleep(waiting_time)
 
     return comm, ctrl, state
 
 
 def create_default_logger(dof: int) -> Logger:
-    event_logger = get_event_logger()
     logger = Logger()
     logger.set_labels(
         "t",
@@ -117,8 +112,7 @@ def create_default_logger(dof: int) -> Logger:
         [f"qdes{i}" for i in range(dof)],
         [f"dqdes{i}" for i in range(dof)],
     )
-    if event_logger:
-        event_logger.debug("Default logger created.")
+    event_logger().debug("Default logger created.")
 
     return logger
 
@@ -141,15 +135,12 @@ def create_const_trajectory(
 
 
 def reset_logger(logger: Logger | None, log_filename: str | Path | None) -> Logger | None:
-    event_logger = get_event_logger()
     if logger is not None:
         logger.erase_data()
-        if event_logger:
-            event_logger.debug("Logger data has been erased.")
+        event_logger().debug("Logger data has been erased.")
         if log_filename is not None:
             logger.set_filename(log_filename)
-            if event_logger:
-                event_logger.debug("Logger filename is updated: %s", log_filename)
+            event_logger().debug("Logger filename is updated: %s", log_filename)
     return logger
 
 
@@ -281,19 +272,16 @@ def get_back_home_position(
     duration_keep_steady: float = 0.0,
     header_text: str = "Getting back to home position...",
 ) -> tuple[np.ndarray, np.ndarray]:
-    event_logger = get_event_logger()
     comm, ctrl, state = controller
     q0 = state.q
     ptp = PTP(q0, q_home, duration)
     total_duration = duration + duration_keep_steady
     qdes_func, dqdes_func = ptp.q, ptp.dq
-    if event_logger:
-        event_logger.debug(header_text)
-        event_logger.debug("  duration: %s, total: %s", duration, total_duration)
-        event_logger.debug("  q_home  : %s", q_home)
+    event_logger().debug(header_text)
+    event_logger().debug("  duration: %s, total: %s", duration, total_duration)
+    event_logger().debug("  q_home  : %s", q_home)
     ca, cb = control_position(controller, qdes_func, dqdes_func, total_duration, header_text=header_text)
-    if event_logger:
-        event_logger.debug("Done")
+    event_logger().debug("Done")
     return ca, cb
 
 
@@ -305,21 +293,18 @@ def get_back_home_pressure(
     duration_keep_steady: float = 0.0,
     header_text: str = "Getting back to home position (by valve)...",
 ) -> tuple[np.ndarray, np.ndarray]:
-    event_logger = get_event_logger()
     comm, ctrl, state = controller
     ca0, cb0 = np.zeros(ctrl.dof, dtype=float), np.zeros(ctrl.dof, dtype=float)
     ptp_ca = PTP(ca0, ca_home, duration, profile_name="const")
     ptp_cb = PTP(cb0, cb_home, duration, profile_name="const")
     total_duration = duration + duration_keep_steady
     ca_func, cb_func = ptp_ca.q, ptp_cb.q
-    if event_logger:
-        event_logger.debug(header_text)
-        event_logger.debug("  duration: %s, total: %s", duration, total_duration)
-        event_logger.debug("  ca_home : %s", ca_home)
-        event_logger.debug("  cb_home : %s", cb_home)
+    event_logger().debug(header_text)
+    event_logger().debug("  duration: %s, total: %s", duration, total_duration)
+    event_logger().debug("  ca_home : %s", ca_home)
+    event_logger().debug("  cb_home : %s", cb_home)
     ca, cb = control_pressure(controller, ca_func, cb_func, total_duration, header_text=header_text)
-    if event_logger:
-        event_logger.debug("Done")
+    event_logger().debug("Done")
     return ca, cb
 
 

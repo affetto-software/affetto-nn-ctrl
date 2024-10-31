@@ -22,7 +22,7 @@ from affetto_nn_ctrl.control_utility import (
     resolve_joints_str,
     set_seed,
 )
-from affetto_nn_ctrl.event_logging import get_event_logger, start_event_logging
+from affetto_nn_ctrl.event_logging import event_logger, start_event_logging
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable, Sequence
@@ -832,13 +832,11 @@ class TestRandomTrajectoryData:
 
 
 def generate_data(active_joints: list[int], update_profile: str, *, async_update: bool) -> Path:
-    event_logger = get_event_logger()
     generator = TestRandomTrajectoryData()
     output = generator.make_output_path(TESTS_DATA_DIR_PATH, active_joints, update_profile, async_update=async_update)
     output.parent.mkdir(parents=True, exist_ok=True)
     generator.generate_data(output, active_joints, update_profile, async_update=async_update)
-    if event_logger:
-        event_logger.info("Data generated: %s", output)
+    event_logger().info("Data generated: %s", output)
     return output
 
 
@@ -846,13 +844,10 @@ def plot_generated_data(output: Path, xlim: tuple[float, float] | None = None, *
     import matplotlib.pyplot as plt
     from pyplotutil.datautil import Data
 
-    event_logger = get_event_logger()
-
     # Setup
     show_legend = False
     data = Data(output)
-    if event_logger:
-        event_logger.info("Data loaded: %s", output)
+    event_logger().info("Data loaded: %s", output)
 
     # Make plot of joint position
     plt.figure(1)

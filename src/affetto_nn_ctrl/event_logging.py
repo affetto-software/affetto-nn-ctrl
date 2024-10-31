@@ -5,6 +5,65 @@ import sys
 import tempfile
 from pathlib import Path
 
+DEFAULT_LOG_FORMATTER = "%(asctime)s (%(module)s:%(lineno)d) [%(levelname)s]: %(message)s"
+
+
+class FakeLogger:
+    def __init__(self, *, suppress_console_output: bool = False) -> None:
+        self.suppress_console_output = suppress_console_output
+
+    def _format(self, msg: str, *args: object) -> str:
+        formatted_msg = msg % args
+        if not formatted_msg.endswith("\n"):
+            formatted_msg += "\n"
+        return formatted_msg
+
+    def log(self, level: int, msg: str, *args: object, stacklevel: int = 1) -> None:
+        _ = stacklevel
+        match level:
+            case _ if level >= logging.CRITICAL:
+                self.critical(msg, args, stacklevel=stacklevel)
+            case _ if level >= logging.ERROR:
+                self.error(msg, args, stacklevel=stacklevel)
+            case _ if level >= logging.WARNING:
+                self.warning(msg, args, stacklevel=stacklevel)
+            case _ if level >= logging.INFO:
+                self.info(msg, args, stacklevel=stacklevel)
+            case _:
+                self.debug(msg, args, stacklevel=stacklevel)
+
+    def debug(self, msg: str, *args: object, stacklevel: int = 1) -> None:
+        _ = stacklevel
+        if not self.suppress_console_output:
+            sys.stderr.write(self._format(msg, *args))
+
+    def info(self, msg: str, *args: object, stacklevel: int = 1) -> None:
+        _ = stacklevel
+        if not self.suppress_console_output:
+            sys.stderr.write(self._format(msg, *args))
+
+    def warning(self, msg: str, *args: object, stacklevel: int = 1) -> None:
+        _ = stacklevel
+        if not self.suppress_console_output:
+            sys.stderr.write(self._format(msg, *args))
+
+    def error(self, msg: str, *args: object, stacklevel: int = 1) -> None:
+        _ = stacklevel
+        if not self.suppress_console_output:
+            sys.stderr.write(self._format(msg, *args))
+
+    def critical(self, msg: str, *args: object, stacklevel: int = 1) -> None:
+        _ = stacklevel
+        if not self.suppress_console_output:
+            sys.stderr.write(self._format(msg, *args))
+
+
+def is_running_in_pytest() -> bool:
+    return "pytest" in sys.modules
+
+
+_event_logger: logging.Logger | FakeLogger = FakeLogger(suppress_console_output=is_running_in_pytest())
+
 
 def _get_default_event_log_filename(
     argv: list[str],
@@ -23,10 +82,6 @@ def _get_default_event_log_filename(
     return event_log_filename
 
 
-_event_logger: logging.Logger | None = None
-DEFAULT_LOG_FORMATTER = "%(asctime)s (%(module)s:%(lineno)d) [%(levelname)s]: %(message)s"
-
-
 def start_event_logging(
     argv: list[str],
     output_dir: str | Path | None = None,
@@ -42,7 +97,7 @@ def start_event_logging(
         name = __name__
 
     global _event_logger  # noqa: PLW0603
-    if _event_logger is not None and _event_logger.name == name:
+    if isinstance(_event_logger, logging.Logger) and _event_logger.name == name:
         # Event logging has been started.
         return _event_logger
 
@@ -65,7 +120,7 @@ def start_event_logging(
         fh = logging.FileHandler(event_log_filename)
     except FileNotFoundError:
         # Maybe, running in dry-run mode...
-        sys.stderr.write("Unable to save log file (if running in dry-run mode, ignore this)\n")
+        sys.stderr.write(f"Unable to save log file (if running in dry-run mode, ignore this): {event_log_filename}\n")
     else:
         fh.setLevel(logging_level_file)
         fh.setFormatter(formatter)
@@ -82,11 +137,18 @@ def start_event_logging(
     return _event_logger
 
 
-def get_event_logger() -> logging.Logger | None:
+def event_logger() -> logging.Logger | FakeLogger:
     return _event_logger
 
 
-def start_logging(argv: list[str], output_dir: Path, verbose_count: int) -> logging.Logger:
+def start_logging(
+    argv: list[str],
+    output_dir: Path,
+    name: str,
+    verbose_count: int,
+    *,
+    dry_run: bool = False,
+) -> logging.Logger:
     match verbose_count:
         case 0:
             logging_level = "WARNING"
@@ -95,9 +157,11 @@ def start_logging(argv: list[str], output_dir: Path, verbose_count: int) -> logg
         case _:
             logging_level = "DEBUG"
 
-    return start_event_logging(argv, output_dir, name=__name__, logging_level=logging_level)
+    if not dry_run:
+        output_dir.mkdir(parents=True, exist_ok=True)
+    return start_event_logging(argv, output_dir, name=name, logging_level=logging_level)
 
 
 # Local Variables:
-# jinx-local-words: "asctime levelname lineno noqa"
+# jinx-local-words: "asctime levelname lineno noqa pytest"
 # End:
