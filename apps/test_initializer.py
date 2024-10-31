@@ -16,7 +16,7 @@ from affetto_nn_ctrl.data_handling import (
     get_output_dir_path,
     prepare_data_dir_path,
 )
-from affetto_nn_ctrl.event_logging import get_event_logger, start_logging
+from affetto_nn_ctrl.event_logging import event_logger, start_logging
 
 DEFAULT_DURATION = 10
 APP_NAME_TEST_INITIALIZER = "initializer_test"
@@ -34,13 +34,10 @@ def run(
     cb_init: list[float] | None,
     duration: float,
 ) -> None:
-    event_logger = get_event_logger()
-
     # Create controller and data logger.
     comm, ctrl, state = create_controller(config, sfreq, cfreq)
-    if event_logger:
-        event_logger.debug("Loading config file: %s", config)
-        event_logger.debug("Controller created: sfreq=%s cfreq=%s", state.freq, ctrl.freq)
+    event_logger().debug("Loading config file: %s", config)
+    event_logger().debug("Controller created: sfreq=%s cfreq=%s", state.freq, ctrl.freq)
 
     # Initialize robot pose.
     initializer = RobotInitializer(
@@ -54,32 +51,29 @@ def run(
         cb_init=cb_init,
     )
     initializer.get_back_home((comm, ctrl, state))
-    if event_logger:
-        event_logger.debug("Initialized robot pose:")
-        event_logger.debug("  config=%s", config)
-        event_logger.debug(
-            "  total_duration=%s (%s + %s), manner=%s",
-            initializer.total_duration,
-            initializer.duration,
-            initializer.duration_keep_steady,
-            initializer.get_manner(),
-        )
-        event_logger.info("Expected initialized pose: %s", initializer.get_q_init())
-        event_logger.info("Final valve commands (ca): %s", initializer.get_ca_init())
-        event_logger.info("Final valve commands (cb): %s", initializer.get_cb_init())
-        event_logger.info("Actually initialized pose: %s", state.q)
+    event_logger().debug("Initialized robot pose:")
+    event_logger().debug("  config=%s", config)
+    event_logger().debug(
+        "  total_duration=%s (%s + %s), manner=%s",
+        initializer.total_duration,
+        initializer.duration,
+        initializer.duration_keep_steady,
+        initializer.get_manner(),
+    )
+    event_logger().info("Expected initialized pose: %s", initializer.get_q_init())
+    event_logger().info("Final valve commands (ca): %s", initializer.get_ca_init())
+    event_logger().info("Final valve commands (cb): %s", initializer.get_cb_init())
+    event_logger().info("Actually initialized pose: %s", state.q)
 
     # Keep the initialized pose.
-    if event_logger:
-        event_logger.info("Keep the initialized pose for %s seconds...", duration)
+    event_logger().info("Keep the initialized pose for %s seconds...", duration)
     time.sleep(duration)
 
     # Release pressure.
     release_pressure((comm, ctrl, state))
 
     # Finish stuff.
-    if event_logger:
-        event_logger.debug("Test initializer finished")
+    event_logger().debug("Test initializer finished")
     comm.close_command_socket()
     state.join()
 
@@ -222,12 +216,11 @@ def main() -> None:
         args.specify_date,
         split_by_date=args.split_by_date,
     )
+    start_logging(sys.argv, output_dir, __name__, args.verbose)
+    event_logger().info("Output directory: %s", output_dir)
     prepare_data_dir_path(output_dir, make_latest_symlink=args.make_latest_symlink)
     copy_config(args.config, output_dir)
-    event_logger = start_logging(sys.argv, output_dir, args.verbose)
-    if event_logger:
-        event_logger.info("Output directory: %s", output_dir)
-        event_logger.debug("%s", args)
+    event_logger().debug("Parsed arguments: %s", args)
 
     # Start mainloop
     run(
