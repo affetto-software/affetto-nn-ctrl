@@ -86,7 +86,7 @@ def test_resolve_joints_str_return_all(dof: int, expected: list[int]) -> None:
 
 
 def test_resolve_joints_str_error_no_dof_given() -> None:
-    msg = "Unable to resolve given joints string: None" + ", Hint: provide an optional DOF argument"
+    msg = "Unable to resolve given joints string: all" + ", Hint: provide an optional DOF argument"
     with pytest.raises(ValueError, match=msg):
         resolve_joints_str(None)
 
@@ -153,6 +153,18 @@ def test_resolve_joints_str_single_str_error(joints_str: str, err_msg: str) -> N
 )
 def test_resolve_joints_str_multi_strings(joints_str: Iterable[str], expected: list[int]) -> None:
     assert resolve_joints_str(joints_str) == expected
+
+
+@pytest.mark.parametrize(("joints_str", "dof"), [("all", 13), (["all"], 10), (["0", "all"], 8)])
+def test_resolve_joints_str_all(joints_str: str | list[str], dof: int) -> None:
+    assert resolve_joints_str(joints_str, dof) == list(range(dof))
+
+
+@pytest.mark.parametrize("joints_str", ["all", ["all"]])
+def test_resolve_joints_str_error_all(joints_str: str | list[str]) -> None:
+    msg = "Unable to resolve given joints string: all" + ", Hint: provide an optional DOF argument"
+    with pytest.raises(ValueError, match=msg):
+        resolve_joints_str(joints_str)
 
 
 @pytest.fixture

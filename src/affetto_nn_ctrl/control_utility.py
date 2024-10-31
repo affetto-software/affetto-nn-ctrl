@@ -351,7 +351,7 @@ def _split_joints_str(s: str, delim: str) -> Iterable[str]:
     return re.split(delim, s)
 
 
-def _resolve_joints_str(joints_str: str) -> list[int]:
+def _resolve_joints_str(joints_str: str, dof: int | None) -> list[int]:
     resolved_joints: list[int] = []
     for s in _split_joints_str(joints_str, r"[\s,]+"):
         if len(s) == 0:
@@ -361,6 +361,15 @@ def _resolve_joints_str(joints_str: str) -> list[int]:
         if s.isdigit():
             # Resolve single digit string
             resolved_joints.append(_resolve_single_digit(s))
+
+        elif s == "all":
+            # Resolve all joints
+            if dof is not None:
+                resolved_joints.extend(range(dof))
+            else:
+                msg = f"{ERR_MSG_RESOLVE_JOINTS_STR}: {s}"
+                msg += ", Hint: provide an optional DOF argument"
+                raise ValueError(msg)
 
         elif "-" in s:
             # Resolve consecutive digits string
@@ -379,16 +388,13 @@ def _sort_and_remove_duplicates(resolved_joints: list[int]) -> list[int]:
 
 def resolve_joints_str(joints_str: str | Iterable[str] | None, dof: int | None = None) -> list[int]:
     if joints_str is None:
-        if dof is not None:
-            return list(range(dof))
-        msg = f"{ERR_MSG_RESOLVE_JOINTS_STR}: {joints_str}, Hint: provide an optional DOF argument"
-        raise ValueError(msg)
-
-    if isinstance(joints_str, str):
+        joints_str = ["all"]
+    elif isinstance(joints_str, str):
         joints_str = [joints_str]
+
     resolved_joints: list[int] = []
     for s in joints_str:
-        resolved_joints.extend(_resolve_joints_str(s))
+        resolved_joints.extend(_resolve_joints_str(s, dof))
 
     return _sort_and_remove_duplicates(resolved_joints)
 
