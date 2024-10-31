@@ -5,23 +5,29 @@ from __future__ import annotations
 import argparse
 import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
-import numpy as np
 from pyplotutil.datautil import Data
+
+from affetto_nn_ctrl.data_handling import find_latest_data_dir_path, is_latest_data_dir_path_maybe
 
 from .plot_utility import (
     DEFAULT_JOINT_NAMES,
     calculate_mean_err,
+    event_logger,
     extract_all_values,
     extract_common_parts,
     get_tlim_mask,
     mask_data,
-    savefig,
+    pickup_datapath,
+    save_figure,
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    import numpy as np
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure
     from matplotlib.lines import Line2D
@@ -88,7 +94,7 @@ def plot_mean_err(
             eb = ax.errorbar(t[mask], mean[mask], yerr=err1[mask], capsize=capsize, fmt=fmt, label=label)
         else:
             eb = ax.errorbar(t[mask], mean[mask], yerr=(err1[mask], err2[mask]), capsize=capsize, fmt=fmt, label=label)
-        lines = eb.lines
+        lines = eb.lines  # type: ignore[assignment]
     return lines[0]
 
 
@@ -124,7 +130,7 @@ def _plot_timeseries_mean_err(
     fill: bool = True,
     fill_err_type: str = "range",
     fill_alpha: float = 0.4,
-) -> Line2D:
+) -> Axes:
     for key in key_list:
         t, y = load_timeseries(dataset, f"{key}{joint_id}", tshift)
         if unit == "kPa":
@@ -133,7 +139,7 @@ def _plot_timeseries_mean_err(
         if fill:
             fill_between_err(ax, t, y, fill_err_type, tlim, line.get_color(), fill_alpha)
 
-    return line
+    return ax
 
 
 def _plot_timeseries_active_joints(
@@ -170,7 +176,7 @@ def _plot_timeseries(
     tshift: float,
     tlim: tuple[float, float] | None,
     dataset: Data | list[Data],
-    joint_id_list: int | list[int],
+    active_joints: int | list[int],
     key_list: Iterable[str],
     err_type: str | None,
     *,
@@ -185,7 +191,7 @@ def _plot_timeseries(
     fill_err_type: str = "range",
     fill_alpha: float = 0.4,
 ) -> Axes:
-    if not isinstance(joint_id_list, list):
+    if not isinstance(active_joints, list):
         if isinstance(dataset, Data):
             dataset = [dataset]
         if err_type is None:
@@ -193,7 +199,7 @@ def _plot_timeseries(
                 ax,
                 tlim,
                 dataset,
-                joint_id_list,  # int, not list[int]
+                active_joints,  # int, not list[int]
                 key_list,
                 only_once=only_once,
                 unit=unit,
@@ -205,7 +211,7 @@ def _plot_timeseries(
                 tshift,
                 tlim,
                 dataset,
-                joint_id_list,  # int, not list[int]
+                active_joints,  # int, not list[int]
                 key_list,
                 err_type,
                 unit=unit,
@@ -223,7 +229,7 @@ def _plot_timeseries(
             ax,
             tlim,
             dataset,  # Data, not list[Data]
-            joint_id_list,
+            active_joints,
             key_list,
             unit=unit,
             plot_labels=plot_labels,
@@ -250,7 +256,7 @@ def plot_pressure_command(
     tshift: float,
     tlim: tuple[float, float] | None,
     dataset: Data | list[Data],
-    joint_id_list: int | list[int],
+    active_joints: int | list[int],
     *,
     unit: str = "kPa",
     only_once: bool = False,
@@ -258,14 +264,14 @@ def plot_pressure_command(
     legend: bool = False,
 ) -> None:
     title = "Pressure at controllable valve"
-    # if ylim is None:
-    #     ylim = (-50, 650)
+    if ylim is None:
+        ylim = (-50, 650)
     _plot_timeseries(
         ax,
         tshift,
         tlim,
         dataset,
-        joint_id_list,
+        active_joints,
         ("ca", "cb"),
         err_type=None,
         unit=unit,
@@ -282,8 +288,9 @@ def plot_pressure_sensor(
     tshift: float,
     tlim: tuple[float, float] | None,
     dataset: Data | list[Data],
-    joint_id_list: int | list[int],
+    active_joints: int | list[int],
     err_type: str | None,
+    *,
     ylim: tuple[float, float] | None = None,
     legend: bool = False,
     fill: bool = True,
@@ -291,14 +298,12 @@ def plot_pressure_sensor(
     fill_alpha: float = 0.4,
 ) -> None:
     title = "Pressure in actuator chamber"
-    # if ylim is None:
-    #     ylim = (-50, 650)
     _plot_timeseries(
         ax,
         tshift,
         tlim,
         dataset,
-        joint_id_list,
+        active_joints,
         ("pa", "pb"),
         err_type,
         ylim=ylim,
@@ -316,8 +321,9 @@ def plot_velocity(
     tshift: float,
     tlim: tuple[float, float] | None,
     dataset: Data | list[Data],
-    joint_id_list: int | list[int],
+    active_joints: int | list[int],
     err_type: str | None,
+    *,
     ylim: tuple[float, float] | None = None,
     legend: bool = False,
     fill: bool = True,
@@ -330,7 +336,7 @@ def plot_velocity(
         tshift,
         tlim,
         dataset,
-        joint_id_list,
+        active_joints,
         ("dq",),
         err_type,
         ylim=ylim,
@@ -348,8 +354,9 @@ def plot_position(
     tshift: float,
     tlim: tuple[float, float] | None,
     dataset: Data | list[Data],
-    joint_id_list: int | list[int],
+    active_joints: int | list[int],
     err_type: str | None,
+    *,
     ylim: tuple[float, float] | None = None,
     legend: bool = False,
     fill: bool = True,
@@ -357,14 +364,14 @@ def plot_position(
     fill_alpha: float = 0.4,
 ) -> None:
     title = "Joint angle"
-    # if ylim is None:
-    #     ylim = (-10, 110)
+    if ylim is None:
+        ylim = (-10, 110)
     _plot_timeseries(
         ax,
         tshift,
         tlim,
         dataset,
-        joint_id_list,
+        active_joints,
         ("q",),
         err_type,
         ylim=ylim,
@@ -380,26 +387,27 @@ def plot_position(
 def plot_multi_data(
     datapath_list: list[Path],
     joint_id: int,
-    plot_vars: str,
+    plot_keys: str,
     err_type: str | None,
+    *,
     sharex: bool = False,
     tshift: float = 0.0,
     tlim: tuple[float, float] | None = None,
     legend: bool = False,
     title: str | None = None,
-    only_once: bool = False,
+    show_cmd_once: bool = True,
     fill: bool = True,
     fill_err_type: str = "range",
     fill_alpha: float = 0.4,
-) -> tuple[Figure, Axes]:
-    n_vars = len(plot_vars)
-    figsize = (16, 4 * n_vars)
-    fig, axes = plt.subplots(nrows=n_vars, sharex=sharex, figsize=figsize)
+) -> tuple[Figure, list[Axes]]:
+    n_keys = len(plot_keys)
+    figsize = (16, 4 * n_keys)
+    fig, axes = plt.subplots(nrows=n_keys, sharex=sharex, figsize=figsize)
 
-    if n_vars == 1:
+    if n_keys == 1:
         axes = [axes]
     dataset = [Data(csv) for csv in datapath_list]
-    for ax, v in zip(axes, plot_vars):
+    for ax, v in zip(axes, plot_keys, strict=True):
         if v == "c":
             plot_pressure_command(
                 ax,
@@ -408,7 +416,7 @@ def plot_multi_data(
                 dataset,
                 joint_id,
                 unit="kPa",
-                only_once=only_once,
+                only_once=show_cmd_once,
                 ylim=None,
                 legend=legend,
             )
@@ -455,240 +463,333 @@ def plot_multi_data(
                 fill_alpha=fill_alpha,
             )
         else:
-            raise ValueError(f"unrecognized plot variable: {v}")
+            msg = f"unrecognized plot variable: {v}"
+            raise ValueError(msg)
 
     axes[-1].set_xlabel("time [s]")
     if title:
         fig.suptitle(title)
 
-    return fig, ax
+    return fig, axes
 
 
 def plot_multi_joint(
     datapath: Path,
-    joint_id_list: list[int],
-    plot_vars: str,
+    active_joints: list[int],
+    plot_keys: str,
+    *,
     sharex: bool = False,
     tshift: float = 0.0,
     tlim: tuple[float, float] | None = None,
     legend: bool = False,
     title: str | None = None,
-    only_once: bool = False,
-) -> tuple[Figure, Axes]:
-    n_vars = len(plot_vars)
-    figsize = (8, 4 * n_vars)
-    fig, axes = plt.subplots(nrows=n_vars, sharex=sharex, figsize=figsize)
+    show_cmd_once: bool = True,
+) -> tuple[Figure, list[Axes]]:
+    n_keys = len(plot_keys)
+    figsize = (8, 4 * n_keys)
+    fig, axes = plt.subplots(nrows=n_keys, sharex=sharex, figsize=figsize)
 
     data = Data(datapath)
-    for ax, v in zip(axes, plot_vars):
+    for ax, v in zip(axes, plot_keys, strict=True):
         if v == "c":
             plot_pressure_command(
-                ax, tshift, tlim, data, joint_id_list, unit="kPa", only_once=only_once, ylim=None, legend=legend
+                ax,
+                tshift,
+                tlim,
+                data,
+                active_joints,
+                unit="kPa",
+                only_once=show_cmd_once,
+                ylim=None,
+                legend=legend,
             )
         elif v == "p":
-            plot_pressure_sensor(ax, tshift, tlim, data, joint_id_list, err_type=None, ylim=None, legend=legend)
+            plot_pressure_sensor(
+                ax,
+                tshift,
+                tlim,
+                data,
+                active_joints,
+                err_type=None,
+                ylim=None,
+                legend=legend,
+            )
         elif v == "v":
-            plot_velocity(ax, tshift, tlim, data, joint_id_list, err_type=None, ylim=None, legend=legend)
+            plot_velocity(
+                ax,
+                tshift,
+                tlim,
+                data,
+                active_joints,
+                err_type=None,
+                ylim=None,
+                legend=legend,
+            )
         elif v == "q":
-            plot_position(ax, tshift, tlim, data, joint_id_list, err_type=None, ylim=None, legend=legend)
+            plot_position(
+                ax,
+                tshift,
+                tlim,
+                data,
+                active_joints,
+                err_type=None,
+                ylim=None,
+                legend=legend,
+            )
         else:
-            raise ValueError(f"unrecognized plot variable: {v}")
+            msg = f"unrecognized plot variable: {v}"
+            raise ValueError(msg)
 
     axes[-1].set_xlabel("time [s]")
     if title:
         fig.suptitle(title)
 
-    return fig, ax
+    return fig, axes
 
 
-def save_figure(fig: Figure, savedir: Path, basename: str, ext: list[str] | None) -> Path:
-    filename = savedir / basename
-    fig.tight_layout()
-    if ext is not None:
-        savefig(fig, filename, ext)
-    return filename
+def _plot_data_across_multi_joints(
+    datapath: Path,
+    active_joints: list[int],
+    plot_keys: str,
+    *,
+    sharex: bool,
+    tshift: float,
+    tlim: tuple[float, float] | None,
+    legend: bool,
+    title: str | None,
+    show_cmd_once: bool,
+    savefig_dir: str | None,
+    ext_list: list[str] | None,
+    dpi: float | str,
+) -> None:
+    if datapath.is_dir():
+        msg = f"{datapath} is a directory. Specify a CSV file."
+        raise ValueError(msg)
+    savefig_dir_path = Path(savefig_dir) if savefig_dir is not None else datapath
+
+    if title is None:
+        savefig_basename = f"{plot_keys.replace('+', 'x')}/"
+        savefig_basename += "multi_joints/"
+        savefig_basename += "_".join(map(str, active_joints))
+        title = f"Joints: {' '.join(map(str, active_joints))}"
+    else:
+        savefig_basename = f"{plot_keys.replace('+', 'x')}/"
+        savefig_basename += "multi_joints/"
+        table = {":": "", " ": "_", "(": "", ")": ""}
+        savefig_basename += title.translate(str.maketrans(table)).lower()  # type: ignore[arg-type]
+
+    fig, _ = plot_multi_joint(
+        datapath,
+        active_joints,
+        plot_keys,
+        sharex=sharex,
+        tshift=tshift,
+        tlim=tlim,
+        legend=legend,
+        title=title,
+        show_cmd_once=show_cmd_once,
+    )
+    save_figure(fig, savefig_dir_path, savefig_basename, ext_list, dpi=dpi)
+
+
+def _determine_datapath_list_and_default_save_dirpath(
+    given_datapath_list: list[str],
+    pickup_list: list[int | str] | None,
+    *,
+    latest: bool,
+) -> tuple[list[Path], Path]:
+    # Determine correct data file list and default save directory.
+    if len(given_datapath_list) == 1:
+        dirpath = Path(given_datapath_list[0])
+        if not dirpath.is_dir():
+            msg = f"{dirpath} is a file. Specify a directory or joint list."
+            raise ValueError(msg)
+        if latest and not is_latest_data_dir_path_maybe(dirpath):
+            dirpath = find_latest_data_dir_path(dirpath)
+        event_logger().info("Collecting CSV files in '%s'...", dirpath)
+        correct_datapath_list = sorted(dirpath.glob("*.csv"), key=lambda path: path.name)
+        event_logger().info(" %s files found.", len(correct_datapath_list))
+        event_logger().debug("Default save directory: %s", dirpath)
+
+    elif len(given_datapath_list) > 1:
+        for path in given_datapath_list:
+            if Path(path).is_dir():
+                msg = f"Unable to provide multiple directories: {given_datapath_list}"
+                raise ValueError(msg)
+        correct_datapath_list = [Path(p) for p in given_datapath_list]
+        event_logger().info("Provided %s data files.", len(correct_datapath_list))
+        dirpath = extract_common_parts(*given_datapath_list)
+        event_logger().debug("Default save directory: %s", dirpath)
+
+    else:
+        msg = "No datapath provided"
+        raise ValueError(msg)
+
+    if pickup_list is not None:
+        correct_datapath_list = pickup_datapath(correct_datapath_list, pickup_list)
+        event_logger().info("Only specified data will be loaded: %s", {",".join(map(str, pickup_list))})
+
+    return correct_datapath_list, dirpath
+
+
+def _plot_specific_joint_across_multi_data(
+    datapath_list: list[Path],
+    active_joints: list[int],
+    joint_name: str | None,
+    plot_keys: str,
+    *,
+    sharex: bool,
+    tshift: float,
+    tlim: tuple[float, float] | None,
+    legend: bool,
+    err_type: str | None,
+    title: str | None,
+    show_cmd_once: bool,
+    savefig_dir: Path,
+    ext_list: list[str] | None,
+    dpi: float | str,
+    fill: bool,
+    fill_err_type: str | None,
+    fill_alpha: float | None,
+) -> None:
+    if len(active_joints) > 1:
+        msg = "Multiple data plots with multiple joints are not supported."
+        event_logger().warning(msg)
+        warnings.warn(msg, stacklevel=2)
+    joint_id = active_joints[0]
+    if joint_name is None:
+        joint_name = DEFAULT_JOINT_NAMES.get(str(joint_id), "unknown_joint")
+
+    savefig_basename = f"{plot_keys.replace('+', 'x')}/"
+    if err_type:
+        savefig_basename += "mean_err/"
+    else:
+        savefig_basename += "multi_data/"
+    if title is None:
+        savefig_basename += f"{joint_id:02}_{joint_name}"
+        title = f"{joint_id:02}: {joint_name}"
+    else:
+        table = {":": "", " ": "_", "(": "", ")": ""}
+        savefig_basename += title.translate(str.maketrans(table)).lower()  # type: ignore[arg-type]
+
+    if fill_err_type is None:
+        fill_err_type = "range"
+    if fill_alpha is None:
+        fill_alpha = 0.4
+
+    if len(datapath_list) == 0:
+        msg = f"No data found: datapath: {datapath_list} joint ID: {active_joints}"
+        raise RuntimeError(msg)
+    fig, _ = plot_multi_data(
+        datapath_list,
+        joint_id,
+        plot_keys,
+        err_type,
+        sharex=sharex,
+        tshift=tshift,
+        tlim=tlim,
+        legend=legend,
+        title=title,
+        show_cmd_once=show_cmd_once,
+        fill=fill,
+        fill_err_type=fill_err_type,
+        fill_alpha=fill_alpha,
+    )
+    save_figure(fig, savefig_dir, savefig_basename, ext_list, dpi=dpi)
 
 
 def plot(
     datapath_list: list[str],
     pickup_list: list[int | str] | None,
-    plot_vars: str | None,
-    joint_id_list: list[int] | None,
+    plot_keys: str | None,
+    active_joints: list[int],
     joint_name: str | None,
-    chamber: str | None,
-    pose: str | None,
+    *,
     latest: bool,
     tshift: float,
     tlim: tuple[float, float] | None,
     title: str | None,
+    show_legend: bool,
     err_type: str | None,
-    ext: list[str] | None,
+    ext_list: list[str] | None,
     savefig_dir: str | None,
-    only_once: bool,
+    show_cmd_once: bool,
+    dpi: float | str,
     fill: bool,
     fill_err_type: str | None,
     fill_alpha: float | None,
 ) -> None:
-    if plot_vars is None:
-        plot_vars = "cpvq"
+    if plot_keys is None:
+        plot_keys = "cpvq"
 
-    if joint_id_list is not None and len(joint_id_list) > 1:
+    if len(active_joints) > 1:
         if len(datapath_list) > 1:
-            warnings.warn(f"Multiple data plots with multiple joints are not supported.")
+            msg = "Multiple data plots with multiple joints are not supported."
+            event_logger().warning(msg)
+            warnings.warn(msg, stacklevel=2)
         datapath = Path(datapath_list[0])
-        if datapath.is_dir():
-            raise ValueError(f"{datapath} is a directory. Specify a CSV file.")
-        if savefig_dir is not None:
-            savefig_dir_path = Path(savefig_dir)
-        else:
-            savefig_dir_path = datapath
-
-        if title is None:
-            savefig_basename = f"{plot_vars.replace('+', 'x')}/"
-            savefig_basename += f"multi_joint/"
-            savefig_basename += "_".join(map(str, joint_id_list))
-            title = f"Joints: {' '.join(map(str, joint_id_list))}"
-        else:
-            savefig_basename = f"{plot_vars.replace('+', 'x')}/"
-            savefig_basename += f"multi_joint/"
-            savefig_basename += title.translate(str.maketrans({":": "", " ": "_", "(": "", ")": ""})).lower()
-        legend = False
-        if len(joint_id_list) <= 4:
-            legend = True
-        fig, _ = plot_multi_joint(
+        _plot_data_across_multi_joints(
             datapath,
-            joint_id_list,
-            plot_vars,
+            active_joints,
+            plot_keys,
             sharex=True,
             tshift=tshift,
             tlim=tlim,
-            legend=legend,
+            legend=show_legend,
             title=title,
-            only_once=only_once,
+            show_cmd_once=show_cmd_once,
+            savefig_dir=savefig_dir,
+            ext_list=ext_list,
+            dpi=dpi,
         )
-        savefig_path = save_figure(fig, savefig_dir_path, savefig_basename, ext)
-
     else:
-        if len(datapath_list) == 1:
-            dirpath = Path(datapath_list[0])
-            if not dirpath.is_dir():
-                raise ValueError(f"{dirpath} is a file. Specify a directory or joint list.")
-            if chamber is not None and pose is not None:
-                dirpath = dirpath / chamber / pose
-            if latest:
-                if not is_latest_dir_maybe(dirpath):
-                    dirpath = find_latest_dir(dirpath)
-            print(f"Collecting CSV files in '{dirpath}'...", end="")
-            args = sorted(dirpath.glob("*.csv"), key=lambda path: path.name)
-            print(f" {len(args)} files found.")
-
-        elif len(datapath_list) > 1:
-            for path in datapath_list:
-                if Path(path).is_dir():
-                    raise ValueError(f"Unable to provide multiple directories: {datapath_list}")
-            dirpath = extract_common_parts(*datapath_list)
-            args = [Path(p) for p in datapath_list]
-
-        else:
-            raise ValueError(f"No datapath provided")
-
-        if pickup_list is not None:
-            args = pickup_paths(args, pickup_list)
-            print(f"Only specified indices will be used: {','.join(map(str, pickup_list))}")
-
-        if joint_id_list is None:
-            joint_id, joint_name = find_joint_index_name(dirpath)
-        else:
-            if len(joint_id_list) > 1:
-                warnings.warn(f"Multiple data plots with multiple joints are not supported.")
-            joint_id = joint_id_list[0]
-        if joint_name is None:
-            joint_name = DEFAULT_JOINT_NAMES.get(str(joint_id), "unknown_joint")
-
-        if savefig_dir is not None:
-            savefig_dir_path = Path(savefig_dir)
-        else:
-            savefig_dir_path = dirpath
-
-        if title is None:
-            savefig_basename = f"{plot_vars.replace('+', 'x')}/"
-            if err_type:
-                savefig_basename += f"mean_err/"
-            else:
-                savefig_basename += f"multi_data/"
-            savefig_basename += f"{joint_id:02}_{joint_name}"
-            title = f"{joint_id:02}: {joint_name}"
-            if chamber is None:
-                try:
-                    chamber = find_active_chamber_name(dirpath)
-                    pose = find_pose_name(dirpath)
-                except ValueError:
-                    pass
-                else:
-                    title += f" (chamber: {chamber[1].upper()}, {pose})"
-        else:
-            savefig_basename = f"{plot_vars.replace('+', 'x')}/"
-            if err_type:
-                savefig_basename += f"mean_err/"
-            else:
-                savefig_basename += f"multi_data/"
-            savefig_basename += title.translate(str.maketrans({":": "", " ": "_", "(": "", ")": ""})).lower()
-
-        if fill_err_type is None:
-            fill_err_type = "range"
-        if fill_alpha is None:
-            fill_alpha = 0.4
-
-        if len(args) == 0:
-            raise RuntimeError(f"No data found: datapath: {datapath_list} joint ID: {joint_id_list}")
-        fig, _ = plot_multi_data(
-            args,
-            joint_id,
-            plot_vars,
-            err_type,
+        correct_datapath_list, default_savefig_dir = _determine_datapath_list_and_default_save_dirpath(
+            datapath_list,
+            pickup_list,
+            latest=latest,
+        )
+        savefig_dir_path = default_savefig_dir if savefig_dir is None else Path(savefig_dir)
+        _plot_specific_joint_across_multi_data(
+            correct_datapath_list,
+            active_joints,
+            joint_name,
+            plot_keys,
             sharex=True,
             tshift=tshift,
             tlim=tlim,
-            legend=False,
+            legend=show_legend,
+            err_type=err_type,
             title=title,
-            only_once=only_once,
+            show_cmd_once=show_cmd_once,
+            savefig_dir=savefig_dir_path,
+            ext_list=ext_list,
+            dpi=dpi,
             fill=fill,
-            fill_err_type=fill_err_type,
             fill_alpha=fill_alpha,
+            fill_err_type=fill_err_type,
         )
-        savefig_path = save_figure(fig, savefig_dir_path, savefig_basename, ext)
-
-    # for debugging purpose
-    _ = savefig_path
-    # print(f"Saving to: {savefig_path}")
 
 
-def parse():
+def parse() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Plot script to visualize time series data")
     parser.add_argument("datapath", nargs="+", help="list of paths to data file or directory")
     parser.add_argument("--pickup", nargs="+", help="pick up specified indices of data files")
     parser.add_argument(
-        "-v",
-        "--plot-vars",
-        help="string repreesenting variable to plot consisting of 'c', 'p', 'v' and 'q'",
+        "-k",
+        "--plot-keys",
+        help="string representing variable to plot consisting of 'c', 'p', 'v' and 'q'",
     )
     parser.add_argument("-j", "--joints", nargs="+", type=int, help="list of joint ids")
     parser.add_argument("--joint-name", help="joint name")
-    parser.add_argument("-c", "--chamber", help="active chamber side, ca or cb")
-    parser.add_argument("-p", "--pose", help="pose name, pose0 or pose1")
-    parser.add_argument("-t", "--err-type", help="how to calculate errors, e.g. sd, range, se")
+    parser.add_argument("-t", "--err-type", help="how to calculate errors, choose from [sd, range, se]")
     parser.add_argument(
         "-l",
         "--latest",
         action=argparse.BooleanOptionalAction,
-        help="whether try to find latest directory or not",
+        default=True,
+        help="whether try to find latest directory or not (default: True)",
     )
     parser.add_argument("--title", help="figure title")
-    parser.add_argument(
-        "--all-joints",
-        action=argparse.BooleanOptionalAction,
-        help="if specified plot all joints",
-    )
     parser.add_argument("--tshift", type=float, default=0.0, help="time shift")
     parser.add_argument("--tlim", nargs="+", type=float, help="range of time")
     parser.add_argument(
@@ -698,20 +799,30 @@ def parse():
         nargs="*",
         help="extensions that the figure will be saved as",
     )
-    parser.add_argument("-o", "--output-dir", help="path to directory that firegures are saved")
+    parser.add_argument("--dpi", default="figure", help="figure DPI to be saved")
+    parser.add_argument("-o", "--output-dir", help="path to directory that figures are saved")
     parser.add_argument(
-        "--show",
+        "--show-screen",
         action=argparse.BooleanOptionalAction,
-        help="whether plot screen is shown or not",
+        default=True,
+        help="whether plot screen is shown or not (default: True)",
     )
     parser.add_argument(
-        "--command-only-once",
+        "--show-cmd-once",
         action=argparse.BooleanOptionalAction,
-        help="whether plot command only once (default: True)",
+        default=True,
+        help="whether show command data only once (default: True)",
+    )
+    parser.add_argument(
+        "--show-legend",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="whether show command data only once (default: True)",
     )
     parser.add_argument(
         "--fill",
         action=argparse.BooleanOptionalAction,
+        default=True,
         help="whether fill between error (default: True)",
     )
     parser.add_argument("--fill-err-type", help="how to calculate errors for filling, e.g. sd, range, se")
@@ -719,48 +830,43 @@ def parse():
     return parser.parse_args()
 
 
-def main():
+def main() -> None:
     args = parse()
-    if args.latest is None:
-        args.latest = True
     if args.tlim is not None:
         if len(args.tlim) == 1:
             args.tlim = (0, args.tlim[0])
         else:
             args.tlim = (min(args.tlim), max(args.tlim))
-    if args.all_joints:
-        args.joints = list(range(13))
-        if args.title is None:
-            args.title = "Whole body"
-    if args.command_only_once is None:
-        args.command_only_once = True
-    if args.fill is None:
-        args.fill = True
+    dpi = float(args.dpi) if args.dpi != "figure" else args.dpi
 
     plot(
         args.datapath,
         pickup_list=args.pickup,
-        plot_vars=args.plot_vars,
-        joint_id_list=args.joints,
+        plot_keys=args.plot_keys,
+        active_joints=args.joints,
         joint_name=args.joint_name,
-        chamber=args.chamber,
-        pose=args.pose,
         latest=args.latest,
         tshift=args.tshift,
         tlim=args.tlim,
         title=args.title,
+        show_legend=args.show_legend,
         err_type=args.err_type,
-        ext=args.ext,
+        ext_list=args.ext,
         savefig_dir=args.output_dir,
-        only_once=args.command_only_once,
+        show_cmd_once=args.show_cmd_once,
+        dpi=dpi,
         fill=args.fill,
         fill_err_type=args.fill_err_type,
         fill_alpha=args.fill_alpha,
     )
 
-    if args.show or args.show is None:
+    if args.show_screen or args.show_screen is None:
         plt.show()
 
 
 if __name__ == "__main__":
     main()
+
+# Local Variables:
+# jinx-local-words: "arg cb cmd cpvq csv datapath dir dq env pb png sd se tlim tshift usr"
+# End:
