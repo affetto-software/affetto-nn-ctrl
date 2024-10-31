@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -9,6 +8,7 @@ import numpy as np
 from pyplotutil.datautil import Data
 
 from affetto_nn_ctrl.data_handling import find_latest_data_dir_path
+from affetto_nn_ctrl.event_logging import event_logger
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -34,7 +34,14 @@ DEFAULT_JOINT_NAMES = {
 }
 
 
-def savefig(fig: Figure, data_file_path: Path, ext_list: list[str], *, separate_dir: bool = True) -> None:
+def savefig(
+    fig: Figure,
+    data_file_path: Path,
+    ext_list: list[str],
+    *,
+    dpi: float | str = "figure",
+    separate_dir: bool = True,
+) -> None:
     for ext in ext_list:
         e = ext
         if not e.startswith("."):
@@ -49,11 +56,19 @@ def savefig(fig: Figure, data_file_path: Path, ext_list: list[str], *, separate_
             # Separate saving directories across extensions.
             figpath = figpath.parent / e[1:] / figpath.name
             figpath.parent.mkdir(parents=True, exist_ok=True)
-        fig.savefig(figpath, dpi=150, bbox_inches="tight")
-        sys.stdout.write(f"Figure saved: {figpath}\n")
+        fig.savefig(figpath, dpi=dpi, bbox_inches="tight")
+        msg = f"Figure saved: {figpath}\n"
+        event_logger().info(msg)
 
 
-def save_figure(fig: Figure, save_dir_path: Path, basename: str, ext: list[str]) -> Path:
+def save_figure(
+    fig: Figure,
+    save_dir_path: Path,
+    basename: str,
+    ext_list: list[str] | None,
+    *,
+    dpi: float | str = "figure",
+) -> Path:
     try:
         import __main__
 
@@ -67,8 +82,10 @@ def save_figure(fig: Figure, save_dir_path: Path, basename: str, ext: list[str])
     built_filename /= basename
 
     fig.tight_layout()
-    if ext is not None:
-        savefig(fig, built_filename, ext)
+    if ext_list is not None:
+        savefig(fig, built_filename, ext_list, dpi=dpi)
+    else:
+        event_logger().debug("Figure not saved as no extension is provided.")
     return built_filename
 
 
@@ -86,6 +103,20 @@ def load_dataset(dataset_dir_path: Path, pattern: str = "**.csv") -> list[Data]:
 
 def load_latest_dataset(dataset_dir_path: Path, pattern: str = "**.csv") -> list[Data]:
     return load_dataset(find_latest_data_dir_path(dataset_dir_path, force_find_by_pattern=True), pattern)
+
+
+def pickup_datapath(path_list: list[Path], pickup_list: list[int | str]) -> list[Path]:
+    cherries = []
+    for i in pickup_list:
+        if isinstance(i, str):
+            if "-" in i:
+                begin, end = map(int, i.split("-"))
+                cherries.extend(path_list[begin : end + 1])
+            else:
+                cherries.append(path_list[int(i)])
+        else:
+            cherries.append(path_list[i])
+    return cherries
 
 
 def find_minimum_length(dataset: list[Data]) -> int:
