@@ -10,7 +10,9 @@ from typing import TYPE_CHECKING
 import matplotlib.pyplot as plt
 from pyplotutil.datautil import Data
 
+from affetto_nn_ctrl.control_utility import resolve_joints_str
 from affetto_nn_ctrl.data_handling import find_latest_data_dir_path, is_latest_data_dir_path_maybe
+from affetto_nn_ctrl.event_logging import start_logging
 from affetto_nn_ctrl.plot_utility import (
     DEFAULT_JOINT_NAMES,
     calculate_mean_err,
@@ -557,25 +559,16 @@ def _plot_data_across_multi_joints(
     legend: bool,
     title: str | None,
     show_cmd_once: bool,
-    savefig_dir: str | None,
+    savefig_dir: Path,
     ext_list: list[str] | None,
     dpi: float | str,
 ) -> None:
-    if datapath.is_dir():
-        msg = f"{datapath} is a directory. Specify a CSV file."
-        raise ValueError(msg)
-    savefig_dir_path = Path(savefig_dir) if savefig_dir is not None else datapath
-
+    savefig_basename = f"{plot_keys}/multi_joints/"
     if title is None:
-        savefig_basename = f"{plot_keys.replace('+', 'x')}/"
-        savefig_basename += "multi_joints/"
         savefig_basename += "_".join(map(str, active_joints))
         title = f"Joints: {' '.join(map(str, active_joints))}"
     else:
-        savefig_basename = f"{plot_keys.replace('+', 'x')}/"
-        savefig_basename += "multi_joints/"
-        table = {":": "", " ": "_", "(": "", ")": ""}
-        savefig_basename += title.translate(str.maketrans(table)).lower()  # type: ignore[arg-type]
+        savefig_basename += title.lower()
 
     fig, _ = plot_multi_joint(
         datapath,
@@ -588,47 +581,7 @@ def _plot_data_across_multi_joints(
         title=title,
         show_cmd_once=show_cmd_once,
     )
-    save_figure(fig, savefig_dir_path, savefig_basename, ext_list, dpi=dpi)
-
-
-def _determine_datapath_list_and_default_save_dirpath(
-    given_datapath_list: list[str],
-    pickup_list: list[int | str] | None,
-    *,
-    latest: bool,
-) -> tuple[list[Path], Path]:
-    # Determine correct data file list and default save directory.
-    if len(given_datapath_list) == 1:
-        dirpath = Path(given_datapath_list[0])
-        if not dirpath.is_dir():
-            msg = f"{dirpath} is a file. Specify a directory or joint list."
-            raise ValueError(msg)
-        if latest and not is_latest_data_dir_path_maybe(dirpath):
-            dirpath = find_latest_data_dir_path(dirpath)
-        event_logger().info("Collecting CSV files in '%s'...", dirpath)
-        correct_datapath_list = sorted(dirpath.glob("*.csv"), key=lambda path: path.name)
-        event_logger().info(" %s files found.", len(correct_datapath_list))
-        event_logger().debug("Default save directory: %s", dirpath)
-
-    elif len(given_datapath_list) > 1:
-        for path in given_datapath_list:
-            if Path(path).is_dir():
-                msg = f"Unable to provide multiple directories: {given_datapath_list}"
-                raise ValueError(msg)
-        correct_datapath_list = [Path(p) for p in given_datapath_list]
-        event_logger().info("Provided %s data files.", len(correct_datapath_list))
-        dirpath = extract_common_parts(*given_datapath_list)
-        event_logger().debug("Default save directory: %s", dirpath)
-
-    else:
-        msg = "No datapath provided"
-        raise ValueError(msg)
-
-    if pickup_list is not None:
-        correct_datapath_list = pickup_datapath(correct_datapath_list, pickup_list)
-        event_logger().info("Only specified data will be loaded: %s", {",".join(map(str, pickup_list))})
-
-    return correct_datapath_list, dirpath
+    save_figure(fig, savefig_dir, savefig_basename, ext_list, dpi=dpi)
 
 
 def _plot_specific_joint_across_multi_data(
@@ -659,7 +612,7 @@ def _plot_specific_joint_across_multi_data(
     if joint_name is None:
         joint_name = DEFAULT_JOINT_NAMES.get(str(joint_id), "unknown_joint")
 
-    savefig_basename = f"{plot_keys.replace('+', 'x')}/"
+    savefig_basename = f"{plot_keys}/"
     if err_type:
         savefig_basename += "mean_err/"
     else:
@@ -668,17 +621,13 @@ def _plot_specific_joint_across_multi_data(
         savefig_basename += f"{joint_id:02}_{joint_name}"
         title = f"{joint_id:02}: {joint_name}"
     else:
-        table = {":": "", " ": "_", "(": "", ")": ""}
-        savefig_basename += title.translate(str.maketrans(table)).lower()  # type: ignore[arg-type]
+        savefig_basename += title.lower()
 
     if fill_err_type is None:
         fill_err_type = "range"
     if fill_alpha is None:
         fill_alpha = 0.4
 
-    if len(datapath_list) == 0:
-        msg = f"No data found: datapath: {datapath_list} joint ID: {active_joints}"
-        raise RuntimeError(msg)
     fig, _ = plot_multi_data(
         datapath_list,
         joint_id,
@@ -697,59 +646,97 @@ def _plot_specific_joint_across_multi_data(
     save_figure(fig, savefig_dir, savefig_basename, ext_list, dpi=dpi)
 
 
-def plot(
-    datapath_list: list[str],
+def collect_datapath(
+    given_datapath: list[str],
     pickup_list: list[int | str] | None,
-    plot_keys: str | None,
     active_joints: list[int],
-    joint_name: str | None,
     *,
     latest: bool,
+) -> tuple[Path | list[Path], Path]:
+    if len(active_joints) > 1:
+        if len(given_datapath) > 1:
+            msg = "Multiple data plots with multiple joints are not supported."
+            event_logger().warning(msg)
+            warnings.warn(msg, stacklevel=2)
+        datapath = Path(given_datapath[0])
+        if datapath.is_dir():
+            msg = f"{datapath} is a directory. Specify a CSV file."
+            raise ValueError(msg)
+        event_logger().info("Loading single CSV file: %s", datapath)
+        default_savefig_dir = datapath.parent / datapath.stem
+        event_logger().debug("Default save directory: %s", default_savefig_dir)
+        return datapath, default_savefig_dir
+
+    if len(given_datapath) == 0:
+        msg = "No datapath provided"
+        raise ValueError(msg)
+
+    if len(given_datapath) == 1:
+        dirpath = Path(given_datapath[0])
+        if not dirpath.is_dir():
+            msg = f"{dirpath} is a file. Specify a directory or joint list."
+            raise ValueError(msg)
+        if latest and not is_latest_data_dir_path_maybe(dirpath):
+            dirpath = find_latest_data_dir_path(dirpath)
+        event_logger().info("Collecting CSV files in '%s'...", dirpath)
+        datapath_list = sorted(dirpath.glob("*.csv"), key=lambda path: path.name)
+        event_logger().info(" %s files found.", len(datapath_list))
+        event_logger().debug("Default save directory: %s", dirpath)
+
+    else:
+        if any(Path(path).is_dir() for path in given_datapath):
+            msg = f"Unable to provide multiple directories: {given_datapath}"
+            raise ValueError(msg)
+        datapath_list = [Path(p) for p in given_datapath]
+        event_logger().info("Provided %s data files.", len(datapath_list))
+        dirpath = extract_common_parts(*datapath_list)
+        event_logger().debug("Default save directory: %s", dirpath)
+
+    if pickup_list is not None:
+        datapath_list = pickup_datapath(datapath_list, pickup_list)
+        event_logger().info("Only specified data will be loaded: %s", {",".join(map(str, pickup_list))})
+
+    return datapath_list, dirpath
+
+
+def plot(
+    datapath: Path | list[Path],
+    plot_keys: str,
+    active_joints: list[int],
+    joint_name: str | None,
+    output_dir: Path,
+    *,
+    sharex: bool,
     tshift: float,
     tlim: tuple[float, float] | None,
     title: str | None,
     show_legend: bool,
     err_type: str | None,
     ext_list: list[str] | None,
-    savefig_dir: str | None,
     show_cmd_once: bool,
     dpi: float | str,
     fill: bool,
     fill_err_type: str | None,
     fill_alpha: float | None,
 ) -> None:
-    if plot_keys is None:
-        plot_keys = "cpvq"
-
-    if len(active_joints) > 1:
-        if len(datapath_list) > 1:
-            msg = "Multiple data plots with multiple joints are not supported."
-            event_logger().warning(msg)
-            warnings.warn(msg, stacklevel=2)
-        datapath = Path(datapath_list[0])
+    if isinstance(datapath, Path):
         _plot_data_across_multi_joints(
             datapath,
             active_joints,
             plot_keys,
-            sharex=True,
+            sharex=sharex,
             tshift=tshift,
             tlim=tlim,
             legend=show_legend,
             title=title,
             show_cmd_once=show_cmd_once,
-            savefig_dir=savefig_dir,
+            savefig_dir=output_dir,
             ext_list=ext_list,
             dpi=dpi,
         )
     else:
-        correct_datapath_list, default_savefig_dir = _determine_datapath_list_and_default_save_dirpath(
-            datapath_list,
-            pickup_list,
-            latest=latest,
-        )
-        savefig_dir_path = default_savefig_dir if savefig_dir is None else Path(savefig_dir)
         _plot_specific_joint_across_multi_data(
-            correct_datapath_list,
+            datapath,
             active_joints,
             joint_name,
             plot_keys,
@@ -760,7 +747,7 @@ def plot(
             err_type=err_type,
             title=title,
             show_cmd_once=show_cmd_once,
-            savefig_dir=savefig_dir_path,
+            savefig_dir=output_dir,
             ext_list=ext_list,
             dpi=dpi,
             fill=fill,
@@ -776,9 +763,15 @@ def parse() -> argparse.Namespace:
     parser.add_argument(
         "-k",
         "--plot-keys",
+        default="cpvq",
         help="string representing variable to plot consisting of 'c', 'p', 'v' and 'q'",
     )
-    parser.add_argument("-j", "--joints", nargs="+", type=int, help="list of joint ids")
+    parser.add_argument(
+        "-j",
+        "--joints",
+        nargs="*",
+        help="Active joint index list allowing to move.",
+    )
     parser.add_argument("--joint-name", help="joint name")
     parser.add_argument("-t", "--err-type", help="how to calculate errors, choose from [sd, range, se]")
     parser.add_argument(
@@ -789,6 +782,12 @@ def parse() -> argparse.Namespace:
         help="whether try to find latest directory or not (default: True)",
     )
     parser.add_argument("--title", help="figure title")
+    parser.add_argument(
+        "--sharex",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="whether share x axis (default: True)",
+    )
     parser.add_argument("--tshift", type=float, default=0.0, help="time shift")
     parser.add_argument("--tlim", nargs="+", type=float, help="range of time")
     parser.add_argument(
@@ -826,10 +825,19 @@ def parse() -> argparse.Namespace:
     )
     parser.add_argument("--fill-err-type", help="how to calculate errors for filling, e.g. sd, range, se")
     parser.add_argument("--fill-alpha", type=float, help="alpha value for filling")
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
+        help="Enable verbose console output. -v provides additional info. -vv provides debug output.",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
+    import sys
+
     args = parse()
     if args.tlim is not None:
         if len(args.tlim) == 1:
@@ -838,20 +846,25 @@ def main() -> None:
             args.tlim = (min(args.tlim), max(args.tlim))
     dpi = float(args.dpi) if args.dpi != "figure" else args.dpi
 
+    active_joints = resolve_joints_str(args.joints, 13)
+    datapath_list, default_output_dir = collect_datapath(args.datapath, args.pickup, active_joints, latest=args.latest)
+    output_dir_path = Path(args.output_dir) if args.output_dir is not None else default_output_dir
+    if args.ext is not None and len(args.ext) > 0:
+        start_logging(sys.argv, output_dir_path, __name__, args.verbose)
+
     plot(
-        args.datapath,
-        pickup_list=args.pickup,
+        datapath_list,
         plot_keys=args.plot_keys,
-        active_joints=args.joints,
+        active_joints=active_joints,
         joint_name=args.joint_name,
-        latest=args.latest,
+        output_dir=output_dir_path,
+        sharex=args.sharex,
         tshift=args.tshift,
         tlim=args.tlim,
         title=args.title,
         show_legend=args.show_legend,
         err_type=args.err_type,
         ext_list=args.ext,
-        savefig_dir=args.output_dir,
         show_cmd_once=args.show_cmd_once,
         dpi=dpi,
         fill=args.fill,
@@ -867,5 +880,5 @@ if __name__ == "__main__":
     main()
 
 # Local Variables:
-# jinx-local-words: "arg cb cmd cpvq csv datapath dir dq env pb png sd se tlim tshift usr"
+# jinx-local-words: "cb cmd cpvq csv datapath dir dq env pb png savefig sd se sharex tlim tshift usr"
 # End:
