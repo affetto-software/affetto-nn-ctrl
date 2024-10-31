@@ -23,7 +23,7 @@ from affetto_nn_ctrl.data_handling import (
     get_output_dir_path,
     prepare_data_dir_path,
 )
-from affetto_nn_ctrl.event_logging import get_event_logger, start_logging
+from affetto_nn_ctrl.event_logging import event_logger, start_logging
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -61,7 +61,7 @@ def record_data(
     data_logger.dump(quiet=True)
 
 
-def run(  # noqa: C901
+def run(
     config: str,
     joints_str: list[str] | None,
     sfreq: float | None,
@@ -85,15 +85,12 @@ def run(  # noqa: C901
     async_mode: bool,
     overwrite: bool,
 ) -> None:
-    event_logger = get_event_logger()
-
     # Create controller and data logger.
     comm, ctrl, state = create_controller(config, sfreq, cfreq)
     data_logger = create_default_logger(ctrl.dof)
-    if event_logger:
-        event_logger.debug("Loading config file: %s", config)
-        event_logger.debug("Controller created: sfreq=%s cfreq=%s", state.freq, ctrl.freq)
-        event_logger.debug("Default logger created: DOF=%s", ctrl.dof)
+    event_logger().debug("Loading config file: %s", config)
+    event_logger().debug("Controller created: sfreq=%s cfreq=%s", state.freq, ctrl.freq)
+    event_logger().debug("Default logger created: DOF=%s", ctrl.dof)
 
     # Initialize robot pose.
     initializer = RobotInitializer(
@@ -111,25 +108,22 @@ def run(  # noqa: C901
     if initializer.get_manner() == "position":
         q0 = initializer.get_q_init()
     t0 = 0.0
-    if event_logger:
-        event_logger.debug("Initializer created: manner=%s", initializer.get_manner())
-        event_logger.debug("Initial posture: %s", q0)
+    event_logger().debug("Initializer created: manner=%s", initializer.get_manner())
+    event_logger().debug("Initial posture: %s", q0)
 
     # Create random trajectory generator.
     active_joints = resolve_joints_str(joints_str)
     rt = RandomTrajectory(active_joints, t0, q0, t_range, q_range, q_limit, profile, seed, async_update=async_mode)
-    if event_logger:
-        event_logger.debug("Random trajectory generator created: profile=%s, async=%s", profile, async_mode)
-        event_logger.debug("  t_range: %s, q_range: %s, q_limit: %s", t_range, q_range, q_limit)
-        event_logger.debug("Resolved active joints: %s", active_joints)
+    event_logger().debug("Random trajectory generator created: profile=%s, async=%s", profile, async_mode)
+    event_logger().debug("  t_range: %s, q_range: %s, q_limit: %s", t_range, q_range, q_limit)
+    event_logger().debug("Resolved active joints: %s", active_joints)
 
     # Create data file counter.
     n = 0
     if not overwrite:
         n = len(list(output_dir_path.glob(f"{output_prefix}*.csv")))
     cnt = get_default_counter(n)
-    if event_logger:
-        event_logger.debug("Data file counter initialized with %s", n)
+    event_logger().debug("Data file counter initialized with %s", n)
 
     # Generate dataset.
     for i in range(n_repeat):
@@ -138,8 +132,7 @@ def run(  # noqa: C901
             initializer.get_back_home((comm, ctrl, state))
         data_file_path = build_data_file_path(output_dir_path, prefix=output_prefix, iterator=cnt, ext=".csv")
         header_text = f"[{i+1}/{n_repeat}] Collecting random motion data..."
-        if event_logger:
-            event_logger.debug(header_text)
+        event_logger().debug(header_text)
         record_data(
             (comm, ctrl, state),
             data_logger,
@@ -148,15 +141,13 @@ def run(  # noqa: C901
             data_file_path,
             header_text=header_text,
         )
-        if event_logger:
-            event_logger.debug("Data saved: %s", data_file_path)
+        event_logger().debug("Data saved: %s", data_file_path)
 
     # Release all joints.
     release_pressure((comm, ctrl, state))
 
     # Finish stuff.
-    if event_logger:
-        event_logger.debug("Data collection finished")
+    event_logger().debug("Data collection finished")
     comm.close_command_socket()
     state.join()
 
@@ -361,12 +352,11 @@ def main() -> None:
         args.specify_date,
         split_by_date=args.split_by_date,
     )
+    start_logging(sys.argv, output_dir, __name__, args.verbose)
+    event_logger().info("Output directory: %s", output_dir)
     prepare_data_dir_path(output_dir, make_latest_symlink=args.make_latest_symlink)
     copy_config(args.config, output_dir)
-    event_logger = start_logging(sys.argv, output_dir, args.verbose)
-    if event_logger:
-        event_logger.info("Output directory: %s", output_dir)
-        event_logger.debug("%s", args)
+    event_logger().debug("Parsed arguments: %s", args)
 
     # Start mainloop
     run(
