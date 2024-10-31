@@ -814,8 +814,7 @@ def parse() -> argparse.Namespace:
     parser.add_argument(
         "--show-legend",
         action=argparse.BooleanOptionalAction,
-        default=True,
-        help="whether show command data only once (default: True)",
+        help=f"whether show legend (default: True when --joints < {DEFAULT_SHOW_LEGEND_N_JOINTS})",
     )
     parser.add_argument(
         "--fill",
@@ -835,6 +834,9 @@ def parse() -> argparse.Namespace:
     return parser.parse_args()
 
 
+DEFAULT_SHOW_LEGEND_N_JOINTS = 4
+
+
 def main() -> None:
     import sys
 
@@ -847,6 +849,8 @@ def main() -> None:
     dpi = float(args.dpi) if args.dpi != "figure" else args.dpi
 
     active_joints = resolve_joints_str(args.joints, 13)
+    if args.show_legend is None:
+        args.show_legend = bool(len(active_joints) < DEFAULT_SHOW_LEGEND_N_JOINTS)
     datapath_list, default_output_dir = collect_datapath(args.datapath, args.pickup, active_joints, latest=args.latest)
     output_dir_path = Path(args.output_dir) if args.output_dir is not None else default_output_dir
     if args.ext is not None and len(args.ext) > 0:
