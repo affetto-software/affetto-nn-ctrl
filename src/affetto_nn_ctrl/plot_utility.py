@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -61,6 +61,18 @@ def savefig(
         event_logger().info(msg)
 
 
+FILENAME_T = TypeVar("FILENAME_T", str, Path)
+
+
+def _compatible_filename(filename: FILENAME_T) -> FILENAME_T:
+    table = {":": "", " ": "_", "(": "", ")": "", "+": "x"}
+    compat_filename = str(filename).translate(str.maketrans(table))  # type: ignore[arg-type]
+    event_logger().debug("Making filename compatible to file system:")
+    event_logger().debug("       given filename: %s", filename)
+    event_logger().debug("  compatible filename: %s", compat_filename)
+    return type(filename)(compat_filename)
+
+
 def save_figure(
     fig: Figure,
     save_dir_path: Path,
@@ -80,6 +92,7 @@ def save_figure(
     if loaded_from:
         built_filename /= loaded_from
     built_filename /= basename
+    built_filename = _compatible_filename(built_filename)
 
     fig.tight_layout()
     if ext_list is not None:
@@ -224,5 +237,5 @@ def calculate_mean_err(
 
 
 # Local Variables:
-# jinx-local-words: "ci csv dataset sd se"
+# jinx-local-words: "arg ci csv dataset sd se"
 # End:
