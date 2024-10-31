@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import warnings
+from fnmatch import fnmatch
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -148,6 +149,12 @@ def copy_config(
     prepare_data_dir_path(target_dir_path, make_latest_symlink=False)
     shutil.copy(config, target_dir_path)
     event_logger().debug("Config copied: %s -> %s", config, target_dir_path)
+
+
+def is_latest_data_dir_path_maybe(dirpath: Path, pattern: str = "20*T*") -> bool:
+    if dirpath.name == "latest":
+        return True
+    return fnmatch(dirpath.name, pattern)
 
 
 def find_latest_data_dir_path(
