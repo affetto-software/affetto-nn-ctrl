@@ -21,7 +21,7 @@ from affetto_nn_ctrl.data_handling import (
     get_output_dir_path,
     prepare_data_dir_path,
 )
-from affetto_nn_ctrl.event_logging import get_event_logger, start_logging
+from affetto_nn_ctrl.event_logging import event_logger, start_logging
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -47,15 +47,12 @@ def run(
     *,
     overwrite: bool,
 ) -> None:
-    event_logger = get_event_logger()
-
     # Create controller and data logger.
     comm, ctrl, state = create_controller(config, sfreq, cfreq)
     data_logger = create_default_logger(ctrl.dof)
-    if event_logger:
-        event_logger.debug("Loading config file: %s", config)
-        event_logger.debug("Controller created: sfreq=%s cfreq=%s", state.freq, ctrl.freq)
-        event_logger.debug("Default logger created: DOF=%s", ctrl.dof)
+    event_logger().debug("Loading config file: %s", config)
+    event_logger().debug("Controller created: sfreq=%s cfreq=%s", state.freq, ctrl.freq)
+    event_logger().debug("Default logger created: DOF=%s", ctrl.dof)
 
     # Initialize robot pose.
     initializer = RobotInitializer(
@@ -72,28 +69,24 @@ def run(
     q0 = state.q
     if initializer.get_manner() == "position":
         q0 = initializer.get_q_init()
-    if event_logger:
-        event_logger.debug("Initializer created: manner=%s", initializer.get_manner())
-        event_logger.debug("Initial posture: %s", q0)
+    event_logger().debug("Initializer created: manner=%s", initializer.get_manner())
+    event_logger().debug("Initial posture: %s", q0)
 
     # Resolve active joints.
     active_joints = resolve_joints_str(joints_str)
-    if event_logger:
-        event_logger.debug("Resolved active joints: %s", active_joints)
+    event_logger().debug("Resolved active joints: %s", active_joints)
 
     # Create data file counter.
     n = 0
     if not overwrite:
         n = len(list(output_dir_path.glob(f"{output_prefix}*.csv")))
     cnt = get_default_counter(n)
-    if event_logger:
-        event_logger.debug("Data file counter initialized with %s", n)
+    event_logger().debug("Data file counter initialized with %s", n)
 
     # Record motion trajectory.
     data_file_path = build_data_file_path(output_dir_path, prefix=output_prefix, iterator=cnt, ext=".csv")
     header_text = "Started recording motion!"
-    if event_logger:
-        event_logger.debug(header_text)
+    event_logger().debug(header_text)
     record_motion(
         active_joints,
         q0,
@@ -105,15 +98,13 @@ def run(
         header_text=header_text,
     )
     data_logger.dump(quiet=True)
-    if event_logger:
-        event_logger.debug("Motion reference saved: %s", data_file_path)
+    event_logger().debug("Motion reference saved: %s", data_file_path)
 
     # Release all joints.
     release_pressure((comm, ctrl, state))
 
     # Finish stuff.
-    if event_logger:
-        event_logger.debug("Data collection finished")
+    event_logger().debug("Data collection finished")
     comm.close_command_socket()
     state.join()
 
@@ -267,12 +258,11 @@ def main() -> None:
         args.specify_date,
         split_by_date=args.split_by_date,
     )
+    start_logging(sys.argv, output_dir, __name__, args.verbose)
+    event_logger().info("Output directory: %s", output_dir)
     prepare_data_dir_path(output_dir, make_latest_symlink=args.make_latest_symlink)
     copy_config(args.config, output_dir)
-    event_logger = start_logging(sys.argv, output_dir, args.verbose)
-    if event_logger:
-        event_logger.info("Output directory: %s", output_dir)
-        event_logger.debug("%s", args)
+    event_logger().debug("Parsed arguments: %s", args)
 
     # Start mainloop
     run(
