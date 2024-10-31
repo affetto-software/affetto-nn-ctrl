@@ -11,8 +11,7 @@ import matplotlib.pyplot as plt
 from pyplotutil.datautil import Data
 
 from affetto_nn_ctrl.data_handling import find_latest_data_dir_path, is_latest_data_dir_path_maybe
-
-from .plot_utility import (
+from affetto_nn_ctrl.plot_utility import (
     DEFAULT_JOINT_NAMES,
     calculate_mean_err,
     event_logger,
