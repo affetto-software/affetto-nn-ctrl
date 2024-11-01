@@ -42,9 +42,9 @@ def _plot_timeseries_multi_data(
     joint_id: int,
     key_list: Iterable[str],
     *,
-    only_once: bool = False,
-    unit: str | None = None,
-    plot_labels: Iterable[str] | None = None,
+    only_once: bool,
+    unit: str | None,
+    plot_labels: Iterable[str] | None,
 ) -> Axes:
     if plot_labels is None:
         if len(list(key_list)) == 1:
@@ -124,13 +124,13 @@ def _plot_timeseries_mean_err(
     dataset: list[Data],
     joint_id: int,
     key_list: Iterable[str],
-    err_type: str,
     *,
-    unit: str | None = None,
-    label: str | None = None,
-    fill: bool = True,
-    fill_err_type: str = "range",
-    fill_alpha: float = 0.4,
+    unit: str | None,
+    label: str | None,
+    err_type: str,
+    fill: bool,
+    fill_err_type: str,
+    fill_alpha: float,
 ) -> Axes:
     for key in key_list:
         t, y = load_timeseries(dataset, f"{key}{joint_id}", tshift)
@@ -145,13 +145,14 @@ def _plot_timeseries_mean_err(
 
 def _plot_timeseries_active_joints(
     ax: Axes,
+    tshift: float,
     tlim: tuple[float, float] | None,
     data: Data,
     active_joints: list[int],
     key_list: Iterable[str],
     *,
-    unit: str | None = None,
-    plot_labels: Iterable | None = None,
+    unit: str | None,
+    plot_labels: Iterable | None,
 ) -> Axes:
     if plot_labels is None:
         if len(list(key_list)) == 1:
@@ -161,7 +162,7 @@ def _plot_timeseries_active_joints(
     assert len(list(plot_labels)) == len(active_joints) * len(list(key_list))
 
     labels_iter = iter(plot_labels)
-    t = data.t
+    t = data.t - tshift
     for joint_id in active_joints:
         for key in key_list:
             y = getattr(data, f"{key}{joint_id}")
@@ -179,15 +180,15 @@ def _plot_timeseries(
     dataset: Data | list[Data],
     active_joints: int | list[int],
     key_list: Iterable[str],
-    err_type: str | None,
     *,
+    ylim: tuple[float, float] | None,
+    ylabel: str | None,
+    title: str | None,
+    legend: bool,
     only_once: bool = False,
     unit: str | None = None,
     plot_labels: Iterable | None = None,
-    ylim: tuple[float, float] | None = None,
-    ylabel: str | None = None,
-    title: str | None = None,
-    legend: bool = False,
+    err_type: str | None = None,
     fill: bool = True,
     fill_err_type: str = "range",
     fill_alpha: float = 0.4,
@@ -214,9 +215,9 @@ def _plot_timeseries(
                 dataset,
                 active_joints,  # int, not list[int]
                 key_list,
-                err_type,
                 unit=unit,
                 label=None,
+                err_type=err_type,
                 fill=fill,
                 fill_err_type=fill_err_type,
                 fill_alpha=fill_alpha,
@@ -228,6 +229,7 @@ def _plot_timeseries(
             warnings.warn(msg, stacklevel=2)
         _plot_timeseries_active_joints(
             ax,
+            tshift,
             tlim,
             dataset,  # Data, not list[Data]
             active_joints,
@@ -259,10 +261,10 @@ def plot_pressure_command(
     dataset: Data | list[Data],
     active_joints: int | list[int],
     *,
-    unit: str = "kPa",
-    only_once: bool = False,
     ylim: tuple[float, float] | None = None,
     legend: bool = False,
+    unit: str = "kPa",
+    only_once: bool = True,
 ) -> None:
     title = "Pressure at controllable valve"
     if ylim is None:
@@ -274,13 +276,12 @@ def plot_pressure_command(
         dataset,
         active_joints,
         ("ca", "cb"),
-        err_type=None,
-        unit=unit,
-        only_once=only_once,
         ylim=ylim,
         ylabel="Pressure",
-        legend=legend,
         title=title,
+        legend=legend,
+        only_once=only_once,
+        unit=unit,
     )
 
 
@@ -290,10 +291,10 @@ def plot_pressure_sensor(
     tlim: tuple[float, float] | None,
     dataset: Data | list[Data],
     active_joints: int | list[int],
-    err_type: str | None,
     *,
     ylim: tuple[float, float] | None = None,
     legend: bool = False,
+    err_type: str | None = None,
     fill: bool = True,
     fill_err_type: str = "range",
     fill_alpha: float = 0.4,
@@ -306,11 +307,11 @@ def plot_pressure_sensor(
         dataset,
         active_joints,
         ("pa", "pb"),
-        err_type,
         ylim=ylim,
         ylabel="Pressure [kPa]",
-        legend=legend,
         title=title,
+        legend=legend,
+        err_type=err_type,
         fill=fill,
         fill_err_type=fill_err_type,
         fill_alpha=fill_alpha,
@@ -323,10 +324,10 @@ def plot_velocity(
     tlim: tuple[float, float] | None,
     dataset: Data | list[Data],
     active_joints: int | list[int],
-    err_type: str | None,
     *,
     ylim: tuple[float, float] | None = None,
     legend: bool = False,
+    err_type: str | None = None,
     fill: bool = True,
     fill_err_type: str = "range",
     fill_alpha: float = 0.4,
@@ -339,11 +340,11 @@ def plot_velocity(
         dataset,
         active_joints,
         ("dq",),
-        err_type,
         ylim=ylim,
         ylabel="Velocity [0-100/s]",
-        legend=legend,
         title=title,
+        legend=legend,
+        err_type=err_type,
         fill=fill,
         fill_err_type=fill_err_type,
         fill_alpha=fill_alpha,
@@ -356,10 +357,10 @@ def plot_position(
     tlim: tuple[float, float] | None,
     dataset: Data | list[Data],
     active_joints: int | list[int],
-    err_type: str | None,
     *,
     ylim: tuple[float, float] | None = None,
     legend: bool = False,
+    err_type: str | None = None,
     fill: bool = True,
     fill_err_type: str = "range",
     fill_alpha: float = 0.4,
@@ -374,11 +375,11 @@ def plot_position(
         dataset,
         active_joints,
         ("q",),
-        err_type,
         ylim=ylim,
         ylabel="Position [0-100]",
-        legend=legend,
         title=title,
+        legend=legend,
+        err_type=err_type,
         fill=fill,
         fill_err_type=fill_err_type,
         fill_alpha=fill_alpha,
@@ -389,14 +390,14 @@ def plot_multi_data(
     datapath_list: list[Path],
     joint_id: int,
     plot_keys: str,
-    err_type: str | None,
     *,
     sharex: bool = False,
     tshift: float = 0.0,
     tlim: tuple[float, float] | None = None,
-    legend: bool = False,
     title: str | None = None,
+    legend: bool = False,
     show_cmd_once: bool = True,
+    err_type: str | None = None,
     fill: bool = True,
     fill_err_type: str = "range",
     fill_alpha: float = 0.4,
@@ -416,10 +417,10 @@ def plot_multi_data(
                 tlim,
                 dataset,
                 joint_id,
-                unit="kPa",
-                only_once=show_cmd_once,
                 ylim=None,
                 legend=legend,
+                unit="kPa",
+                only_once=show_cmd_once,
             )
         elif v == "p":
             plot_pressure_sensor(
@@ -428,9 +429,9 @@ def plot_multi_data(
                 tlim,
                 dataset,
                 joint_id,
-                err_type,
                 ylim=None,
                 legend=legend,
+                err_type=err_type,
                 fill=fill,
                 fill_err_type=fill_err_type,
                 fill_alpha=fill_alpha,
@@ -442,9 +443,9 @@ def plot_multi_data(
                 tlim,
                 dataset,
                 joint_id,
-                err_type,
                 ylim=None,
                 legend=legend,
+                err_type=err_type,
                 fill=fill,
                 fill_err_type=fill_err_type,
                 fill_alpha=fill_alpha,
@@ -456,9 +457,9 @@ def plot_multi_data(
                 tlim,
                 dataset,
                 joint_id,
-                err_type,
                 ylim=None,
                 legend=legend,
+                err_type=err_type,
                 fill=fill,
                 fill_err_type=fill_err_type,
                 fill_alpha=fill_alpha,
@@ -482,14 +483,16 @@ def plot_multi_joint(
     sharex: bool = False,
     tshift: float = 0.0,
     tlim: tuple[float, float] | None = None,
-    legend: bool = False,
     title: str | None = None,
+    legend: bool = False,
     show_cmd_once: bool = True,
 ) -> tuple[Figure, list[Axes]]:
     n_keys = len(plot_keys)
     figsize = (8, 4 * n_keys)
     fig, axes = plt.subplots(nrows=n_keys, sharex=sharex, figsize=figsize)
 
+    if n_keys == 1:
+        axes = [axes]
     data = Data(datapath)
     for ax, v in zip(axes, plot_keys, strict=True):
         if v == "c":
@@ -499,10 +502,10 @@ def plot_multi_joint(
                 tlim,
                 data,
                 active_joints,
-                unit="kPa",
-                only_once=show_cmd_once,
                 ylim=None,
                 legend=legend,
+                unit="kPa",
+                only_once=show_cmd_once,
             )
         elif v == "p":
             plot_pressure_sensor(
@@ -511,7 +514,6 @@ def plot_multi_joint(
                 tlim,
                 data,
                 active_joints,
-                err_type=None,
                 ylim=None,
                 legend=legend,
             )
@@ -522,7 +524,6 @@ def plot_multi_joint(
                 tlim,
                 data,
                 active_joints,
-                err_type=None,
                 ylim=None,
                 legend=legend,
             )
@@ -533,7 +534,6 @@ def plot_multi_joint(
                 tlim,
                 data,
                 active_joints,
-                err_type=None,
                 ylim=None,
                 legend=legend,
             )
@@ -577,8 +577,8 @@ def _plot_data_across_multi_joints(
         sharex=sharex,
         tshift=tshift,
         tlim=tlim,
-        legend=legend,
         title=title,
+        legend=legend,
         show_cmd_once=show_cmd_once,
     )
     save_figure(fig, savefig_dir, savefig_basename, ext_list, dpi=dpi)
@@ -632,13 +632,13 @@ def _plot_specific_joint_across_multi_data(
         datapath_list,
         joint_id,
         plot_keys,
-        err_type,
         sharex=sharex,
         tshift=tshift,
         tlim=tlim,
-        legend=legend,
         title=title,
+        legend=legend,
         show_cmd_once=show_cmd_once,
+        err_type=err_type,
         fill=fill,
         fill_err_type=fill_err_type,
         fill_alpha=fill_alpha,
