@@ -152,11 +152,14 @@ def _plot_timeseries_active_joints(
     key_list: Iterable[str],
     *,
     unit: str | None,
-    plot_labels: Iterable | None,
+    plot_labels: Iterable[str] | None,
 ) -> Axes:
     if plot_labels is None:
         if len(list(key_list)) == 1:
-            plot_labels = [f"Joint {i}" for i in range(len(active_joints))]
+            if next(iter(key_list)) == "qdes":
+                plot_labels = [f"Joint {i} (qdes)" for i in range(len(active_joints))]
+            else:
+                plot_labels = [f"Joint {i}" for i in range(len(active_joints))]
         else:
             plot_labels = [f"Joint {i} ({key})" for i in range(len(active_joints)) for key in key_list]
     assert len(list(plot_labels)) == len(active_joints) * len(list(key_list))
@@ -265,11 +268,11 @@ def plot_pressure_command(
     legend: bool = False,
     unit: str = "kPa",
     only_once: bool = True,
-) -> None:
+) -> Axes:
     title = "Pressure at controllable valve"
     if ylim is None:
         ylim = (-50, 650)
-    _plot_timeseries(
+    return _plot_timeseries(
         ax,
         tshift,
         tlim,
@@ -298,9 +301,9 @@ def plot_pressure_sensor(
     fill: bool = True,
     fill_err_type: str = "range",
     fill_alpha: float = 0.4,
-) -> None:
+) -> Axes:
     title = "Pressure in actuator chamber"
-    _plot_timeseries(
+    return _plot_timeseries(
         ax,
         tshift,
         tlim,
@@ -331,9 +334,9 @@ def plot_velocity(
     fill: bool = True,
     fill_err_type: str = "range",
     fill_alpha: float = 0.4,
-) -> None:
+) -> Axes:
     title = "Joint angle velocity"
-    _plot_timeseries(
+    return _plot_timeseries(
         ax,
         tshift,
         tlim,
@@ -364,11 +367,11 @@ def plot_position(
     fill: bool = True,
     fill_err_type: str = "range",
     fill_alpha: float = 0.4,
-) -> None:
+) -> Axes:
     title = "Joint angle"
     if ylim is None:
         ylim = (-10, 110)
-    _plot_timeseries(
+    return _plot_timeseries(
         ax,
         tshift,
         tlim,
@@ -386,6 +389,31 @@ def plot_position(
     )
 
 
+def plot_desired_position(
+    ax: Axes,
+    tshift: float,
+    tlim: tuple[float, float] | None,
+    dataset: Data | list[Data],
+    active_joints: int | list[int],
+    *,
+    legend: bool = False,
+    only_once: bool = True,
+) -> Axes:
+    return _plot_timeseries(
+        ax,
+        tshift,
+        tlim,
+        dataset,
+        active_joints,
+        ("qdes",),
+        ylim=None,
+        ylabel="Position [0-100]",
+        title=None,
+        legend=legend,
+        only_once=only_once,
+    )
+
+
 def plot_multi_data(
     datapath_list: list[Path],
     joint_id: int,
@@ -397,6 +425,8 @@ def plot_multi_data(
     title: str | None = None,
     legend: bool = False,
     show_cmd_once: bool = True,
+    show_qdes: bool = True,
+    show_qdes_once: bool = True,
     err_type: str | None = None,
     fill: bool = True,
     fill_err_type: str = "range",
@@ -451,6 +481,16 @@ def plot_multi_data(
                 fill_alpha=fill_alpha,
             )
         elif v == "q":
+            if show_qdes:
+                plot_desired_position(
+                    ax,
+                    tshift,
+                    tlim,
+                    dataset,
+                    joint_id,
+                    legend=legend,
+                    only_once=show_qdes_once,
+                )
             plot_position(
                 ax,
                 tshift,
@@ -486,6 +526,8 @@ def plot_multi_joint(
     title: str | None = None,
     legend: bool = False,
     show_cmd_once: bool = True,
+    show_qdes: bool = True,
+    show_qdes_once: bool = True,
 ) -> tuple[Figure, list[Axes]]:
     n_keys = len(plot_keys)
     figsize = (8, 4 * n_keys)
@@ -528,6 +570,16 @@ def plot_multi_joint(
                 legend=legend,
             )
         elif v == "q":
+            if show_qdes:
+                plot_desired_position(
+                    ax,
+                    tshift,
+                    tlim,
+                    data,
+                    active_joints,
+                    legend=legend,
+                    only_once=show_qdes_once,
+                )
             plot_position(
                 ax,
                 tshift,
@@ -559,6 +611,8 @@ def _plot_data_across_multi_joints(
     title: str | None,
     legend: bool,
     show_cmd_once: bool,
+    show_qdes: bool,
+    show_qdes_once: bool,
     savefig_dir: Path,
     ext_list: list[str] | None,
     dpi: float | str,
@@ -580,6 +634,8 @@ def _plot_data_across_multi_joints(
         title=title,
         legend=legend,
         show_cmd_once=show_cmd_once,
+        show_qdes=show_qdes,
+        show_qdes_once=show_qdes_once,
     )
     save_figure(fig, savefig_dir, savefig_basename, ext_list, dpi=dpi)
 
@@ -596,6 +652,8 @@ def _plot_specific_joint_across_multi_data(
     title: str | None,
     legend: bool,
     show_cmd_once: bool,
+    show_qdes: bool,
+    show_qdes_once: bool,
     savefig_dir: Path,
     ext_list: list[str] | None,
     dpi: float | str,
@@ -638,6 +696,8 @@ def _plot_specific_joint_across_multi_data(
         title=title,
         legend=legend,
         show_cmd_once=show_cmd_once,
+        show_qdes=show_qdes,
+        show_qdes_once=show_qdes_once,
         err_type=err_type,
         fill=fill,
         fill_err_type=fill_err_type,
@@ -712,6 +772,8 @@ def plot(
     title: str | None,
     show_legend: bool,
     show_cmd_once: bool,
+    show_qdes: bool,
+    show_qdes_once: bool,
     ext_list: list[str] | None,
     dpi: float | str,
     err_type: str | None,
@@ -730,6 +792,8 @@ def plot(
             title=title,
             legend=show_legend,
             show_cmd_once=show_cmd_once,
+            show_qdes=show_qdes,
+            show_qdes_once=show_qdes_once,
             savefig_dir=output_dir,
             ext_list=ext_list,
             dpi=dpi,
@@ -746,6 +810,8 @@ def plot(
             title=title,
             legend=show_legend,
             show_cmd_once=show_cmd_once,
+            show_qdes=show_qdes,
+            show_qdes_once=show_qdes_once,
             savefig_dir=output_dir,
             ext_list=ext_list,
             dpi=dpi,
@@ -812,6 +878,18 @@ def parse() -> argparse.Namespace:
         help="whether show command data only once (default: True)",
     )
     parser.add_argument(
+        "--show-qdes",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="whether show desired position (default: True)",
+    )
+    parser.add_argument(
+        "--show-qdes-once",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="whether show desired position only once (default: True)",
+    )
+    parser.add_argument(
         "--show-legend",
         action=argparse.BooleanOptionalAction,
         help=f"whether show legend (default: True when --joints < {DEFAULT_SHOW_LEGEND_N_JOINTS})",
@@ -871,6 +949,8 @@ def main() -> None:
         title=args.title,
         show_legend=args.show_legend,
         show_cmd_once=args.show_cmd_once,
+        show_qdes=args.show_qdes,
+        show_qdes_once=args.show_qdes_once,
         ext_list=args.ext,
         dpi=dpi,
         err_type=args.err_type,
@@ -887,5 +967,5 @@ if __name__ == "__main__":
     main()
 
 # Local Variables:
-# jinx-local-words: "cb cmd cpvq csv datapath dir dq env pb png savefig sd se sharex tlim tshift usr vv"
+# jinx-local-words: "cb cmd cpvq csv datapath dir dq env pb png qdes savefig sd se sharex tlim tshift usr vv"
 # End:
