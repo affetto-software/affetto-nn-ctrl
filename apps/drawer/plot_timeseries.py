@@ -48,7 +48,10 @@ def _plot_timeseries_multi_data(
 ) -> Axes:
     if plot_labels is None:
         if len(list(key_list)) == 1:
-            plot_labels = [f"Data {i}" for i in range(len(dataset))]
+            if next(iter(key_list)) == "qdes":
+                plot_labels = [f"Data {i} (qdes)" for i in range(len(dataset))]
+            else:
+                plot_labels = [f"Data {i}" for i in range(len(dataset))]
         else:
             plot_labels = [f"Data {i} ({key})" for i in range(len(dataset)) for key in key_list]
     assert len(list(plot_labels)) == len(dataset) * len(list(key_list))
@@ -411,6 +414,7 @@ def plot_desired_position(
         title=None,
         legend=legend,
         only_once=only_once,
+        err_type=None,
     )
 
 
