@@ -98,7 +98,8 @@ def save_figure(
     if ext_list is not None:
         savefig(fig, built_filename, ext_list, dpi=dpi)
     else:
-        event_logger().debug("Figure not saved as no extension is provided.")
+        event_logger().warning("Nothing saved.")
+        event_logger().debug("Figures have not been saved since no extension is provided.")
     return built_filename
 
 
