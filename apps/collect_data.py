@@ -141,6 +141,7 @@ def run(
             data_file_path,
             header_text=header_text,
         )
+        rt.reset_updater()
         event_logger().debug("Data saved: %s", data_file_path)
 
     # Release all joints.
