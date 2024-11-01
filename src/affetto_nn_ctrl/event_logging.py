@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import sys
 import tempfile
+import warnings
 from pathlib import Path
 from typing import ClassVar
 
@@ -152,7 +153,8 @@ def start_event_logging(
         fh = logging.FileHandler(event_log_filename)
     except FileNotFoundError:
         # Maybe, running in dry-run mode...
-        sys.stderr.write(f"Unable to save log file (if running in dry-run mode, ignore this): {event_log_filename}\n")
+        msg = f"Unable to save log file (if running in dry-run mode, ignore this): {event_log_filename}"
+        warnings.warn(msg, RuntimeWarning, stacklevel=2)
     else:
         fh.setLevel(logging_level_file)
         fh.setFormatter(formatter)
