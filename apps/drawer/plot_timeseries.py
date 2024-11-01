@@ -782,6 +782,7 @@ def plot(
     fill_alpha: float | None,
 ) -> None:
     if isinstance(datapath, Path):
+        event_logger().debug("Plotting multiple joints time series in specific data")
         _plot_data_across_multi_joints(
             datapath,
             active_joints,
@@ -799,6 +800,7 @@ def plot(
             dpi=dpi,
         )
     else:
+        event_logger().debug("Plotting specific joint time series in multiple data")
         _plot_specific_joint_across_multi_data(
             datapath,
             active_joints,
@@ -930,10 +932,12 @@ def main() -> None:
         event_logger().setLevel(get_logging_level_from_verbose_count(args.verbose))
 
     active_joints = resolve_joints_str(args.joints, DEFAULT_DOF)
-    if args.show_legend is None:
-        args.show_legend = bool(len(active_joints) < DEFAULT_SHOW_LEGEND_N_JOINTS)
     datapath_list, default_output_dir = collect_datapath(args.datapath, args.pickup, active_joints, latest=args.latest)
     output_dir_path = Path(args.output_dir) if args.output_dir is not None else default_output_dir
+    if args.show_legend is None:
+        args.show_legend = False
+        if isinstance(datapath_list, Path) or (isinstance(datapath_list, list) and len(datapath_list) == 1):
+            args.show_legend = bool(len(active_joints) < DEFAULT_SHOW_LEGEND_N_JOINTS)
     if args.ext is not None and len(args.ext) > 0:
         start_logging(sys.argv, output_dir_path, __name__, args.verbose)
 
