@@ -653,7 +653,7 @@ def collect_datapath(
     *,
     latest: bool,
 ) -> tuple[Path | list[Path], Path]:
-    if len(active_joints) > 1:
+    if len(active_joints) > 1 or (len(given_datapath) == 1 and Path(given_datapath[0]).is_file()):
         if len(given_datapath) > 1:
             msg = "Multiple data plots with multiple joints are not supported."
             event_logger().warning(msg)
@@ -674,7 +674,7 @@ def collect_datapath(
     if len(given_datapath) == 1:
         dirpath = Path(given_datapath[0])
         if not dirpath.is_dir():
-            msg = f"{dirpath} is a file. Specify a directory or joint list."
+            msg = f"{dirpath} is a file. Specify a directory."
             raise ValueError(msg)
         if latest and not is_latest_data_dir_path_maybe(dirpath):
             dirpath = find_latest_data_dir_path(dirpath)
