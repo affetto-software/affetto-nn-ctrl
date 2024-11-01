@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from affctrllib import PTP, AffComm, AffPosCtrl, AffStateThread, Logger, Timer
 from numpy.random import Generator, default_rng
+from pyplotutil.datautil import Data
 
 from affetto_nn_ctrl.event_logging import event_logger
 
@@ -796,6 +797,43 @@ class RandomTrajectory:
         if self.async_update:
             return dqdes_async
         return dqdes_sync
+
+
+class Spline:
+    _data: Data
+    _dof: int
+    active_joints: list[int]
+
+    def __init__(self, data: str | Path | Data, active_joints: list[int]) -> None:
+        self.active_joints = active_joints
+        if isinstance(data, str | Path):
+            self.load_data(data)
+        else:
+            self.set_data(data)
+
+    @property
+    def data(self) -> Data:
+        return self._data
+
+    @property
+    def dof(self) -> int:
+        return self._dof
+
+    @staticmethod
+    def count_dof(data: Data) -> int:
+        pattern = re.compile(r"rq\d+")
+        array = data.dataframe.columns.array
+        return len(list(filter(pattern.match, array)))
+
+    def load_data(self, datapath: str | Path) -> Data:
+        self._data = Data(datapath)
+        self._dof = self.count_dof(self._data)
+        return self.data
+
+    def set_data(self, data: Data) -> Data:
+        self._data = data
+        self._dof = self.count_dof(self._data)
+        return self.data
 
 
 # Local Variables:

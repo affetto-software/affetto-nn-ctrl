@@ -18,6 +18,7 @@ from affetto_nn_ctrl.control_utility import (
     WAIST_JOINT_LIMIT,
     RandomTrajectory,
     RobotInitializer,
+    Spline,
     get_rng,
     resolve_joints_str,
     set_seed,
@@ -901,6 +902,19 @@ def generate_expected_data(*, show_plot: bool = True) -> None:
         for update_profile in update_profile_list:
             for async_update in async_update_list:
                 check_generated_data(active_joints, update_profile, async_update=async_update, show_plot=show_plot)
+
+
+REFERENCE_DATA_PATH = TESTS_DATA_DIR_PATH / "reference_trajectory_000.csv"
+
+
+class TestSpline:
+    def test_init(self) -> None:
+        data = REFERENCE_DATA_PATH
+        active_joints = [2, 3, 4, 5]
+        s = Spline(data, active_joints)
+        assert s.active_joints == active_joints
+        assert s.data.datapath == data
+        assert s.dof == DOF
 
 
 def main() -> None:
