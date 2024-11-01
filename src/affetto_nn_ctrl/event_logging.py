@@ -9,8 +9,12 @@ DEFAULT_LOG_FORMATTER = "%(asctime)s (%(module)s:%(lineno)d) [%(levelname)s]: %(
 
 
 class FakeLogger:
-    def __init__(self, *, suppress_console_output: bool = False) -> None:
-        self.suppress_console_output = suppress_console_output
+    _console_output: bool
+    _logging_level: int
+
+    def __init__(self, *, disable_console_output: bool = False) -> None:
+        self._disable_console_output = disable_console_output
+        self._logging_level = logging.WARNING
 
     def _format(self, msg: str, *args: object) -> str:
         formatted_msg = msg % args
@@ -34,35 +38,51 @@ class FakeLogger:
 
     def debug(self, msg: str, *args: object, stacklevel: int = 1) -> None:
         _ = stacklevel
-        if not self.suppress_console_output:
+        if not self._disable_console_output and self._logging_level <= logging.DEBUG:
             sys.stderr.write(self._format(msg, *args))
 
     def info(self, msg: str, *args: object, stacklevel: int = 1) -> None:
         _ = stacklevel
-        if not self.suppress_console_output:
+        if not self._disable_console_output and self._logging_level <= logging.INFO:
             sys.stderr.write(self._format(msg, *args))
 
     def warning(self, msg: str, *args: object, stacklevel: int = 1) -> None:
         _ = stacklevel
-        if not self.suppress_console_output:
+        if not self._disable_console_output and self._logging_level <= logging.WARNING:
             sys.stderr.write(self._format(msg, *args))
 
     def error(self, msg: str, *args: object, stacklevel: int = 1) -> None:
         _ = stacklevel
-        if not self.suppress_console_output:
+        if not self._disable_console_output and self._logging_level <= logging.ERROR:
             sys.stderr.write(self._format(msg, *args))
 
     def critical(self, msg: str, *args: object, stacklevel: int = 1) -> None:
         _ = stacklevel
-        if not self.suppress_console_output:
+        if not self._disable_console_output and self._logging_level <= logging.CRITICAL:
             sys.stderr.write(self._format(msg, *args))
+
+    def suppress_console_output(self) -> None:
+        self._disable_console_output = False
+
+    def enable_console_output(self) -> None:
+        self._disable_console_output = True
+
+    def set_logging_level(self, logging_level: int) -> None:
+        self._logging_level = logging_level
+
+    def setLevel(self, level: int) -> None:  # noqa: N802
+        self.set_logging_level(level)
+
+    @property
+    def logging_level(self) -> int:
+        return self._logging_level
 
 
 def is_running_in_pytest() -> bool:
     return "pytest" in sys.modules
 
 
-_event_logger: logging.Logger | FakeLogger = FakeLogger(suppress_console_output=is_running_in_pytest())
+_event_logger: logging.Logger | FakeLogger = FakeLogger(disable_console_output=is_running_in_pytest())
 
 
 def _get_default_event_log_filename(
