@@ -12,7 +12,7 @@ from pyplotutil.datautil import Data
 
 from affetto_nn_ctrl.control_utility import resolve_joints_str
 from affetto_nn_ctrl.data_handling import find_latest_data_dir_path, is_latest_data_dir_path_maybe
-from affetto_nn_ctrl.event_logging import FakeLogger, start_logging
+from affetto_nn_ctrl.event_logging import FakeLogger, get_logging_level_from_verbose_count, start_logging
 from affetto_nn_ctrl.plot_utility import (
     DEFAULT_JOINT_NAMES,
     calculate_mean_err,
@@ -849,7 +849,7 @@ def main() -> None:
             args.tlim = (min(args.tlim), max(args.tlim))
     dpi = float(args.dpi) if args.dpi != "figure" else args.dpi
     if args.verbose > 0 and isinstance(event_logger(), FakeLogger):
-        event_logger().setLevel(10)
+        event_logger().setLevel(get_logging_level_from_verbose_count(args.verbose))
 
     active_joints = resolve_joints_str(args.joints, DEFAULT_DOF)
     if args.show_legend is None:
