@@ -26,6 +26,7 @@ def run(
     config: str,
     sfreq: float | None,
     cfreq: float | None,
+    init_config: str | None,
     init_duration: float | None,
     init_duration_keep_steady: float | None,
     init_manner: str | None,
@@ -40,9 +41,11 @@ def run(
     event_logger().debug("Controller created: sfreq=%s cfreq=%s", state.freq, ctrl.freq)
 
     # Initialize robot pose.
+    if init_config is None:
+        init_config = config
     initializer = RobotInitializer(
         ctrl.dof,
-        config=config,
+        config=init_config,
         duration=init_duration,
         duration_keep_steady=init_duration_keep_steady,
         manner=init_manner,
@@ -52,7 +55,7 @@ def run(
     )
     initializer.get_back_home((comm, ctrl, state))
     event_logger().debug("Initialized robot pose:")
-    event_logger().debug("  config=%s", config)
+    event_logger().debug("  config=%s", init_config)
     event_logger().debug(
         "  total_duration=%s (%s + %s), manner=%s",
         initializer.total_duration,
@@ -115,6 +118,10 @@ def parse() -> argparse.Namespace:
         dest="cfreq",
         type=float,
         help="Control frequency.",
+    )
+    parser.add_argument(
+        "--init-config",
+        help="Config file path for robot pose initializer.",
     )
     parser.add_argument(
         "--init-duration",
@@ -219,7 +226,7 @@ def main() -> None:
     start_logging(sys.argv, output_dir, __name__, args.verbose)
     event_logger().info("Output directory: %s", output_dir)
     prepare_data_dir_path(output_dir, make_latest_symlink=args.make_latest_symlink)
-    copy_config(args.config, output_dir)
+    copy_config(args.config, args.init_config, output_dir)
     event_logger().debug("Parsed arguments: %s", args)
 
     # Start mainloop
@@ -228,6 +235,7 @@ def main() -> None:
         args.config,
         args.sfreq,
         args.cfreq,
+        args.init_config,
         args.init_duration,
         args.init_duration_keep_steady,
         args.init_manner,

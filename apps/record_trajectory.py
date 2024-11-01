@@ -35,6 +35,7 @@ def run(
     joints_str: list[str] | None,
     sfreq: float | None,
     cfreq: float | None,
+    init_config: str | None,
     init_duration: float | None,
     init_duration_keep_steady: float | None,
     init_manner: str | None,
@@ -57,7 +58,7 @@ def run(
     # Initialize robot pose.
     initializer = RobotInitializer(
         ctrl.dof,
-        config=config,
+        config=init_config if init_config is not None else config,
         duration=init_duration,
         duration_keep_steady=init_duration_keep_steady,
         manner=init_manner,
@@ -146,6 +147,10 @@ def parse() -> argparse.Namespace:
         dest="cfreq",
         type=float,
         help="Control frequency.",
+    )
+    parser.add_argument(
+        "--init-config",
+        help="Config file path for robot pose initializer.",
     )
     parser.add_argument(
         "--init-duration",
@@ -261,7 +266,7 @@ def main() -> None:
     start_logging(sys.argv, output_dir, __name__, args.verbose)
     event_logger().info("Output directory: %s", output_dir)
     prepare_data_dir_path(output_dir, make_latest_symlink=args.make_latest_symlink)
-    copy_config(args.config, output_dir)
+    copy_config(args.config, args.init_config, output_dir)
     event_logger().debug("Parsed arguments: %s", args)
 
     # Start mainloop
@@ -271,6 +276,7 @@ def main() -> None:
         args.joints,
         args.sfreq,
         args.cfreq,
+        args.init_config,
         args.init_duration,
         args.init_duration_keep_steady,
         args.init_manner,
