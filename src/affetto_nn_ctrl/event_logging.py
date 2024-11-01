@@ -4,6 +4,7 @@ import logging
 import sys
 import tempfile
 from pathlib import Path
+from typing import ClassVar
 
 DEFAULT_LOG_FORMATTER = "%(asctime)s (%(module)s:%(lineno)d) [%(levelname)s]: %(message)s"
 
@@ -11,6 +12,14 @@ DEFAULT_LOG_FORMATTER = "%(asctime)s (%(module)s:%(lineno)d) [%(levelname)s]: %(
 class FakeLogger:
     _console_output: bool
     _logging_level: int
+    _logging_level_map: ClassVar[dict[str, int]] = {
+        "NOTSET": 0,
+        "DEBUG": 10,
+        "INFO": 20,
+        "WARNING": 30,
+        "ERROR": 40,
+        "CRITICAL": 50,
+    }
 
     def __init__(self, *, disable_console_output: bool = False) -> None:
         self._disable_console_output = disable_console_output
@@ -67,10 +76,13 @@ class FakeLogger:
     def enable_console_output(self) -> None:
         self._disable_console_output = True
 
-    def set_logging_level(self, logging_level: int) -> None:
-        self._logging_level = logging_level
+    def set_logging_level(self, logging_level: int | str) -> None:
+        if isinstance(logging_level, int):
+            self._logging_level = logging_level
+        else:
+            self._logging_level = self._logging_level_map[logging_level]
 
-    def setLevel(self, level: int) -> None:  # noqa: N802
+    def setLevel(self, level: int | str) -> None:  # noqa: N802
         self.set_logging_level(level)
 
     @property
@@ -161,6 +173,16 @@ def event_logger() -> logging.Logger | FakeLogger:
     return _event_logger
 
 
+def get_logging_level_from_verbose_count(verbose_count: int) -> str:
+    match verbose_count:
+        case 0:
+            return "WARNING"
+        case 1:
+            return "INFO"
+        case _:
+            return "DEBUG"
+
+
 def start_logging(
     argv: list[str],
     output_dir: Path,
@@ -169,14 +191,7 @@ def start_logging(
     *,
     dry_run: bool = False,
 ) -> logging.Logger:
-    match verbose_count:
-        case 0:
-            logging_level = "WARNING"
-        case 1:
-            logging_level = "INFO"
-        case _:
-            logging_level = "DEBUG"
-
+    logging_level = get_logging_level_from_verbose_count(verbose_count)
     if not dry_run:
         output_dir.mkdir(parents=True, exist_ok=True)
     return start_event_logging(argv, output_dir, name=name, logging_level=logging_level)
