@@ -835,6 +835,7 @@ def parse() -> argparse.Namespace:
 
 
 DEFAULT_SHOW_LEGEND_N_JOINTS = 4
+DEFAULT_DOF = 13
 
 
 def main() -> None:
@@ -848,7 +849,7 @@ def main() -> None:
             args.tlim = (min(args.tlim), max(args.tlim))
     dpi = float(args.dpi) if args.dpi != "figure" else args.dpi
 
-    active_joints = resolve_joints_str(args.joints, 13)
+    active_joints = resolve_joints_str(args.joints, DEFAULT_DOF)
     if args.show_legend is None:
         args.show_legend = bool(len(active_joints) < DEFAULT_SHOW_LEGEND_N_JOINTS)
     datapath_list, default_output_dir = collect_datapath(args.datapath, args.pickup, active_joints, latest=args.latest)
