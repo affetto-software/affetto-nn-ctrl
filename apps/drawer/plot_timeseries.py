@@ -160,11 +160,11 @@ def _plot_timeseries_active_joints(
     if plot_labels is None:
         if len(list(key_list)) == 1:
             if next(iter(key_list)) == "qdes":
-                plot_labels = [f"Joint {i} (qdes)" for i in range(len(active_joints))]
+                plot_labels = [f"Joint #{i} (qdes)" for i in active_joints]
             else:
-                plot_labels = [f"Joint {i}" for i in range(len(active_joints))]
+                plot_labels = [f"Joint #{i}" for i in active_joints]
         else:
-            plot_labels = [f"Joint {i} ({key})" for i in range(len(active_joints)) for key in key_list]
+            plot_labels = [f"Joint #{i} ({key})" for i in active_joints for key in key_list]
     assert len(list(plot_labels)) == len(active_joints) * len(list(key_list))
 
     labels_iter = iter(plot_labels)
