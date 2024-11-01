@@ -835,6 +835,23 @@ class Spline:
         self._dof = self.count_dof(self._data)
         return self.data
 
+    def interpolate(self) -> None:
+        pass
+
+    def get_qdes_func(self, q0: np.ndarray) -> Callable[[float], np.ndarray]:
+        def qdes_func(t: float) -> np.ndarray:
+            q = q0.copy()
+            return q
+
+        return qdes_func
+
+    def get_dqdes_func(self, q0: np.ndarray) -> Callable[[float], np.ndarray]:
+        def dqdes_func(t: float) -> np.ndarray:
+            dq = np.zeros(q0.shape, dtype=float)
+            return dq
+
+        return dqdes_func
+
 
 # Local Variables:
 # jinx-local-words: "cb const dT dof dq dqdes init noqa pb pos qdes rb rdq rpa rpb rq"
