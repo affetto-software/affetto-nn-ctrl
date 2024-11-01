@@ -104,7 +104,7 @@ def run(
     release_pressure((comm, ctrl, state))
 
     # Finish stuff.
-    event_logger().debug("Data collection finished")
+    event_logger().debug("Recording reference motion trajectory finished")
     comm.close_command_socket()
     state.join()
 
