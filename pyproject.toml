@@ -16,6 +16,7 @@ dependencies = [
     "affctrllib @ git+https://github.com/affetto-software/affctrllib@develop",
     "pyplotutil @ git+https://github.com/hrshtst/pyplotutil.git@develop",
     "tomli>=2.0.1; python_version < '3.11'",
+    "scipy>=1.14.1",
 ]
 readme = "README.md"
 requires-python = ">= 3.10"

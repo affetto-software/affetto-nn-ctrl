@@ -84,6 +84,7 @@ pytz==2024.1
 ruff==0.6.7
 scipy==1.14.1
     # via affctrllib
+    # via affetto-nn-ctrl
 six==1.16.0
     # via python-dateutil
 typing-extensions==4.12.2
