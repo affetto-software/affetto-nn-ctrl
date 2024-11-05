@@ -71,7 +71,7 @@ def run(
     ca_init: list[float] | None,
     cb_init: list[float] | None,
     reference_filepath: str,
-    ctrl_type: str | None,
+    model: str | None,
     smoothness: float | None,
     duration: float,
     n_repeat: int,
@@ -224,14 +224,10 @@ def parse() -> argparse.Namespace:
     # Input
     parser.add_argument("-r", "--reference", required=True, help="Path to file storing reference motion trajectory.")
     parser.add_argument(
-        "-t",
-        "--type",
-        dest="ctrl_type",
-        choices=["pid", "mlp"],
-        default="pid",
-        help="Controller type to be employed for tracking trajectory. Choose: [pid, mlp]",
+        "-m",
+        "--model",
+        help="Path to file in which trained model is encoded. If no model is provided, PID controller is used.",
     )
-    parser.add_argument("-m", "--model", help="Trained model to load for MLP-based controller.")
     # Parameters
     parser.add_argument(
         "-s",
@@ -345,7 +341,7 @@ def main() -> None:
         args.cb_init,
         # input
         args.reference,
-        args.ctrl_type,
+        args.model,
         # parameters
         args.smoothness,
         args.duration,
@@ -360,3 +356,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+# Local Variables:
+# jinx-local-words: "cb cfreq csv ctrl dataset dir env init mlp pid sfreq sublabel symlink usr vv"
+# End:
