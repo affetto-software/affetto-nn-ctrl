@@ -846,7 +846,6 @@ def plot_generated_data(output: Path, xlim: tuple[float, float] | None = None, *
     from pyplotutil.datautil import Data
 
     # Setup
-    show_legend = False
     data = Data(output)
     event_logger().info("Data loaded: %s", output)
 
@@ -905,6 +904,7 @@ def generate_expected_data(*, show_plot: bool = True) -> None:
 
 
 REFERENCE_DATA_PATH = TESTS_DATA_DIR_PATH / "reference_trajectory_000.csv"
+TOY_DATA_PATH = TESTS_DATA_DIR_PATH / "test_spline_toy_data.csv"
 
 
 class TestSpline:
@@ -916,16 +916,277 @@ class TestSpline:
         assert s.data.datapath == data
         assert s.dof == DOF
 
+    def test_q0(self) -> None:
+        data = REFERENCE_DATA_PATH
+        active_joints = [2, 3, 4, 5]
+        s = Spline(data, active_joints)
+        expected_q0 = np.array([0.2, 0.6, 1.0, 4.3, 0.8, 0.0, 0.5, 1.3, 0.0, 0.2, 0.3, 0.0, 0.2])
+        assert_array_equal(s.q0, expected_q0)
+
+    def test_duration(self) -> None:
+        data = REFERENCE_DATA_PATH
+        active_joints = [2, 3, 4, 5]
+        s = Spline(data, active_joints)
+        expected_duration = 10.0
+        assert s.duration == expected_duration
+
+    def make_interp_toy_data_path(self, base_directory: Path, s: None | float) -> Path:
+        s_str = str(s) if s is None else f"{s:.6f}"
+        filename = f"test_spline_interp_toy_data_s_{s_str}"
+        return base_directory / filename
+
+    def make_interp_motion_data_path(self, base_directory: Path, s: None | float) -> Path:
+        s_str = str(s) if s is None else f"{s:.6f}"
+        filename = f"test_spline_interp_motion_data_s_{s_str}"
+        return base_directory / filename
+
+    def generate_toy_data(self, output: Path | None, seed: int = 123) -> tuple[np.ndarray, list[np.ndarray]]:
+        x = np.arange(0, 2 * np.pi + np.pi / 4, 2 * np.pi / 16)
+        rng = np.random.default_rng(seed)
+        y0 = np.sin(x) + 0.4 * rng.standard_normal(size=len(x))
+        y1 = np.sin(x - 0.25 * np.pi) + 0.3 * rng.standard_normal(size=len(x))
+        logger = Logger()
+        logger.set_labels("t", "rq0", "rq1", "q0", "q1")
+        for x_i, y0_i, y1_i in zip(x, y0, y1, strict=True):
+            logger.store(x_i, y0_i, y1_i, y0_i, y1_i)
+        logger.dump(output, quiet=True)
+        return x, [y0, y1]
+
+    def generate_interp_toy_data(self, datapath: Path, output: Path | None, s: float | None) -> None:
+        sp = Spline(datapath, [0, 1], s=s)
+        qdes = sp.get_qdes_func()
+        dqdes = sp.get_dqdes_func()
+        xnew = np.arange(0, 9 / 4, 1 / 50) * np.pi
+        logger = Logger()
+        logger.set_labels("t", "qdes0", "qdes1", "dqdes0", "dqdes1")
+        for t in xnew:
+            logger.store(t, qdes(t), dqdes(t))
+        logger.dump(output, quiet=True)
+
+    def generate_interp_motion_data(
+        self,
+        datapath: Path,
+        active_joints: list[int],
+        output: Path | None,
+        s: float | None,
+        duration: float,
+        dt: float,
+    ) -> None:
+        sp = Spline(datapath, active_joints, s=s)
+        qdes = sp.get_qdes_func()
+        dqdes = sp.get_dqdes_func()
+        tnew = np.arange(0.0, duration, dt)
+        logger = Logger()
+        logger.set_labels("t", [f"qdes{i}" for i in range(sp.dof)], [f"dqdes{i}" for i in range(sp.dof)])
+        for t in tnew:
+            logger.store(t, qdes(t), dqdes(t))
+        logger.dump(output, quiet=True)
+
+    @pytest.mark.parametrize("s", [None, 0, 12.0, 18, 24.0])
+    def test_interpolate_toy_data(self, make_work_directory: Path, s: float | None) -> None:
+        output = self.make_interp_toy_data_path(make_work_directory, s)
+        self.generate_interp_toy_data(TOY_DATA_PATH, output, s)
+        assert_file_contents(TESTS_DATA_DIR_PATH / output.name, output)
+
+    @pytest.mark.parametrize("active_joints", [[5]])
+    @pytest.mark.parametrize("s", [None, 0, 276.4643117072294, 301, 325.5356882927706])
+    @pytest.mark.parametrize("duration", [11])
+    @pytest.mark.parametrize("dt", [1e-2])
+    def test_interpolate_motion_data(
+        self,
+        make_work_directory: Path,
+        active_joints: list[int],
+        s: float | None,
+        duration: float,
+        dt: float,
+    ) -> None:
+        output = self.make_interp_motion_data_path(make_work_directory, s)
+        self.generate_interp_motion_data(REFERENCE_DATA_PATH, active_joints, output, s, duration, dt)
+        assert_file_contents(TESTS_DATA_DIR_PATH / output.name, output)
+
+
+def generate_toy_data() -> Path:
+    generator = TestSpline()
+    toy_data = TOY_DATA_PATH
+    TOY_DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
+    generator.generate_toy_data(toy_data)
+    event_logger().info("Toy data for spline test is generated: %s", toy_data)
+    return toy_data
+
+
+def generate_interp_toy_data(toy_data: Path, s: float | None) -> Path:
+    generator = TestSpline()
+    interp_data = generator.make_interp_toy_data_path(TESTS_DATA_DIR_PATH, s)
+    TESTS_DATA_DIR_PATH.mkdir(parents=True, exist_ok=True)
+    generator.generate_interp_toy_data(toy_data, interp_data, s)
+    event_logger().info("Interpolated toy data (s=%s) is generated: %s", s, interp_data)
+    return interp_data
+
+
+def generate_interp_motion_data(
+    motion_data: Path,
+    active_joints: list[int],
+    s: float | None,
+    duration: float,
+    dt: float,
+) -> Path:
+    generator = TestSpline()
+    interp_data = generator.make_interp_motion_data_path(TESTS_DATA_DIR_PATH, s)
+    TESTS_DATA_DIR_PATH.mkdir(parents=True, exist_ok=True)
+    generator.generate_interp_motion_data(motion_data, active_joints, interp_data, s, duration, dt)
+    event_logger().info("Interpolated motion data (s=%s) is generated: %s", s, interp_data)
+    return interp_data
+
+
+def plot_toy_data(
+    origin_data_path: Path,
+    interp_data_path: Path,
+    s: float | None,
+    xlim: tuple[float, float] | None = None,
+    *,
+    show_legend: bool = True,
+) -> None:
+    import matplotlib.pyplot as plt
+    from pyplotutil.datautil import Data
+
+    # Setup
+    origin_data = Data(origin_data_path)
+    event_logger().info("Original data for spline test is loaded (m=%s): %s", len(origin_data), origin_data_path)
+    interp_data = Data(interp_data_path)
+    event_logger().info("Interpolated data for spline test is loaded (s=%s): %s", s, interp_data_path)
+
+    dof = 2
+    ynew = np.vstack((np.sin(interp_data.t), np.sin(interp_data.t - 0.25 * np.pi))).T
+    dynew = np.vstack((np.cos(interp_data.t), np.cos(interp_data.t - 0.25 * np.pi))).T
+    for i in range(dof):
+        # Make plot of joint position
+        plt.figure(i * dof)
+        plt.plot(interp_data.t, ynew[:, i], "-.", label=f"sin(t)[{i}]")
+        plt.plot(interp_data.t, getattr(interp_data, f"qdes{i}", "-"), label=f"qdes{i}")
+        plt.plot(origin_data.t, getattr(origin_data, f"q{i}"), "o", label=f"q{i}")
+        plt.xlabel("time [s]")
+        plt.ylabel("data")
+        plt.title(f"Interpolation s={s}")
+        plt.xlim(xlim)
+        if show_legend:
+            plt.legend()
+
+        # Make plot of joint velocity
+        plt.figure(i * dof + 1)
+        plt.plot(interp_data.t, dynew[:, i], "-.", label=f"cos(t)[{i}]")
+        plt.plot(interp_data.t, getattr(interp_data, f"dqdes{i}", "-"), label=f"dqdes{i}")
+        plt.xlabel("time [s]")
+        plt.ylabel("derivative")
+        plt.title(f"Derivative s={s}")
+        plt.xlim(xlim)
+        if show_legend:
+            plt.legend()
+
+    plt.show()
+
+
+def plot_motion_data(
+    origin_data_path: Path,
+    interp_data_path: Path,
+    active_joints: list[int],
+    s: float | None,
+    xlim: tuple[float, float] | None = None,
+    *,
+    show_legend: bool = True,
+) -> None:
+    import matplotlib.pyplot as plt
+    from pyplotutil.datautil import Data
+
+    # Setup
+    origin_data = Data(origin_data_path)
+    event_logger().info("Original data for spline test is loaded (m=%s): %s", len(origin_data), origin_data_path)
+    interp_data = Data(interp_data_path)
+    event_logger().info("Interpolated data for spline test is loaded (s=%s): %s", s, interp_data_path)
+
+    for i, j in enumerate(active_joints):
+        # Make plot of joint position
+        plt.figure(i * len(active_joints))
+        plt.plot(interp_data.t, getattr(interp_data, f"qdes{j}", "-"), label=f"qdes{j}")
+        plt.plot(origin_data.t, getattr(origin_data, f"q{j}"), "o", label=f"q{j}")
+        plt.xlabel("time [s]")
+        plt.ylabel("position [0-100]")
+        plt.title(f"Interpolation s={s}")
+        plt.ylim((0, 100))
+        plt.xlim(xlim)
+        if show_legend:
+            plt.legend()
+
+        # Make plot of joint velocity
+        plt.figure(i * len(active_joints) + 1)
+        plt.plot(interp_data.t, getattr(interp_data, f"dqdes{j}", "-"), label=f"dqdes{j}")
+        plt.xlabel("time [s]")
+        plt.ylabel("velocity [0-100/s]")
+        plt.title(f"Derivative s={s}")
+        plt.xlim(xlim)
+        if show_legend:
+            plt.legend()
+
+    plt.show()
+
+
+def check_interp_toy_data(toy_data: Path, s: float | None, *, show_plot: bool) -> None:
+    interp_data = generate_interp_toy_data(toy_data, s)
+    if show_plot:
+        plot_toy_data(toy_data, interp_data, s)
+
+
+def check_interp_motion_data(
+    active_joints: list[int],
+    s: float | None,
+    duration: float,
+    dt: float,
+    *,
+    show_plot: bool,
+) -> None:
+    interp_data = generate_interp_motion_data(REFERENCE_DATA_PATH, active_joints, s, duration, dt)
+    if show_plot:
+        plot_motion_data(REFERENCE_DATA_PATH, interp_data, active_joints, s)
+
+
+def generate_expected_interp_toy_data(*, show_plot: bool = True) -> None:
+    m = 18
+    s_list: list[float | None] = [None, 0, m - np.sqrt(2 * m), m, m + np.sqrt(2 * m)]
+    toy_data = generate_toy_data()
+    for s in s_list:
+        check_interp_toy_data(toy_data, s=s, show_plot=show_plot)
+
+
+def generate_expected_interp_motion_data(*, show_plot: bool = True) -> None:
+    m = 301
+    active_joints: list[int] = [5]
+    s_list: list[float | None] = [None, 0, m - np.sqrt(2 * m), m, m + np.sqrt(2 * m)]
+    duration: float = 11
+    dt: float = 1e-2
+    for s in s_list:
+        check_interp_motion_data(active_joints, s, duration, dt, show_plot=show_plot)
+
 
 def main() -> None:
     import sys
 
     start_event_logging(sys.argv, logging_level="INFO")
+    msg = "Provide 'random' or 'spline' with arguments e.g.:\n"
+    msg += f"$ python {' '.join(sys.argv)} random"
     if len(sys.argv) == 1:
-        generate_expected_data(show_plot=True)
-    else:
-        output = Path(sys.argv[1])
-        plot_generated_data(output)
+        raise RuntimeError(msg)
+    match sys.argv[1]:
+        case "random":
+            if len(sys.argv) == 2:  # noqa: PLR2004
+                generate_expected_data(show_plot=True)
+            else:
+                output = Path(sys.argv[2])
+                plot_generated_data(output)
+        case "spline_toy":
+            generate_expected_interp_toy_data(show_plot=True)
+        case "spline":
+            generate_expected_interp_motion_data(show_plot=True)
+        case _:
+            raise RuntimeError(msg)
 
 
 if __name__ == "__main__":
@@ -933,5 +1194,5 @@ if __name__ == "__main__":
 
 
 # Local Variables:
-# jinx-local-words: "async cb const csv dat dof dq init msg noqa pos str traj trapez"
+# jinx-local-words: "async cb const csv dat dof dq dqdes dt init interp msg noqa pos qdes str traj trapez"
 # End:

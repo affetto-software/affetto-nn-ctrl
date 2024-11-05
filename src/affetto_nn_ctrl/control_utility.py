@@ -12,6 +12,7 @@ import numpy as np
 from affctrllib import PTP, AffComm, AffPosCtrl, AffStateThread, Logger, Timer
 from numpy.random import Generator, default_rng
 from pyplotutil.datautil import Data
+from scipy import interpolate
 
 from affetto_nn_ctrl.event_logging import event_logger
 
@@ -800,16 +801,19 @@ class RandomTrajectory:
 
 
 class Spline:
+    active_joints: list[int]
     _data: Data
     _dof: int
-    active_joints: list[int]
+    _q0: np.ndarray
+    _duration: float
 
-    def __init__(self, data: str | Path | Data, active_joints: list[int]) -> None:
+    def __init__(self, data: str | Path | Data, active_joints: list[int], s: float | None = None) -> None:
         self.active_joints = active_joints
         if isinstance(data, str | Path):
             self.load_data(data)
         else:
             self.set_data(data)
+        self.interpolate(s)
 
     @property
     def data(self) -> Data:
@@ -819,35 +823,78 @@ class Spline:
     def dof(self) -> int:
         return self._dof
 
+    @property
+    def q0(self) -> np.ndarray:
+        return self._q0
+
+    @property
+    def duration(self) -> float:
+        return self._duration
+
     @staticmethod
     def count_dof(data: Data) -> int:
         pattern = re.compile(r"rq\d+")
         array = data.dataframe.columns.array
         return len(list(filter(pattern.match, array)))
 
+    def _set_data(self) -> None:
+        self._dof = self.count_dof(self._data)
+        self._q0 = np.array([getattr(self._data, f"rq{i}")[0] for i in range(self._dof)])
+        self._duration = self._data.t.to_numpy()[-1]
+
     def load_data(self, datapath: str | Path) -> Data:
         self._data = Data(datapath)
-        self._dof = self.count_dof(self._data)
+        self._set_data()
         return self.data
 
     def set_data(self, data: Data) -> Data:
         self._data = data
-        self._dof = self.count_dof(self._data)
+        self._set_data()
         return self.data
 
-    def interpolate(self) -> None:
-        pass
+    def interpolate(self, s: float | None) -> None:
+        if s is None:
+            m = len(self._data)
+            s = m - np.sqrt(2.0 * m)
+        x = self._data.t
+        self._tck = []
+        self._der = []
+        for i in self.active_joints:
+            y = getattr(self._data, f"rq{i}")
+            tck = interpolate.splrep(x, y, s=s)
+            self._tck.append(tck)
+            self._der.append(interpolate.splder(tck))
 
-    def get_qdes_func(self, q0: np.ndarray) -> Callable[[float], np.ndarray]:
+    def get_qdes_func(
+        self,
+        q0: np.ndarray | None = None,
+        duration: float | None = None,
+    ) -> Callable[[float], np.ndarray]:
+        if q0 is None:
+            q0 = self.q0
+        if duration is None:
+            duration = self.duration
+
         def qdes_func(t: float) -> np.ndarray:
             q = q0.copy()
+            q[self.active_joints] = [interpolate.splev(t, tck) for tck in self._tck]
             return q
 
         return qdes_func
 
-    def get_dqdes_func(self, q0: np.ndarray) -> Callable[[float], np.ndarray]:
+    def get_dqdes_func(
+        self,
+        q0: np.ndarray | None = None,
+        duration: float | None = None,
+    ) -> Callable[[float], np.ndarray]:
+        if q0 is None:
+            q0 = self.q0
+        if duration is None:
+            duration = self.duration
+
         def dqdes_func(t: float) -> np.ndarray:
             dq = np.zeros(q0.shape, dtype=float)
+            dq[self.active_joints] = [interpolate.splev(t, der) for der in self._der]
             return dq
 
         return dqdes_func
