@@ -17,6 +17,7 @@ dependencies = [
     "pyplotutil @ git+https://github.com/hrshtst/pyplotutil.git@develop",
     "tomli>=2.0.1; python_version < '3.11'",
     "scipy>=1.14.1",
+    "scikit-learn>=1.5.2",
 ]
 readme = "README.md"
 requires-python = ">= 3.10"
@@ -158,5 +159,5 @@ module = [
 ignore_missing_imports = true
 
 # Local Variables:
-# jinx-local-words: "McCabe Pyflakes addopts backend bzr cov ctrl defs dev direnv doctests hatchling hg ini ipynb isort md mixedCase mypy nn nox numpy pycache pycodestyle pydocstyle pyenv pypackages pyplotutil pyright pytest pytype ra reStructuredText rgx scipy src svn testpaths tomli tox unfixable untyped urls vcs venv venvPath vscode xdist zA"
+# jinx-local-words: "McCabe Pyflakes addopts backend bzr cov ctrl defs dev direnv doctests hatchling hg ini ipynb isort md mixedCase mypy nn nox numpy pycache pycodestyle pydocstyle pyenv pypackages pyplotutil pyright pytest pytype ra reStructuredText rgx scikit scipy src svn testpaths tomli tox unfixable untyped urls vcs venv venvPath vscode xdist zA"
 # End:

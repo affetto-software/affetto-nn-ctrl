@@ -18,6 +18,8 @@ cycler==0.12.1
     # via matplotlib
 fonttools==4.53.0
     # via matplotlib
+joblib==1.4.2
+    # via scikit-learn
 kiwisolver==1.4.5
     # via matplotlib
 matplotlib==3.9.0
@@ -28,6 +30,7 @@ numpy==2.1.0
     # via matplotlib
     # via pandas
     # via pyplotutil
+    # via scikit-learn
     # via scipy
 packaging==24.0
     # via matplotlib
@@ -50,10 +53,15 @@ python-dateutil==2.9.0.post0
     # via pandas
 pytz==2024.1
     # via pandas
+scikit-learn==1.5.2
+    # via affetto-nn-ctrl
 scipy==1.14.1
     # via affctrllib
     # via affetto-nn-ctrl
+    # via scikit-learn
 six==1.16.0
     # via python-dateutil
+threadpoolctl==3.5.0
+    # via scikit-learn
 tzdata==2024.1
     # via pandas
