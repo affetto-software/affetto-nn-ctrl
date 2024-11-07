@@ -1,36 +1,115 @@
 from __future__ import annotations
 
-from typing import Callable
+from abc import ABCMeta, abstractmethod
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Protocol, TypeAlias
 
 import numpy as np
-from affctrllib import Logger
+
+if TYPE_CHECKING:
+    from affctrllib import AffPosCtrl
 
 
+@dataclass
 class DataAdapterParams:
     pass
 
 
-class DataAdapter:
+Reference: TypeAlias = Callable[[float], np.ndarray]
+
+
+class DataAdapter(metaclass=ABCMeta):
+    _params: DataAdapterParams
+
     def __init__(self, params: DataAdapterParams) -> None:
-        pass
+        self._params = params
 
-    def map_to_train_input(self, logger: Logger) -> np.ndarray:
-        x: np.ndarray = np.array(())
-        return x
+    @property
+    def params(self) -> DataAdapterParams:
+        return self._params
 
-    def map_to_train_output(self, logger: Logger) -> np.ndarray:
-        y: np.ndarray = np.array(())
-        return y
+    @abstractmethod
+    def to_feature(self, **data: np.ndarray) -> np.ndarray:
+        raise NotImplementedError
 
-    def map_to_predict_input(
+    @abstractmethod
+    def to_target(self, **data: np.ndarray) -> np.ndarray:
+        raise NotImplementedError
+
+    @abstractmethod
+    def to_feature_for_predict(self, **data: np.ndarray | Reference) -> np.ndarray:
+        raise NotImplementedError
+
+    @abstractmethod
+    def convert_output(self, y: np.ndarray, **data: np.ndarray) -> tuple[np.ndarray, ...]:
+        raise NotImplementedError
+
+
+class Regressor(Protocol):
+    def fit(self, X: np.ndarray, y: np.ndarray, sample_weights: np.ndarray | None = None) -> Regressor: ...  # noqa: N803
+
+    def predict(self, X: np.ndarray) -> np.ndarray: ...  # noqa: N803
+
+
+class CtrlAdapter:
+    ctrl: AffPosCtrl
+    model: Regressor
+    data_adapter: DataAdapter
+    _updater: Callable[
+        [float, np.ndarray, np.ndarray, np.ndarray, np.ndarray, Reference, Reference],
+        tuple[np.ndarray, np.ndarray],
+    ]
+
+    def __init__(self, ctrl: AffPosCtrl, model: Regressor | None, data_adapter: DataAdapter) -> None:
+        self.ctrl = ctrl
+        if model is None:
+            self._updater = self.update_ctrl
+        else:
+            self._updater = self.update_model
+        self.data_adapter = data_adapter
+
+    def update_ctrl(
         self,
-        logger: Logger,
-        qdes_f: Callable[[float], np.ndarray],
-        deqdes_f: Callable[[float], np.ndarray],
-    ) -> np.ndarray:
-        x: np.ndarray = np.array(())
-        return x
+        t: float,
+        q: np.ndarray,
+        dq: np.ndarray,
+        pa: np.ndarray,
+        pb: np.ndarray,
+        qdes: Reference,
+        dqdes: Reference,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        return self.ctrl.update(t, q, dq, pa, pb, qdes(t), dqdes(t))
 
-    def map_predicted_output(self, y: np.ndarray) -> np.ndarray:
-        c: np.ndarray = np.array(())
-        return c
+    def update_model(
+        self,
+        t: float,
+        q: np.ndarray,
+        dq: np.ndarray,
+        pa: np.ndarray,
+        pb: np.ndarray,
+        qdes: Reference,
+        dqdes: Reference,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        ca, cb = self.ctrl.update(t, q, dq, pa, pb, qdes(t), dqdes(t))
+        x = self.data_adapter.to_feature_for_predict(q=q, dq=dq, pa=pa, pb=pb, qdes=qdes, dqdes=dqdes)
+        y = np.ravel(self.model.predict(np.atleast_2d(x)))
+        ca, cb = self.data_adapter.convert_output(y, ca=ca, cb=cb)
+        return ca, cb
+
+    def update(
+        self,
+        t: float,
+        q: np.ndarray,
+        dq: np.ndarray,
+        pa: np.ndarray,
+        pb: np.ndarray,
+        qdes: Reference,
+        dqdes: Reference,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        return self._updater(t, q, dq, pa, pb, qdes, dqdes)
+
+
+# Local Variables:
+# jinx-local-words: "noqa"
+# End:
