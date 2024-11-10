@@ -12,7 +12,7 @@ from affetto_nn_ctrl.model_utility import DataAdapter, DataAdapterParams, Refere
 
 @dataclass
 class SimpleDataAdapterParams(DataAdapterParams):
-    index: list[int]
+    feature_index: list[int]
 
 
 class SimpleDataAdapter:
