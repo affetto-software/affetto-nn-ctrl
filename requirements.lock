@@ -40,7 +40,7 @@ pillow==10.3.0
     # via matplotlib
 pyparsing==3.1.2
     # via matplotlib
-pyplotutil @ git+https://github.com/hrshtst/pyplotutil.git@e415fe05ed1b9d90a6aae184b5ac65e71385aa8e
+pyplotutil @ git+https://github.com/hrshtst/pyplotutil.git@f84c195d291c6bda16242f3bf566da1f6ddb3a1a
     # via affetto-nn-ctrl
 pyqt6==6.7.1
     # via pyplotutil
