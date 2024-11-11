@@ -154,6 +154,7 @@ check_untyped_defs = true       # Type-checks the interior of functions without 
 [[tool.mypy.overrides]]
 module = [
   "numpy.*",
+  "pandas.*",
   "scipy.*",
   "sklearn.*"
 ]
