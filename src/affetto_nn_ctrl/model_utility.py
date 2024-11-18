@@ -2,11 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Generic, Protocol, TypeAlias
+from typing import TYPE_CHECKING, Generic, Protocol, TypeAlias, TypeVar
 
 import numpy as np
-
-from affetto_nn_ctrl._typing import T_co
 
 if TYPE_CHECKING:
     from affctrllib import AffPosCtrl
@@ -21,16 +19,17 @@ class DataAdapterParams:
 
 
 Reference: TypeAlias = Callable[[float], np.ndarray]
+DataAdapterParamsType_co = TypeVar("DataAdapterParamsType_co", bound=DataAdapterParams, covariant=True)
 
 
-class DataAdapter(Protocol, Generic[T_co]):
-    _params: T_co
+class DataAdapter(Protocol, Generic[DataAdapterParamsType_co]):
+    _params: DataAdapterParamsType_co
 
-    def __init__(self, params: T_co) -> None:
+    def __init__(self, params: DataAdapterParamsType_co) -> None:
         self._params = params
 
     @property
-    def params(self) -> T_co:
+    def params(self) -> DataAdapterParamsType_co:
         return self._params
 
     def make_feature(self, dataset: Data) -> np.ndarray: ...
@@ -122,5 +121,5 @@ class CtrlAdapter:
 
 
 # Local Variables:
-# jinx-local-words: "noqa"
+# jinx-local-words: "Params noqa"
 # End:
