@@ -10,6 +10,8 @@ import numpy as np
 if TYPE_CHECKING:
     from affctrllib import AffPosCtrl
 
+    from affetto_nn_ctrl._typing import Unknown
+
 
 @dataclass
 class DataAdapterParams:
@@ -46,10 +48,23 @@ class DataAdapter(metaclass=ABCMeta):
         raise NotImplementedError
 
 
-class Regressor(Protocol):
-    def fit(self, X: np.ndarray, y: np.ndarray, sample_weights: np.ndarray | None = None) -> Regressor: ...  # noqa: N803
+class LinearRegressor(Protocol):
+    def fit(self, X: np.ndarray, y: np.ndarray, sample_weight: np.ndarray | None = None) -> LinearRegressor: ...  # noqa: N803
 
-    def predict(self, X: np.ndarray) -> np.ndarray: ...  # noqa: N803
+    def predict(self, X: np.ndarray) -> np.ndarray | Unknown: ...  # noqa: N803
+
+    def score(self, X: np.ndarray, y: np.ndarray, sample_weight: np.ndarray | None = None) -> float: ...  # noqa: N803
+
+
+class MultiLayerPerceptronRegressor(Protocol):
+    def fit(self, X: np.ndarray, y: np.ndarray) -> MultiLayerPerceptronRegressor: ...  # noqa: N803
+
+    def predict(self, X: np.ndarray) -> np.ndarray | Unknown: ...  # noqa: N803
+
+    def score(self, X: np.ndarray, y: np.ndarray, sample_weight: np.ndarray | None = None) -> float | Unknown: ...  # noqa: N803
+
+
+Regressor: TypeAlias = LinearRegressor | MultiLayerPerceptronRegressor
 
 
 class CtrlAdapter:
