@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import shutil
-from collections.abc import Callable, Generator, Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,7 +13,7 @@ from sklearn import datasets
 from sklearn.linear_model import LinearRegression, Ridge
 from sklearn.neural_network import MLPRegressor
 
-from affetto_nn_ctrl import ROOT_DIR_PATH, TESTS_DIR_PATH
+from affetto_nn_ctrl import ROOT_DIR_PATH
 from affetto_nn_ctrl.event_logging import start_event_logging
 from affetto_nn_ctrl.model_utility import DataAdapterParams, Reference, Regressor
 
@@ -28,14 +27,6 @@ except ImportError:
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-
-@pytest.fixture(scope="session")
-def make_work_directory() -> Generator[Path, Any, Any]:
-    work_dir = TESTS_DIR_PATH / "work"
-    work_dir.mkdir(parents=True, exist_ok=True)
-    yield work_dir
-    shutil.rmtree(work_dir)
 
 
 @dataclass

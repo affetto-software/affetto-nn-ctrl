@@ -1,17 +1,16 @@
 from __future__ import annotations
 
 import re
-import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
 from affctrllib.logger import Logger
 from numpy.testing import assert_array_equal, assert_raises
 
-from affetto_nn_ctrl import ROOT_DIR_PATH, TESTS_DIR_PATH
+from affetto_nn_ctrl import ROOT_DIR_PATH
 from affetto_nn_ctrl.control_utility import (
     MIN_UPDATE_Q_DELTA,
     WAIST_JOINT_INDEX,
@@ -34,7 +33,7 @@ except ImportError:
     from tests import TESTS_DATA_DIR_PATH, assert_file_contents  # type: ignore[reportMissingImports]
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterable, Sequence
+    from collections.abc import Iterable, Sequence
 
 
 DOF = 13
@@ -704,14 +703,6 @@ class TestRandomTrajectory:
             qdiff = abs(qdes - q0)
             assert MIN_UPDATE_Q_DELTA < qdiff < q_range[1]
             assert q_limit[0] < qdes < q_limit[1]
-
-
-@pytest.fixture(scope="class")
-def make_work_directory() -> Generator[Path, Any, Any]:
-    work_dir = TESTS_DIR_PATH / "work"
-    work_dir.mkdir(parents=True, exist_ok=True)
-    yield work_dir
-    shutil.rmtree(work_dir)
 
 
 class TestRandomTrajectoryData:
