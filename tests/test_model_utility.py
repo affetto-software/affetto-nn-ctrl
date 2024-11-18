@@ -136,6 +136,7 @@ def generate_prediction_data(
     return prediction
 
 
+@pytest.mark.filterwarnings("ignore::sklearn.exceptions.ConvergenceWarning")
 @pytest.mark.parametrize(
     ("model", "kw", "name"),
     [
@@ -182,6 +183,7 @@ def check_expected_data(
 def generate_expected_data(*, show_plot: bool = True) -> None:
     train_dataset, test_dataset = make_dataset(n_samples=20, n_features=1, n_targets=1)
     adapter = SimpleDataAdapter(SimpleDataAdapterParams(feature_index=[0], target_index=[0]))
+    TESTS_DATA_DIR_PATH.mkdir(parents=True, exist_ok=True)
 
     models: list[tuple[Regressor, dict[str, str | float], str]] = [
         (LinearRegression(), {}, "linear"),
@@ -209,5 +211,5 @@ if __name__ == "__main__":
     main()
 
 # Local Variables:
-# jinx-local-words: "arg csv iter mlp noqa params"
+# jinx-local-words: "arg csv iter mlp noqa params sklearn"
 # End:
