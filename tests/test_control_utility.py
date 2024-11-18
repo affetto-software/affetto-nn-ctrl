@@ -11,7 +11,7 @@ import pytest
 from affctrllib.logger import Logger
 from numpy.testing import assert_array_equal, assert_raises
 
-from affetto_nn_ctrl import TESTS_DIR_PATH
+from affetto_nn_ctrl import ROOT_DIR_PATH, TESTS_DIR_PATH
 from affetto_nn_ctrl.control_utility import (
     MIN_UPDATE_Q_DELTA,
     WAIST_JOINT_INDEX,
@@ -25,6 +25,14 @@ from affetto_nn_ctrl.control_utility import (
 )
 from affetto_nn_ctrl.event_logging import event_logger, start_event_logging
 
+try:
+    from . import TESTS_DATA_DIR_PATH, assert_file_contents
+except ImportError:
+    import sys
+
+    sys.path.append(str(ROOT_DIR_PATH))
+    from tests import TESTS_DATA_DIR_PATH, assert_file_contents  # type: ignore[reportMissingImports]
+
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable, Sequence
 
@@ -33,18 +41,6 @@ DOF = 13
 DEFAULT_UPDATE_T_RANGE = (0.5, 1.5)
 DEFAULT_UPDATE_Q_RANGE = (20.0, 40.0)
 DEFAULT_UPDATE_Q_LIMIT = (5.0, 95.0)
-TESTS_DATA_DIR_PATH = TESTS_DIR_PATH / "data"
-
-
-def assert_file_contents(expected: Path, actual: Path) -> None:
-    from difflib import unified_diff
-
-    with expected.open() as f:
-        expected_lines = f.readlines()
-    with actual.open() as f:
-        actual_lines = f.readlines()
-    diff = list(unified_diff(expected_lines, actual_lines))
-    assert diff == [], "Unexpected file differences:\n" + "".join(diff)
 
 
 def test_set_seed() -> None:
