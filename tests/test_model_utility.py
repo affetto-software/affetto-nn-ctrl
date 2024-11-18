@@ -15,7 +15,7 @@ from sklearn.neural_network import MLPRegressor
 
 from affetto_nn_ctrl import ROOT_DIR_PATH
 from affetto_nn_ctrl.event_logging import start_event_logging
-from affetto_nn_ctrl.model_utility import DataAdapterParams, Reference, Regressor
+from affetto_nn_ctrl.model_utility import DataAdapter, DataAdapterParams, Reference, Regressor
 
 try:
     from . import TESTS_DATA_DIR_PATH, assert_file_contents
@@ -35,9 +35,9 @@ class SimpleDataAdapterParams(DataAdapterParams):
     target_index: list[int]
 
 
-class SimpleDataAdapter:
+class SimpleDataAdapter(DataAdapter):
     def __init__(self, params: SimpleDataAdapterParams) -> None:
-        self.params = params
+        super().__init__(params)
 
     def make_feature(self, dataset: Data) -> np.ndarray:
         feature_keys = [f"f{x}" for x in self.params.feature_index]

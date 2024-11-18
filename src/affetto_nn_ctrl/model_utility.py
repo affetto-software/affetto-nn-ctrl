@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-from abc import ABCMeta, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol, TypeAlias
+from typing import TYPE_CHECKING, Generic, Protocol, TypeAlias
 
 import numpy as np
 
+from affetto_nn_ctrl._typing import T_co
+
 if TYPE_CHECKING:
     from affctrllib import AffPosCtrl
+    from pyplotutil.datautil import Data
 
     from affetto_nn_ctrl._typing import Unknown
 
@@ -21,31 +23,25 @@ class DataAdapterParams:
 Reference: TypeAlias = Callable[[float], np.ndarray]
 
 
-class DataAdapter(metaclass=ABCMeta):
-    _params: DataAdapterParams
+class DataAdapter(Protocol, Generic[T_co]):
+    _params: T_co
 
-    def __init__(self, params: DataAdapterParams) -> None:
+    def __init__(self, params: T_co) -> None:
         self._params = params
 
     @property
-    def params(self) -> DataAdapterParams:
+    def params(self) -> T_co:
         return self._params
 
-    @abstractmethod
-    def to_feature(self, **data: np.ndarray) -> np.ndarray:
-        raise NotImplementedError
+    def make_feature(self, dataset: Data) -> np.ndarray: ...
 
-    @abstractmethod
-    def to_target(self, **data: np.ndarray) -> np.ndarray:
-        raise NotImplementedError
+    def make_target(self, dataset: Data) -> np.ndarray: ...
 
-    @abstractmethod
-    def to_feature_for_predict(self, **data: np.ndarray | Reference) -> np.ndarray:
-        raise NotImplementedError
+    def make_model_input(self, t: float, **states: np.ndarray | Reference) -> np.ndarray: ...
 
-    @abstractmethod
-    def convert_output(self, y: np.ndarray, **data: np.ndarray) -> tuple[np.ndarray, ...]:
-        raise NotImplementedError
+    def make_ctrl_input(self, y: np.ndarray, **base_input: np.ndarray) -> tuple[np.ndarray, ...]: ...
+
+    def reset(self) -> None: ...
 
 
 class LinearRegressor(Protocol):
