@@ -76,7 +76,7 @@ class SimpleDataAdapter(DataAdapter):
         pass
 
 
-class TestDataAdapter:
+class TestSimpleDataAdapter:
     def make_dataset(self, n_samples: int, n_features: int, n_targets: int) -> tuple[Data, Data]:
         X, y = datasets.make_regression(  # type: ignore[] # noqa: N806
             n_samples,
@@ -131,7 +131,7 @@ class TestDataAdapter:
         model = self.train_model(train_dataset, adapter, model)
         prediction = self.predict(test_dataset, adapter, model)
         np.savetxt(output, prediction)
-        event_logger().info("Expected data for DataAdapter generated: %s", output)
+        event_logger().info("Expected data for SimpleDataAdapter generated: %s", output)
         return prediction
 
     @pytest.mark.filterwarnings("ignore::sklearn.exceptions.ConvergenceWarning")
@@ -146,7 +146,7 @@ class TestDataAdapter:
             (MLPRegressor(random_state=42, max_iter=800), {"max_iter": 800}, "mlp"),
         ],
     )
-    def test_data_adapter(
+    def test_simple_data_adapter(
         self,
         make_work_directory: Path,
         model: Regressor,
@@ -160,7 +160,7 @@ class TestDataAdapter:
         assert_file_contents(TESTS_DATA_DIR_PATH / output.name, output)
 
 
-def check_expected_data_for_data_adapter(
+def check_expected_data_for_simple_data_adapter(
     train_dataset: Data,
     test_dataset: Data,
     adapter: SimpleDataAdapter,
@@ -184,8 +184,8 @@ def check_expected_data_for_data_adapter(
     plt.close()
 
 
-def generate_expected_data_for_data_adapter(*, show_plot: bool = True) -> None:
-    generator = TestDataAdapter()
+def generate_expected_data_for_simple_data_adapter(*, show_plot: bool = True) -> None:
+    generator = TestSimpleDataAdapter()
     train_dataset, test_dataset = generator.make_dataset(n_samples=20, n_features=1, n_targets=1)
     adapter = SimpleDataAdapter(SimpleDataAdapterParams(feature_index=[0], target_index=[0]))
     TESTS_DATA_DIR_PATH.mkdir(parents=True, exist_ok=True)
@@ -204,7 +204,7 @@ def generate_expected_data_for_data_adapter(*, show_plot: bool = True) -> None:
         if show_plot:
             params = ",".join(":".join(map(str, x)) for x in kw.items())
             event_logger().info("Plotting expected data for %s (%s)", name, params)
-            check_expected_data_for_data_adapter(train_dataset, test_dataset, adapter, prediction, output.stem)
+            check_expected_data_for_simple_data_adapter(train_dataset, test_dataset, adapter, prediction, output.stem)
 
 
 def main() -> None:
@@ -215,7 +215,7 @@ def main() -> None:
     Provide a number to generate expected data.
 
     MENU:
-      1) Expected data for testing DataAdapter class
+      1) Expected data for testing SimpleDataAdapter class
       2) Expected data for testing CtrlAdapter class
 
     EXAMPLE:
@@ -224,7 +224,7 @@ def main() -> None:
     if len(sys.argv) > 1:
         match sys.argv[1]:
             case "1":
-                generate_expected_data_for_data_adapter(show_plot=True)
+                generate_expected_data_for_simple_data_adapter(show_plot=True)
             case "2":
                 pass
             case _:
