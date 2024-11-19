@@ -113,9 +113,9 @@ class CtrlAdapter:
         dqdes: Reference,
     ) -> tuple[np.ndarray, np.ndarray]:
         ca, cb = self.ctrl.update(t, q, dq, pa, pb, qdes(t), dqdes(t))
-        x = self.data_adapter.to_feature_for_predict(q=q, dq=dq, pa=pa, pb=pb, qdes=qdes, dqdes=dqdes)
-        y = np.ravel(self.model.predict(np.atleast_2d(x)))
-        ca, cb = self.data_adapter.convert_output(y, ca=ca, cb=cb)
+        x = self.data_adapter.make_model_input(t, q=q, dq=dq, pa=pa, pb=pb, qdes=qdes, dqdes=dqdes)
+        y = self.model.predict(x)
+        ca, cb = self.data_adapter.make_ctrl_input(y, ca=ca, cb=cb)
         return ca, cb
 
     def update(
