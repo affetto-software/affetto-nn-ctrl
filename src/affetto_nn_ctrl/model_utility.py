@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import sys
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Generic, Protocol, TypeAlias, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Generic, Protocol, TypeAlias, TypedDict, TypeVar, cast, overload
 
 import numpy as np
 from pyplotutil.datautil import Data
@@ -13,17 +14,55 @@ if TYPE_CHECKING:
 
     from affetto_nn_ctrl._typing import Unknown
 
+if sys.version_info >= (3, 11):
+    from typing import NotRequired
+else:
+    from typing_extensions import NotRequired
+
 
 @dataclass
-class DataAdapterParams:
+class DataAdapterParamsBase:
     pass
 
 
+class StatesBase(TypedDict):
+    pass
+
+
+class RefsBase(TypedDict):
+    pass
+
+
+class InputsBase(TypedDict):
+    pass
+
+
+DataAdapterParamsType = TypeVar("DataAdapterParamsType", bound=DataAdapterParamsBase)
+StatesType = TypeVar("StatesType", bound=StatesBase)
+RefsType = TypeVar("RefsType", bound=RefsBase)
+InputsType = TypeVar("InputsType", bound=InputsBase)
 Reference: TypeAlias = Callable[[float], np.ndarray]
-DataAdapterParamsType = TypeVar("DataAdapterParamsType", bound=DataAdapterParams)
 
 
-class DataAdapter(ABC, Generic[DataAdapterParamsType]):
+class DefaultStates(StatesBase):
+    q: np.ndarray
+    dq: np.ndarray
+    ddq: NotRequired[np.ndarray]
+    pa: np.ndarray
+    pb: np.ndarray
+
+
+class DefaultRefs(RefsBase):
+    qdes: Reference
+    dqdes: NotRequired[Reference]
+
+
+class DefaultInputs(InputsBase):
+    ca: np.ndarray
+    cb: np.ndarray
+
+
+class DataAdapterBase(ABC, Generic[DataAdapterParamsType, StatesType, RefsType, InputsType]):
     _params: DataAdapterParamsType
 
     def __init__(self, params: DataAdapterParamsType) -> None:
@@ -42,11 +81,11 @@ class DataAdapter(ABC, Generic[DataAdapterParamsType]):
         raise NotImplementedError
 
     @abstractmethod
-    def make_model_input(self, t: float, **states: np.ndarray | Reference) -> np.ndarray:
+    def make_model_input(self, t: float, states: StatesType, refs: RefsType) -> np.ndarray:
         raise NotImplementedError
 
     @abstractmethod
-    def make_ctrl_input(self, y: np.ndarray, **base_input: np.ndarray) -> tuple[np.ndarray, ...]:
+    def make_ctrl_input(self, y: np.ndarray, base_inputs: InputsType) -> tuple[np.ndarray, ...]:
         raise NotImplementedError
 
     @abstractmethod
@@ -73,7 +112,10 @@ class MultiLayerPerceptronRegressor(Protocol):
 Regressor: TypeAlias = LinearRegressor | MultiLayerPerceptronRegressor
 
 
-def load_train_datasets(train_datasets: Data | Iterable[Data], adapter: DataAdapter) -> tuple[np.ndarray, np.ndarray]:
+def load_train_datasets(
+    train_datasets: Data | Iterable[Data],
+    adapter: DataAdapterBase,
+) -> tuple[np.ndarray, np.ndarray]:
     if isinstance(train_datasets, Data):
         train_datasets = [train_datasets]
     x_train = cast(np.ndarray, None)
@@ -100,7 +142,7 @@ def train_model(
 def train_model(
     model: Regressor,
     x_train_or_datasets: Data | Iterable[Data],
-    y_train_or_adapter: DataAdapter,
+    y_train_or_adapter: DataAdapterBase,
 ) -> Regressor: ...
 
 
@@ -113,16 +155,16 @@ def train_model(model, x_train_or_datasets, y_train_or_adapter) -> Regressor:
     return model.fit(x_train, y_train)
 
 
-class CtrlAdapter:
+class CtrlAdapter(Generic[DataAdapterParamsType]):
     ctrl: AffPosCtrl
     model: Regressor
-    data_adapter: DataAdapter
+    data_adapter: DataAdapterBase[DataAdapterParamsType, DefaultStates, DefaultRefs, DefaultInputs]
     _updater: Callable[
         [float, np.ndarray, np.ndarray, np.ndarray, np.ndarray, Reference, Reference],
         tuple[np.ndarray, np.ndarray],
     ]
 
-    def __init__(self, ctrl: AffPosCtrl, model: Regressor | None, data_adapter: DataAdapter) -> None:
+    def __init__(self, ctrl: AffPosCtrl, model: Regressor | None, data_adapter: DataAdapterBase) -> None:
         self.ctrl = ctrl
         if model is None:
             self._updater = self.update_ctrl
@@ -153,9 +195,13 @@ class CtrlAdapter:
         dqdes: Reference,
     ) -> tuple[np.ndarray, np.ndarray]:
         ca, cb = self.ctrl.update(t, q, dq, pa, pb, qdes(t), dqdes(t))
-        x = self.data_adapter.make_model_input(t, q=q, dq=dq, pa=pa, pb=pb, qdes=qdes, dqdes=dqdes)
+        x = self.data_adapter.make_model_input(
+            t,
+            {"q": q, "dq": dq, "pa": pa, "pb": pb},
+            {"qdes": qdes, "dqdes": dqdes},
+        )
         y = self.model.predict(x)
-        ca, cb = self.data_adapter.make_ctrl_input(y, ca=ca, cb=cb)
+        ca, cb = self.data_adapter.make_ctrl_input(y, {"ca": ca, "cb": cb})
         return ca, cb
 
     def update(
@@ -172,5 +218,5 @@ class CtrlAdapter:
 
 
 # Local Variables:
-# jinx-local-words: "Params noqa"
+# jinx-local-words: "Params cb dq dqdes noqa npqa pb qdes"
 # End:
