@@ -29,6 +29,20 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
+def make_prediction_data_path(
+    base_directory: Path,
+    adapter_name: str,
+    model_name: str,
+    **model_params: str | float,
+) -> Path:
+    filename = f"{adapter_name}_{model_name}"
+    if len(model_params):
+        joined = "_".join("-".join(map(str, x)) for x in model_params.items())
+        filename += f"_{joined}"
+    filename += ".csv"
+    return base_directory / filename
+
+
 @dataclass
 class SimpleDataAdapterParams(DataAdapterParams):
     feature_index: list[int]
@@ -105,14 +119,6 @@ class TestSimpleDataAdapter:
             prediction.append(c)
         return np.asarray(prediction)
 
-    def make_prediction_data_path(self, base_directory: Path, model_name: str, **model_params: str | float) -> Path:
-        filename = model_name
-        if len(model_params):
-            joined = "_".join("-".join(map(str, x)) for x in model_params.items())
-            filename += f"_{joined}"
-        filename += ".csv"
-        return base_directory / filename
-
     def generate_prediction_data(
         self,
         output: Path,
@@ -148,7 +154,7 @@ class TestSimpleDataAdapter:
     ) -> None:
         train_dataset, test_dataset = self.make_dataset(n_samples=20, n_features=1, n_targets=1)
         adapter = SimpleDataAdapter(SimpleDataAdapterParams(feature_index=[0], target_index=[0]))
-        output = self.make_prediction_data_path(make_work_directory, name, **kw)
+        output = make_prediction_data_path(make_work_directory, "simple", name, **kw)
         self.generate_prediction_data(output, train_dataset, test_dataset, adapter, model)
         assert_file_contents(TESTS_DATA_DIR_PATH / output.name, output)
 
@@ -192,7 +198,7 @@ def generate_expected_data_for_simple_data_adapter(*, show_plot: bool = True) ->
         (MLPRegressor(random_state=42, max_iter=800), {"max_iter": 800}, "mlp"),
     ]
     for model, kw, name in models:
-        output = generator.make_prediction_data_path(TESTS_DATA_DIR_PATH, name, **kw)
+        output = make_prediction_data_path(TESTS_DATA_DIR_PATH, "simple", name, **kw)
         prediction = generator.generate_prediction_data(output, train_dataset, test_dataset, adapter, model)
         if show_plot:
             params = ",".join(":".join(map(str, x)) for x in kw.items())
