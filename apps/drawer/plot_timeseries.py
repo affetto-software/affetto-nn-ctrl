@@ -12,11 +12,10 @@ from pyplotutil.datautil import Data
 
 from affetto_nn_ctrl.control_utility import resolve_joints_str
 from affetto_nn_ctrl.data_handling import find_latest_data_dir_path, is_latest_data_dir_path_maybe
-from affetto_nn_ctrl.event_logging import FakeLogger, get_logging_level_from_verbose_count, start_logging
+from affetto_nn_ctrl.event_logging import FakeLogger, event_logger, get_logging_level_from_verbose_count, start_logging
 from affetto_nn_ctrl.plot_utility import (
     DEFAULT_JOINT_NAMES,
     calculate_mean_err,
-    event_logger,
     extract_all_values,
     extract_common_parts,
     get_tlim_mask,
