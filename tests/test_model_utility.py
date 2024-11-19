@@ -14,7 +14,7 @@ from sklearn.linear_model import LinearRegression, Ridge
 from sklearn.neural_network import MLPRegressor
 
 from affetto_nn_ctrl import ROOT_DIR_PATH
-from affetto_nn_ctrl.event_logging import start_event_logging
+from affetto_nn_ctrl.event_logging import event_logger, start_event_logging
 from affetto_nn_ctrl.model_utility import DataAdapter, DataAdapterParams, Reference, Regressor
 
 try:
@@ -76,87 +76,91 @@ class SimpleDataAdapter(DataAdapter):
         pass
 
 
-def make_dataset(n_samples: int, n_features: int, n_targets: int) -> tuple[Data, Data]:
-    X, y = datasets.make_regression(  # type: ignore[] # noqa: N806
-        n_samples,
-        n_features=n_features,
-        n_informative=n_features,
-        n_targets=n_targets,
-        bias=100,
-        noise=4.0,
-        random_state=42,
+class TestDataAdapter:
+    def make_dataset(self, n_samples: int, n_features: int, n_targets: int) -> tuple[Data, Data]:
+        X, y = datasets.make_regression(  # type: ignore[] # noqa: N806
+            n_samples,
+            n_features=n_features,
+            n_informative=n_features,
+            n_targets=n_targets,
+            bias=100,
+            noise=4.0,
+            random_state=42,
+        )
+        if y.ndim == 1:
+            y = np.atleast_2d(y).T
+        data = np.hstack((X, y))
+        columns = [f"f{x}" for x in range(n_features)] + [f"t{x}" for x in range(n_targets)]
+        dataset = Data(pd.DataFrame(dict(zip(columns, data.T, strict=True))))
+        return dataset.split_by_row(int(0.75 * 20))
+
+    def train_model(self, train_dataset: Data, adapter: SimpleDataAdapter, model: Regressor) -> Regressor:
+        x_train = adapter.make_feature(train_dataset)
+        y_train = adapter.make_target(train_dataset)
+        if len(adapter.params.target_index) == 1:
+            y_train = np.ravel(y_train)
+        return model.fit(x_train, y_train)
+
+    def predict(self, test_dataset: Data, adapter: SimpleDataAdapter, model: Regressor) -> np.ndarray:
+        prediction: list[tuple[np.ndarray, ...]] = []
+        for x_input in test_dataset:
+            kw = dict(zip(test_dataset.columns, map(np.atleast_1d, x_input), strict=True))
+            t = 0
+            x = adapter.make_model_input(t, **kw)
+            y = model.predict(x)
+            c = adapter.make_ctrl_input(np.asarray(y))
+            prediction.append(c)
+        return np.asarray(prediction)
+
+    def make_prediction_data_path(self, base_directory: Path, model_name: str, **model_params: str | float) -> Path:
+        filename = model_name
+        if len(model_params):
+            joined = "_".join("-".join(map(str, x)) for x in model_params.items())
+            filename += f"_{joined}"
+        filename += ".csv"
+        return base_directory / filename
+
+    def generate_prediction_data(
+        self,
+        output: Path,
+        train_dataset: Data,
+        test_dataset: Data,
+        adapter: SimpleDataAdapter,
+        model: Regressor,
+    ) -> np.ndarray:
+        model = self.train_model(train_dataset, adapter, model)
+        prediction = self.predict(test_dataset, adapter, model)
+        np.savetxt(output, prediction)
+        event_logger().info("Expected data for DataAdapter generated: %s", output)
+        return prediction
+
+    @pytest.mark.filterwarnings("ignore::sklearn.exceptions.ConvergenceWarning")
+    @pytest.mark.parametrize(
+        ("model", "kw", "name"),
+        [
+            (LinearRegression(), {}, "linear"),
+            (Ridge(alpha=0.1), {"alpha": 0.1}, "ridge"),
+            (Ridge(alpha=1.0), {"alpha": 1.0}, "ridge"),
+            (MLPRegressor(random_state=42, max_iter=200), {"max_iter": 200}, "mlp"),
+            (MLPRegressor(random_state=42, max_iter=500), {"max_iter": 500}, "mlp"),
+            (MLPRegressor(random_state=42, max_iter=800), {"max_iter": 800}, "mlp"),
+        ],
     )
-    if y.ndim == 1:
-        y = np.atleast_2d(y).T
-    data = np.hstack((X, y))
-    columns = [f"f{x}" for x in range(n_features)] + [f"t{x}" for x in range(n_targets)]
-    dataset = Data(pd.DataFrame(dict(zip(columns, data.T, strict=True))))
-    return dataset.split_by_row(int(0.75 * 20))
+    def test_data_adapter(
+        self,
+        make_work_directory: Path,
+        model: Regressor,
+        kw: dict[str, str | float],
+        name: str,
+    ) -> None:
+        train_dataset, test_dataset = self.make_dataset(n_samples=20, n_features=1, n_targets=1)
+        adapter = SimpleDataAdapter(SimpleDataAdapterParams(feature_index=[0], target_index=[0]))
+        output = self.make_prediction_data_path(make_work_directory, name, **kw)
+        self.generate_prediction_data(output, train_dataset, test_dataset, adapter, model)
+        assert_file_contents(TESTS_DATA_DIR_PATH / output.name, output)
 
 
-def train_model(train_dataset: Data, adapter: SimpleDataAdapter, model: Regressor) -> Regressor:
-    x_train = adapter.make_feature(train_dataset)
-    y_train = adapter.make_target(train_dataset)
-    if len(adapter.params.target_index) == 1:
-        y_train = np.ravel(y_train)
-    return model.fit(x_train, y_train)
-
-
-def predict(test_dataset: Data, adapter: SimpleDataAdapter, model: Regressor) -> np.ndarray:
-    prediction: list[tuple[np.ndarray, ...]] = []
-    for x_input in test_dataset:
-        kw = dict(zip(test_dataset.columns, map(np.atleast_1d, x_input), strict=True))
-        t = 0
-        x = adapter.make_model_input(t, **kw)
-        y = model.predict(x)
-        c = adapter.make_ctrl_input(np.asarray(y))
-        prediction.append(c)
-    return np.asarray(prediction)
-
-
-def make_prediction_data_path(base_directory: Path, model_name: str, **model_params: str | float) -> Path:
-    filename = model_name
-    if len(model_params):
-        joined = "_".join("-".join(map(str, x)) for x in model_params.items())
-        filename += f"_{joined}"
-    filename += ".csv"
-    return base_directory / filename
-
-
-def generate_prediction_data(
-    output: Path,
-    train_dataset: Data,
-    test_dataset: Data,
-    adapter: SimpleDataAdapter,
-    model: Regressor,
-) -> np.ndarray:
-    model = train_model(train_dataset, adapter, model)
-    prediction = predict(test_dataset, adapter, model)
-    np.savetxt(output, prediction)
-    return prediction
-
-
-@pytest.mark.filterwarnings("ignore::sklearn.exceptions.ConvergenceWarning")
-@pytest.mark.parametrize(
-    ("model", "kw", "name"),
-    [
-        (LinearRegression(), {}, "linear"),
-        (Ridge(alpha=0.1), {"alpha": 0.1}, "ridge"),
-        (Ridge(alpha=1.0), {"alpha": 1.0}, "ridge"),
-        (MLPRegressor(random_state=42, max_iter=200), {"max_iter": 200}, "mlp"),
-        (MLPRegressor(random_state=42, max_iter=500), {"max_iter": 500}, "mlp"),
-        (MLPRegressor(random_state=42, max_iter=800), {"max_iter": 800}, "mlp"),
-    ],
-)
-def test_regression_models(make_work_directory: Path, model: Regressor, kw: dict[str, str | float], name: str) -> None:
-    train_dataset, test_dataset = make_dataset(n_samples=20, n_features=1, n_targets=1)
-    adapter = SimpleDataAdapter(SimpleDataAdapterParams(feature_index=[0], target_index=[0]))
-    output = make_prediction_data_path(make_work_directory, name, **kw)
-    generate_prediction_data(output, train_dataset, test_dataset, adapter, model)
-    assert_file_contents(TESTS_DATA_DIR_PATH / output.name, output)
-
-
-def check_expected_data(
+def check_expected_data_for_data_adapter(
     train_dataset: Data,
     test_dataset: Data,
     adapter: SimpleDataAdapter,
@@ -180,8 +184,9 @@ def check_expected_data(
     plt.close()
 
 
-def generate_expected_data(*, show_plot: bool = True) -> None:
-    train_dataset, test_dataset = make_dataset(n_samples=20, n_features=1, n_targets=1)
+def generate_expected_data_for_data_adapter(*, show_plot: bool = True) -> None:
+    generator = TestDataAdapter()
+    train_dataset, test_dataset = generator.make_dataset(n_samples=20, n_features=1, n_targets=1)
     adapter = SimpleDataAdapter(SimpleDataAdapterParams(feature_index=[0], target_index=[0]))
     TESTS_DATA_DIR_PATH.mkdir(parents=True, exist_ok=True)
 
@@ -194,22 +199,43 @@ def generate_expected_data(*, show_plot: bool = True) -> None:
         (MLPRegressor(random_state=42, max_iter=800), {"max_iter": 800}, "mlp"),
     ]
     for model, kw, name in models:
-        output = make_prediction_data_path(TESTS_DATA_DIR_PATH, name, **kw)
-        prediction = generate_prediction_data(output, train_dataset, test_dataset, adapter, model)
+        output = generator.make_prediction_data_path(TESTS_DATA_DIR_PATH, name, **kw)
+        prediction = generator.generate_prediction_data(output, train_dataset, test_dataset, adapter, model)
         if show_plot:
-            check_expected_data(train_dataset, test_dataset, adapter, prediction, output.stem)
+            params = ",".join(":".join(map(str, x)) for x in kw.items())
+            event_logger().info("Plotting expected data for %s (%s)", name, params)
+            check_expected_data_for_data_adapter(train_dataset, test_dataset, adapter, prediction, output.stem)
 
 
 def main() -> None:
     import sys
 
     start_event_logging(sys.argv, logging_level="INFO")
-    generate_expected_data(show_plot=True)
+    msg = f"""\
+    Provide a number to generate expected data.
+
+    MENU:
+      1) Expected data for testing DataAdapter class
+      2) Expected data for testing CtrlAdapter class
+
+    EXAMPLE:
+      $ python {' '.join(sys.argv)} 1
+"""
+    if len(sys.argv) > 1:
+        match sys.argv[1]:
+            case "1":
+                generate_expected_data_for_data_adapter(show_plot=True)
+            case "2":
+                pass
+            case _:
+                raise RuntimeError(msg)
+    else:
+        raise RuntimeError(msg)
 
 
 if __name__ == "__main__":
     main()
 
 # Local Variables:
-# jinx-local-words: "arg csv iter mlp noqa params sklearn"
+# jinx-local-words: "Ctrl arg csv iter mlp noqa params sklearn"
 # End:
