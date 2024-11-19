@@ -15,7 +15,7 @@ from sklearn.neural_network import MLPRegressor
 
 from affetto_nn_ctrl import ROOT_DIR_PATH
 from affetto_nn_ctrl.event_logging import event_logger, start_event_logging
-from affetto_nn_ctrl.model_utility import DataAdapter, DataAdapterParams, Reference, Regressor
+from affetto_nn_ctrl.model_utility import DataAdapter, DataAdapterParams, Reference, Regressor, train_model
 
 try:
     from . import TESTS_DATA_DIR_PATH, assert_file_contents
@@ -94,13 +94,6 @@ class TestSimpleDataAdapter:
         dataset = Data(pd.DataFrame(dict(zip(columns, data.T, strict=True))))
         return dataset.split_by_row(int(0.75 * 20))
 
-    def train_model(self, train_dataset: Data, adapter: SimpleDataAdapter, model: Regressor) -> Regressor:
-        x_train = adapter.make_feature(train_dataset)
-        y_train = adapter.make_target(train_dataset)
-        if len(adapter.params.target_index) == 1:
-            y_train = np.ravel(y_train)
-        return model.fit(x_train, y_train)
-
     def predict(self, test_dataset: Data, adapter: SimpleDataAdapter, model: Regressor) -> np.ndarray:
         prediction: list[tuple[np.ndarray, ...]] = []
         for x_input in test_dataset:
@@ -128,7 +121,7 @@ class TestSimpleDataAdapter:
         adapter: SimpleDataAdapter,
         model: Regressor,
     ) -> np.ndarray:
-        model = self.train_model(train_dataset, adapter, model)
+        model = train_model(model, train_dataset, adapter)
         prediction = self.predict(test_dataset, adapter, model)
         np.savetxt(output, prediction)
         event_logger().info("Expected data for SimpleDataAdapter generated: %s", output)

@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Generic, Protocol, TypeAlias, TypeVar
+from typing import TYPE_CHECKING, Generic, Protocol, TypeAlias, TypeVar, cast, overload
 
 import numpy as np
+from pyplotutil.datautil import Data
 
 if TYPE_CHECKING:
     from affctrllib import AffPosCtrl
-    from pyplotutil.datautil import Data
 
     from affetto_nn_ctrl._typing import Unknown
 
@@ -71,6 +71,46 @@ class MultiLayerPerceptronRegressor(Protocol):
 
 
 Regressor: TypeAlias = LinearRegressor | MultiLayerPerceptronRegressor
+
+
+def load_train_datasets(train_datasets: Data | Iterable[Data], adapter: DataAdapter) -> tuple[np.ndarray, np.ndarray]:
+    if isinstance(train_datasets, Data):
+        train_datasets = [train_datasets]
+    x_train = cast(np.ndarray, None)
+    y_train = cast(np.ndarray, None)
+    for dataset in train_datasets:
+        _x_train = adapter.make_feature(dataset)
+        _y_train = adapter.make_target(dataset)
+        x_train = np.vstack((x_train, _x_train)) if x_train else np.copy(_x_train)
+        y_train = np.vstack((y_train, _y_train)) if y_train else np.copy(_y_train)
+    if len(y_train.shape) == 2 and y_train.shape[1] == 1:  # noqa: PLR2004
+        y_train = np.ravel(y_train)
+    return x_train, y_train
+
+
+@overload
+def train_model(
+    model: Regressor,
+    x_train_or_datasets: np.ndarray,
+    y_train_or_adapter: np.ndarray,
+) -> Regressor: ...
+
+
+@overload
+def train_model(
+    model: Regressor,
+    x_train_or_datasets: Data | Iterable[Data],
+    y_train_or_adapter: DataAdapter,
+) -> Regressor: ...
+
+
+def train_model(model, x_train_or_datasets, y_train_or_adapter) -> Regressor:
+    if isinstance(x_train_or_datasets, np.ndarray) and isinstance(y_train_or_adapter, np.ndarray):
+        x_train = x_train_or_datasets
+        y_train = y_train_or_adapter
+    else:
+        x_train, y_train = load_train_datasets(x_train_or_datasets, y_train_or_adapter)
+    return model.fit(x_train, y_train)
 
 
 class CtrlAdapter:
