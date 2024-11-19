@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Generic, Protocol, TypeAlias, TypeVar
@@ -19,28 +20,38 @@ class DataAdapterParams:
 
 
 Reference: TypeAlias = Callable[[float], np.ndarray]
-DataAdapterParamsType_co = TypeVar("DataAdapterParamsType_co", bound=DataAdapterParams, covariant=True)
+DataAdapterParamsType = TypeVar("DataAdapterParamsType", bound=DataAdapterParams)
 
 
-class DataAdapter(Protocol, Generic[DataAdapterParamsType_co]):
-    _params: DataAdapterParamsType_co
+class DataAdapter(ABC, Generic[DataAdapterParamsType]):
+    _params: DataAdapterParamsType
 
-    def __init__(self, params: DataAdapterParamsType_co) -> None:
+    def __init__(self, params: DataAdapterParamsType) -> None:
         self._params = params
 
     @property
-    def params(self) -> DataAdapterParamsType_co:
+    def params(self) -> DataAdapterParamsType:
         return self._params
 
-    def make_feature(self, dataset: Data) -> np.ndarray: ...
+    @abstractmethod
+    def make_feature(self, dataset: Data) -> np.ndarray:
+        raise NotImplementedError
 
-    def make_target(self, dataset: Data) -> np.ndarray: ...
+    @abstractmethod
+    def make_target(self, dataset: Data) -> np.ndarray:
+        raise NotImplementedError
 
-    def make_model_input(self, t: float, **states: np.ndarray | Reference) -> np.ndarray: ...
+    @abstractmethod
+    def make_model_input(self, t: float, **states: np.ndarray | Reference) -> np.ndarray:
+        raise NotImplementedError
 
-    def make_ctrl_input(self, y: np.ndarray, **base_input: np.ndarray) -> tuple[np.ndarray, ...]: ...
+    @abstractmethod
+    def make_ctrl_input(self, y: np.ndarray, **base_input: np.ndarray) -> tuple[np.ndarray, ...]:
+        raise NotImplementedError
 
-    def reset(self) -> None: ...
+    @abstractmethod
+    def reset(self) -> None:
+        raise NotImplementedError
 
 
 class LinearRegressor(Protocol):
