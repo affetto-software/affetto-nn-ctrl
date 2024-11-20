@@ -4,8 +4,10 @@ import sys
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Generic, Protocol, TypeAlias, TypedDict, TypeVar, cast, overload
 
+import joblib
 import numpy as np
 from affctrllib import Logger, Timer
 from pyplotutil.datautil import Data
@@ -14,8 +16,6 @@ from affetto_nn_ctrl.control_utility import reset_logger, select_time_updater
 from affetto_nn_ctrl.event_logging import event_logger
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     import pandas as pd
     from affctrllib import AffPosCtrl
 
@@ -98,6 +98,26 @@ class DataAdapterBase(ABC, Generic[DataAdapterParamsType, StatesType, RefsType, 
     @abstractmethod
     def reset(self) -> None:
         raise NotImplementedError
+
+
+class DummyDataAdapter(DataAdapterBase[DataAdapterParamsBase, StatesBase, RefsBase, InputsBase]):
+    def make_feature(self, dataset: Data) -> np.ndarray:
+        raise NotImplementedError
+
+    def make_target(self, dataset: Data) -> np.ndarray:
+        raise NotImplementedError
+
+    def make_model_input(self, t: float, states: StatesBase, refs: RefsBase) -> np.ndarray:
+        raise NotImplementedError
+
+    def make_ctrl_input(self, y: np.ndarray, base_inputs: InputsBase) -> tuple[np.ndarray, ...]:
+        raise NotImplementedError
+
+    def reset(self) -> None:
+        raise NotImplementedError
+
+
+dummy_data_adapter = DummyDataAdapter(DataAdapterParamsBase())
 
 
 class LinearRegressor(Protocol):
@@ -291,6 +311,15 @@ class DefaultCtrlAdapter(CtrlAdapter[DataAdapterParamsType, DefaultStates, Defau
         y = self.model.predict(x)
         ca, cb = self.data_adapter.make_ctrl_input(y, {"ca": ca, "cb": cb})
         return ca, cb
+
+
+def dump_model(ctrl_adapter: CtrlAdapter, output: str | Path) -> Path:
+    joblib.dump(ctrl_adapter, output)
+    return Path(output)
+
+
+def load_model(model_filepath: str | Path) -> CtrlAdapter:
+    return joblib.load(model_filepath)
 
 
 def control_position_or_model(

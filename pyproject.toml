@@ -159,6 +159,7 @@ check_untyped_defs = true       # Type-checks the interior of functions without 
 
 [[tool.mypy.overrides]]
 module = [
+  "joblib.*",
   "numpy.*",
   "pandas.*",
   "scipy.*",
@@ -167,5 +168,5 @@ module = [
 ignore_missing_imports = true
 
 # Local Variables:
-# jinx-local-words: "McCabe Pyflakes addopts backend bzr cov ctrl defs dev direnv doctests hatchling hg ini ipynb isort md mixedCase mypy nn nox numpy pycache pycodestyle pydocstyle pyenv pypackages pyplotutil pyright pytest pytype ra reStructuredText rgx scikit scipy sklearn src svn testpaths tomli tox unfixable untyped urls vcs venv venvPath vscode xdist zA"
+# jinx-local-words: "McCabe Pyflakes addopts backend bzr cov ctrl defs dev direnv doctests hatchling hg ini ipynb isort joblib md mixedCase mypy nn nox numpy pycache pycodestyle pydocstyle pyenv pypackages pyplotutil pyright pytest pytype ra reStructuredText rgx scikit scipy sklearn src svn testpaths tomli tox unfixable untyped urls vcs venv venvPath vscode xdist zA"
 # End:
