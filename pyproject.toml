@@ -144,7 +144,11 @@ markers = [
 ]
 
 [tool.pyright]
-include = ["src"]
+include = [
+  "src",
+  "tests",
+  "apps",
+]
 exclude = [
     "**/node_modules",
     "**/__pycache__",
