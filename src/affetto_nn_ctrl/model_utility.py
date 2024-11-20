@@ -7,14 +7,19 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Generic, Protocol, TypeAlias, TypedDict, TypeVar, cast, overload
 
 import numpy as np
+from affctrllib import Logger, Timer
 from pyplotutil.datautil import Data
 
+from affetto_nn_ctrl.control_utility import reset_logger, select_time_updater
 from affetto_nn_ctrl.event_logging import event_logger
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     import pandas as pd
     from affctrllib import AffPosCtrl
 
+    from affetto_nn_ctrl import CONTROLLER_T, RefFuncType
     from affetto_nn_ctrl._typing import Unknown
 
 if sys.version_info >= (3, 11):
@@ -44,7 +49,6 @@ DataAdapterParamsType = TypeVar("DataAdapterParamsType", bound=DataAdapterParams
 StatesType = TypeVar("StatesType", bound=StatesBase)
 RefsType = TypeVar("RefsType", bound=RefsBase)
 InputsType = TypeVar("InputsType", bound=InputsBase)
-Reference: TypeAlias = Callable[[float], np.ndarray]
 
 
 class DefaultStates(StatesBase):
@@ -56,8 +60,8 @@ class DefaultStates(StatesBase):
 
 
 class DefaultRefs(RefsBase):
-    qdes: Reference
-    dqdes: NotRequired[Reference]
+    qdes: np.ndarray
+    dqdes: NotRequired[np.ndarray]
 
 
 class DefaultInputs(InputsBase):
@@ -103,6 +107,8 @@ class LinearRegressor(Protocol):
 
     def score(self, X: np.ndarray, y: np.ndarray, sample_weight: np.ndarray | None = None) -> float: ...  # noqa: N803
 
+    def get_params(self) -> dict: ...
+
 
 class MultiLayerPerceptronRegressor(Protocol):
     def fit(self, X: np.ndarray, y: np.ndarray) -> MultiLayerPerceptronRegressor: ...  # noqa: N803
@@ -110,6 +116,7 @@ class MultiLayerPerceptronRegressor(Protocol):
     def predict(self, X: np.ndarray) -> np.ndarray | Unknown: ...  # noqa: N803
 
     def score(self, X: np.ndarray, y: np.ndarray, sample_weight: np.ndarray | None = None) -> float | Unknown: ...  # noqa: N803
+    def get_params(self) -> dict: ...
 
 
 Regressor: TypeAlias = LinearRegressor | MultiLayerPerceptronRegressor
@@ -179,7 +186,7 @@ def train_model(model, x_train_or_datasets, y_train_or_adapter) -> Regressor:
 
 
 CtrlAdapterUpdater: TypeAlias = Callable[
-    [float, np.ndarray, np.ndarray, np.ndarray, np.ndarray, Reference, Reference],
+    [float, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray],
     tuple[np.ndarray, np.ndarray],
 ]
 
@@ -200,8 +207,23 @@ class CtrlAdapter(Generic[DataAdapterParamsType, StatesType, RefsType, InputsTyp
         if model is None:
             self._updater = self.update_ctrl
         else:
+            self.model = model
             self._updater = self.update_model
         self.data_adapter = data_adapter
+
+    @property
+    def model_name(self) -> str:
+        try:
+            return type(self.model).__name__
+        except AttributeError:
+            return type(self.ctrl).__name__
+
+    @property
+    def params(self) -> dict:
+        try:
+            return self.model.get_params()
+        except AttributeError:
+            return {}
 
     def update_ctrl(
         self,
@@ -210,10 +232,10 @@ class CtrlAdapter(Generic[DataAdapterParamsType, StatesType, RefsType, InputsTyp
         dq: np.ndarray,
         pa: np.ndarray,
         pb: np.ndarray,
-        qdes: Reference,
-        dqdes: Reference,
+        qdes: np.ndarray,
+        dqdes: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-        return self.ctrl.update(t, q, dq, pa, pb, qdes(t), dqdes(t))
+        return self.ctrl.update(t, q, dq, pa, pb, qdes, dqdes)
 
     def update_model(
         self,
@@ -222,10 +244,10 @@ class CtrlAdapter(Generic[DataAdapterParamsType, StatesType, RefsType, InputsTyp
         dq: np.ndarray,
         pa: np.ndarray,
         pb: np.ndarray,
-        qdes: Reference,
-        dqdes: Reference,
+        qdes: np.ndarray,
+        dqdes: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-        ca, cb = self.ctrl.update(t, q, dq, pa, pb, qdes(t), dqdes(t))
+        ca, cb = self.ctrl.update(t, q, dq, pa, pb, qdes, dqdes)
         return ca, cb
 
     def update(
@@ -235,8 +257,8 @@ class CtrlAdapter(Generic[DataAdapterParamsType, StatesType, RefsType, InputsTyp
         dq: np.ndarray,
         pa: np.ndarray,
         pb: np.ndarray,
-        qdes: Reference,
-        dqdes: Reference,
+        qdes: np.ndarray,
+        dqdes: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
         return self._updater(t, q, dq, pa, pb, qdes, dqdes)
 
@@ -257,10 +279,10 @@ class DefaultCtrlAdapter(CtrlAdapter[DataAdapterParamsType, DefaultStates, Defau
         dq: np.ndarray,
         pa: np.ndarray,
         pb: np.ndarray,
-        qdes: Reference,
-        dqdes: Reference,
+        qdes: np.ndarray,
+        dqdes: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-        ca, cb = self.ctrl.update(t, q, dq, pa, pb, qdes(t), dqdes(t))
+        ca, cb = self.ctrl.update(t, q, dq, pa, pb, qdes, dqdes)
         x = self.data_adapter.make_model_input(
             t,
             {"q": q, "dq": dq, "pa": pa, "pb": pb},
@@ -269,6 +291,41 @@ class DefaultCtrlAdapter(CtrlAdapter[DataAdapterParamsType, DefaultStates, Defau
         y = self.model.predict(x)
         ca, cb = self.data_adapter.make_ctrl_input(y, {"ca": ca, "cb": cb})
         return ca, cb
+
+
+def control_position_or_model(
+    controller: CONTROLLER_T,
+    ctrl_adapter: CtrlAdapter,
+    qdes_func: RefFuncType,
+    dqdes_func: RefFuncType,
+    duration: float,
+    logger: Logger | None = None,
+    log_filename: str | Path | None = None,
+    time_updater: str = "elapsed",
+    header_text: str = "",
+) -> tuple[np.ndarray, np.ndarray]:
+    reset_logger(logger, log_filename)
+    comm, ctrl, state = controller
+    ca, cb = np.zeros(ctrl.dof, dtype=float), np.zeros(ctrl.dof, dtype=float)
+    timer = Timer(rate=ctrl.freq)
+    current_time = select_time_updater(timer, time_updater)
+
+    timer.start()
+    t = 0.0
+    while t < duration:
+        sys.stdout.write(f"\r{header_text} [{t:6.2f}/{duration:.2f}]")
+        t = current_time()
+        rq, rdq, rpa, rpb = state.get_raw_states()
+        q, dq, pa, pb = state.get_states()
+        qdes, dqdes = qdes_func(t), dqdes_func(t)
+        ca, cb = ctrl_adapter.update(t, q, dq, pa, pb, qdes, dqdes)
+        comm.send_commands(ca, cb)
+        if logger is not None:
+            logger.store(t, rq, rdq, rpa, rpb, q, dq, pa, pb, ca, cb, qdes, dqdes)
+        timer.block()
+    sys.stdout.write("\n")
+    # Return the last commands that have been sent to the valve.
+    return ca, cb
 
 
 # Local Variables:
