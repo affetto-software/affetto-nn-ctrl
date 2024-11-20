@@ -3,11 +3,13 @@ from __future__ import annotations
 import sys
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from io import StringIO
 from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import pandas.testing as pt
 import pytest
 from pyplotutil.datautil import Data
 from sklearn import datasets
@@ -26,6 +28,7 @@ from affetto_nn_ctrl.model_utility import (
     RefsBase,
     Regressor,
     StatesBase,
+    extract_data,
     train_model,
 )
 
@@ -227,6 +230,63 @@ def generate_expected_data_for_simple_data_adapter(*, show_plot: bool = True) ->
             params = ",".join(":".join(map(str, x)) for x in kw.items())
             event_logger().info("Plotting expected data for %s (%s)", name, params)
             check_expected_data_for_simple_data_adapter(train_dataset, test_dataset, adapter, prediction, output.stem)
+
+
+TOY_DATA_TXT = """\
+a,b,c,d,e
+1,2,3,4,5
+6,7,8,9,10
+11,12,13,14,15
+16,17,18,19,20
+21,22,23,24,25
+"""
+
+
+@pytest.fixture(scope="session")
+def toy_data() -> Data:
+    return Data(StringIO(TOY_DATA_TXT))
+
+
+@pytest.mark.parametrize(
+    ("keys", "shift", "expected"),
+    [
+        (["a", "c"], 0, "a,c\n1,3\n6,8\n11,13\n16,18\n21,23\n"),
+        (("d",), 0, "d\n4\n9\n14\n19\n24\n"),
+        (("b", "c"), 1, "b,c\n7,8\n12,13\n17,18\n22,23\n"),
+        (["d", "e"], -1, "d,e\n4,5\n9,10\n14,15\n19,20\n"),
+        (["d"], 2, "d\n14\n19\n24\n"),
+        (["b"], -2, "b\n2\n7\n12\n"),
+    ],
+)
+def test_extract_data(toy_data: Data, keys: Iterable[str], shift: int, expected: str) -> None:
+    extracted_data = extract_data(toy_data, keys, shift)
+    expected_data = pd.read_csv(StringIO(expected))
+    n = len(expected_data)
+    pt.assert_index_equal(extracted_data.index, pd.RangeIndex(n))
+    pt.assert_frame_equal(extracted_data, expected_data)
+
+
+@pytest.mark.parametrize(
+    ("keys", "shift", "keys_replace", "expected"),
+    [
+        (["a", "c"], 0, ("A", "C"), "A,C\n1,3\n6,8\n11,13\n16,18\n21,23\n"),
+        (("d",), 0, ["D"], "D\n4\n9\n14\n19\n24\n"),
+        (("b", "c"), 1, ("boo", "ciao"), "boo,ciao\n7,8\n12,13\n17,18\n22,23\n"),
+        (["d", "e"], -1, ["done", "echo"], "done,echo\n4,5\n9,10\n14,15\n19,20\n"),
+    ],
+)
+def test_extract_data_replace_keys(
+    toy_data: Data,
+    keys: Iterable[str],
+    keys_replace: Iterable[str],
+    shift: int,
+    expected: str,
+) -> None:
+    extracted_data = extract_data(toy_data, keys, shift, keys_replace)
+    expected_data = pd.read_csv(StringIO(expected))
+    n = len(expected_data)
+    pt.assert_index_equal(extracted_data.index, pd.RangeIndex(n))
+    pt.assert_frame_equal(extracted_data, expected_data)
 
 
 @dataclass
