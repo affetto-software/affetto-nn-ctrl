@@ -128,7 +128,7 @@ def extract_data(
 
 def load_train_datasets(
     train_datasets: Data | Iterable[Data],
-    adapter: DataAdapterBase,
+    adapter: DataAdapterBase[DataAdapterParamsType, StatesType, RefsType, InputsType],
 ) -> tuple[np.ndarray, np.ndarray]:
     if isinstance(train_datasets, Data):
         train_datasets = [train_datasets]
@@ -137,8 +137,8 @@ def load_train_datasets(
     for dataset in train_datasets:
         _x_train = adapter.make_feature(dataset)
         _y_train = adapter.make_target(dataset)
-        x_train = np.vstack((x_train, _x_train)) if x_train else np.copy(_x_train)
-        y_train = np.vstack((y_train, _y_train)) if y_train else np.copy(_y_train)
+        x_train = np.vstack((x_train, _x_train)) if x_train is not None else np.copy(_x_train)
+        y_train = np.vstack((y_train, _y_train)) if y_train is not None else np.copy(_y_train)
     if len(y_train.shape) == 2 and y_train.shape[1] == 1:  # noqa: PLR2004
         y_train = np.ravel(y_train)
     return x_train, y_train
@@ -156,7 +156,7 @@ def train_model(
 def train_model(
     model: Regressor,
     x_train_or_datasets: Data | Iterable[Data],
-    y_train_or_adapter: DataAdapterBase,
+    y_train_or_adapter: DataAdapterBase[DataAdapterParamsType, StatesType, RefsType, InputsType],
 ) -> Regressor: ...
 
 
