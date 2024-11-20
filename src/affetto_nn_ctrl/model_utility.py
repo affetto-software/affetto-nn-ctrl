@@ -169,16 +169,24 @@ def train_model(model, x_train_or_datasets, y_train_or_adapter) -> Regressor:
     return model.fit(x_train, y_train)
 
 
-class CtrlAdapter(Generic[DataAdapterParamsType]):
+CtrlAdapterUpdater: TypeAlias = Callable[
+    [float, np.ndarray, np.ndarray, np.ndarray, np.ndarray, Reference, Reference],
+    tuple[np.ndarray, np.ndarray],
+]
+
+
+class CtrlAdapter(Generic[DataAdapterParamsType, StatesType, RefsType, InputsType]):
     ctrl: AffPosCtrl
     model: Regressor
-    data_adapter: DataAdapterBase[DataAdapterParamsType, DefaultStates, DefaultRefs, DefaultInputs]
-    _updater: Callable[
-        [float, np.ndarray, np.ndarray, np.ndarray, np.ndarray, Reference, Reference],
-        tuple[np.ndarray, np.ndarray],
-    ]
+    data_adapter: DataAdapterBase[DataAdapterParamsType, StatesType, RefsType, InputsType]
+    _updater: CtrlAdapterUpdater
 
-    def __init__(self, ctrl: AffPosCtrl, model: Regressor | None, data_adapter: DataAdapterBase) -> None:
+    def __init__(
+        self,
+        ctrl: AffPosCtrl,
+        model: Regressor | None,
+        data_adapter: DataAdapterBase[DataAdapterParamsType, StatesType, RefsType, InputsType],
+    ) -> None:
         self.ctrl = ctrl
         if model is None:
             self._updater = self.update_ctrl
@@ -209,13 +217,6 @@ class CtrlAdapter(Generic[DataAdapterParamsType]):
         dqdes: Reference,
     ) -> tuple[np.ndarray, np.ndarray]:
         ca, cb = self.ctrl.update(t, q, dq, pa, pb, qdes(t), dqdes(t))
-        x = self.data_adapter.make_model_input(
-            t,
-            {"q": q, "dq": dq, "pa": pa, "pb": pb},
-            {"qdes": qdes, "dqdes": dqdes},
-        )
-        y = self.model.predict(x)
-        ca, cb = self.data_adapter.make_ctrl_input(y, {"ca": ca, "cb": cb})
         return ca, cb
 
     def update(
@@ -229,6 +230,36 @@ class CtrlAdapter(Generic[DataAdapterParamsType]):
         dqdes: Reference,
     ) -> tuple[np.ndarray, np.ndarray]:
         return self._updater(t, q, dq, pa, pb, qdes, dqdes)
+
+
+class DefaultCtrlAdapter(CtrlAdapter[DataAdapterParamsType, DefaultStates, DefaultRefs, DefaultInputs]):
+    def __init__(
+        self,
+        ctrl: AffPosCtrl,
+        model: Regressor | None,
+        data_adapter: DataAdapterBase[DataAdapterParamsType, DefaultStates, DefaultRefs, DefaultInputs],
+    ) -> None:
+        super().__init__(ctrl, model, data_adapter)
+
+    def update_model(
+        self,
+        t: float,
+        q: np.ndarray,
+        dq: np.ndarray,
+        pa: np.ndarray,
+        pb: np.ndarray,
+        qdes: Reference,
+        dqdes: Reference,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        ca, cb = self.ctrl.update(t, q, dq, pa, pb, qdes(t), dqdes(t))
+        x = self.data_adapter.make_model_input(
+            t,
+            {"q": q, "dq": dq, "pa": pa, "pb": pb},
+            {"qdes": qdes, "dqdes": dqdes},
+        )
+        y = self.model.predict(x)
+        ca, cb = self.data_adapter.make_ctrl_input(y, {"ca": ca, "cb": cb})
+        return ca, cb
 
 
 # Local Variables:
