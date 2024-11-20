@@ -90,6 +90,7 @@ ignore = [
   "D1",                         # Ignore missing docstring
   "PLR0913",                    # Ignore too many function arguments
   "S101",                       # Ignore detection of using assert
+  "SIM108",                     # Ignore suggestion of using ternary operator instead of `if`-`else`-block
 ]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
