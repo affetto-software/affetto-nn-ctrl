@@ -205,6 +205,34 @@ def train_model(model, x_train_or_datasets, y_train_or_adapter) -> Regressor:
     return model.fit(x_train, y_train)
 
 
+@dataclass
+class TrainedModel(Generic[DataAdapterParamsType, StatesType, RefsType, InputsType]):
+    model: Regressor
+    adapter: DataAdapterBase[DataAdapterParamsType, StatesType, RefsType, InputsType]
+
+    def get_params(self) -> dict:
+        return self.model.get_params()
+
+    def predict(self, X: np.ndarray) -> np.ndarray | Unknown:  # noqa: N803
+        return self.model.predict(X)
+
+    def score(self, X: np.ndarray, y: np.ndarray, sample_weight: np.ndarray | None = None) -> float | Unknown:  # noqa: N803
+        return self.model.score(X, y, sample_weight)
+
+    @property
+    def model_name(self) -> str:
+        return type(self.model).__name__
+
+
+def dump_model(model: TrainedModel, output: str | Path) -> Path:
+    joblib.dump(model, output)
+    return Path(output)
+
+
+def load_model(model_filepath: str | Path) -> TrainedModel:
+    return joblib.load(model_filepath)
+
+
 CtrlAdapterUpdater: TypeAlias = Callable[
     [float, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray],
     tuple[np.ndarray, np.ndarray],
@@ -213,15 +241,13 @@ CtrlAdapterUpdater: TypeAlias = Callable[
 
 class CtrlAdapter(Generic[DataAdapterParamsType, StatesType, RefsType, InputsType]):
     ctrl: AffPosCtrl
-    model: Regressor
-    data_adapter: DataAdapterBase[DataAdapterParamsType, StatesType, RefsType, InputsType]
+    model: TrainedModel[DataAdapterParamsType, StatesType, RefsType, InputsType]
     _updater: CtrlAdapterUpdater
 
     def __init__(
         self,
         ctrl: AffPosCtrl,
-        model: Regressor | None,
-        data_adapter: DataAdapterBase[DataAdapterParamsType, StatesType, RefsType, InputsType],
+        model: TrainedModel[DataAdapterParamsType, StatesType, RefsType, InputsType] | None,
     ) -> None:
         self.ctrl = ctrl
         if model is None:
@@ -229,21 +255,6 @@ class CtrlAdapter(Generic[DataAdapterParamsType, StatesType, RefsType, InputsTyp
         else:
             self.model = model
             self._updater = self.update_model
-        self.data_adapter = data_adapter
-
-    @property
-    def model_name(self) -> str:
-        try:
-            return type(self.model).__name__
-        except AttributeError:
-            return type(self.ctrl).__name__
-
-    @property
-    def params(self) -> dict:
-        try:
-            return self.model.get_params()
-        except AttributeError:
-            return {}
 
     def update_ctrl(
         self,
@@ -287,10 +298,9 @@ class DefaultCtrlAdapter(CtrlAdapter[DataAdapterParamsType, DefaultStates, Defau
     def __init__(
         self,
         ctrl: AffPosCtrl,
-        model: Regressor | None,
-        data_adapter: DataAdapterBase[DataAdapterParamsType, DefaultStates, DefaultRefs, DefaultInputs],
+        model: TrainedModel[DataAdapterParamsType, DefaultStates, DefaultRefs, DefaultInputs] | None,
     ) -> None:
-        super().__init__(ctrl, model, data_adapter)
+        super().__init__(ctrl, model)
 
     def update_model(
         self,
@@ -303,28 +313,23 @@ class DefaultCtrlAdapter(CtrlAdapter[DataAdapterParamsType, DefaultStates, Defau
         dqdes: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
         ca, cb = self.ctrl.update(t, q, dq, pa, pb, qdes, dqdes)
-        x = self.data_adapter.make_model_input(
+        x = self.model.adapter.make_model_input(
             t,
             {"q": q, "dq": dq, "pa": pa, "pb": pb},
             {"qdes": qdes, "dqdes": dqdes},
         )
         y = self.model.predict(x)
-        ca, cb = self.data_adapter.make_ctrl_input(y, {"ca": ca, "cb": cb})
+        ca, cb = self.model.adapter.make_ctrl_input(y, {"ca": ca, "cb": cb})
         return ca, cb
 
 
-def dump_model(ctrl_adapter: CtrlAdapter, output: str | Path) -> Path:
-    joblib.dump(ctrl_adapter, output)
-    return Path(output)
-
-
-def load_model(model_filepath: str | Path) -> CtrlAdapter:
-    return joblib.load(model_filepath)
+DefaultCtrlAdapterType: TypeAlias = DefaultCtrlAdapter[DataAdapterParamsBase]
+DefaultTrainedModelType: TypeAlias = TrainedModel[DataAdapterParamsBase, DefaultStates, DefaultRefs, DefaultInputs]
 
 
 def control_position_or_model(
     controller: CONTROLLER_T,
-    ctrl_adapter: CtrlAdapter,
+    model: DefaultTrainedModelType | None,
     qdes_func: RefFuncType,
     dqdes_func: RefFuncType,
     duration: float,
@@ -335,6 +340,7 @@ def control_position_or_model(
 ) -> tuple[np.ndarray, np.ndarray]:
     reset_logger(logger, log_filename)
     comm, ctrl, state = controller
+    ctrl_adapter = DefaultCtrlAdapter(ctrl, model)
     ca, cb = np.zeros(ctrl.dof, dtype=float), np.zeros(ctrl.dof, dtype=float)
     timer = Timer(rate=ctrl.freq)
     current_time = select_time_updater(timer, time_updater)

@@ -23,9 +23,8 @@ from affetto_nn_ctrl.data_handling import (
 )
 from affetto_nn_ctrl.event_logging import event_logger, start_logging
 from affetto_nn_ctrl.model_utility import (
-    CtrlAdapter,
+    DefaultTrainedModelType,
     control_position_or_model,
-    dummy_data_adapter,
     load_model,
 )
 
@@ -43,7 +42,7 @@ APP_NAME_TRACK_TRAJECTORY = "performance"
 
 def record_data(
     controller: CONTROLLER_T,
-    ctrl_adapter: CtrlAdapter,
+    model: DefaultTrainedModelType | None,
     data_logger: Logger,
     reference: Spline,
     duration: float,
@@ -53,7 +52,7 @@ def record_data(
     qdes_func, dqdes_func = reference.get_qdes_func(), reference.get_dqdes_func()
     control_position_or_model(
         controller,
-        ctrl_adapter,
+        model,
         qdes_func,
         dqdes_func,
         duration,
@@ -128,10 +127,9 @@ def run(
     event_logger().debug("Reference motion trajectory is loaded: %s", reference_filepath)
 
     # Load trained model.
-    if model_filepath is None:
-        ctrl_adapter = CtrlAdapter(ctrl, None, dummy_data_adapter)
-    else:
-        ctrl_adapter = load_model(model_filepath)
+    model: DefaultTrainedModelType | None = None
+    if model_filepath is not None:
+        model = load_model(model_filepath)
 
     # Perform trajectory tracking.
     for i in range(n_repeat):
@@ -143,7 +141,7 @@ def run(
         event_logger().debug(header_text)
         record_data(
             (comm, ctrl, state),
-            ctrl_adapter,
+            model,
             data_logger,
             reference,
             duration,
