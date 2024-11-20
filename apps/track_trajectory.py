@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 from affetto_nn_ctrl.control_utility import (
     RobotInitializer,
     Spline,
-    control_position,
     create_controller,
     create_default_logger,
     release_pressure,
@@ -23,6 +22,12 @@ from affetto_nn_ctrl.data_handling import (
     prepare_data_dir_path,
 )
 from affetto_nn_ctrl.event_logging import event_logger, start_logging
+from affetto_nn_ctrl.model_utility import (
+    CtrlAdapter,
+    control_position_or_model,
+    dummy_data_adapter,
+    load_model,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -38,6 +43,7 @@ APP_NAME_TRACK_TRAJECTORY = "performance"
 
 def record_data(
     controller: CONTROLLER_T,
+    ctrl_adapter: CtrlAdapter,
     data_logger: Logger,
     reference: Spline,
     duration: float,
@@ -45,8 +51,9 @@ def record_data(
     header_text: str,
 ) -> None:
     qdes_func, dqdes_func = reference.get_qdes_func(), reference.get_dqdes_func()
-    control_position(
+    control_position_or_model(
         controller,
+        ctrl_adapter,
         qdes_func,
         dqdes_func,
         duration,
@@ -71,7 +78,7 @@ def run(
     ca_init: list[float] | None,
     cb_init: list[float] | None,
     reference_filepath: str,
-    model: str | None,
+    model_filepath: str | None,
     smoothness: float | None,
     duration: float,
     n_repeat: int,
@@ -120,6 +127,12 @@ def run(
     reference = Spline(reference_filepath, active_joints, smoothness)
     event_logger().debug("Reference motion trajectory is loaded: %s", reference_filepath)
 
+    # Load trained model.
+    if model_filepath is None:
+        ctrl_adapter = CtrlAdapter(ctrl, None, dummy_data_adapter)
+    else:
+        ctrl_adapter = load_model(model_filepath)
+
     # Perform trajectory tracking.
     for i in range(n_repeat):
         if i > 0:
@@ -130,6 +143,7 @@ def run(
         event_logger().debug(header_text)
         record_data(
             (comm, ctrl, state),
+            ctrl_adapter,
             data_logger,
             reference,
             duration,
