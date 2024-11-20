@@ -139,6 +139,9 @@ def load_train_datasets(
         _y_train = adapter.make_target(dataset)
         x_train = np.vstack((x_train, _x_train)) if x_train is not None else np.copy(_x_train)
         y_train = np.vstack((y_train, _y_train)) if y_train is not None else np.copy(_y_train)
+    if x_train is None or y_train is None:
+        msg = f"No data sets found: {train_datasets}"
+        raise RuntimeError(msg)
     if len(y_train.shape) == 2 and y_train.shape[1] == 1:  # noqa: PLR2004
         y_train = np.ravel(y_train)
     return x_train, y_train
