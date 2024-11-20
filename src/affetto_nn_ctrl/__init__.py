@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
+from typing import TypeAlias
 
+import numpy as np
 from affctrllib import AffComm, AffPosCtrl, AffStateThread
 
 ROOT_DIR_PATH = Path(__file__).parent.parent.parent
@@ -16,7 +19,8 @@ DEFAULT_SEED = None
 DEFAULT_N_REPEAT = 1
 DEFAULT_TIME_HOME = 10
 
-CONTROLLER_T = tuple[AffComm, AffPosCtrl, AffStateThread]
+CONTROLLER_T: TypeAlias = tuple[AffComm, AffPosCtrl, AffStateThread]
+RefFuncType: TypeAlias = Callable[[float], np.ndarray]
 
 # Local Variables:
 # jinx-local-words: "src"
