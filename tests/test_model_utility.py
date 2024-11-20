@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy.testing as nt
 import pandas as pd
 import pandas.testing as pt
 import pytest
@@ -330,10 +331,13 @@ class JointDataAdapter(DataAdapterBase[JointDataAdapterParams, DefaultStates, De
         pa = states["pa"][self.params.active_joints]
         pb = states["pb"][self.params.active_joints]
         qdes = refs["qdes"](t)[self.params.active_joints]
-        model_input = np.concatenate((q, dq, pa, pb, qdes))
+        model_input = np.concatenate((q, dq, pa, pb, qdes))  # concatenate feature vectors horizontally
+        # Make matrix that has 1 row and n_features columns.
         return np.atleast_2d(model_input)
 
     def make_ctrl_input(self, y: np.ndarray, base_inputs: DefaultInputs) -> tuple[np.ndarray, ...]:
+        # `y` has has 1 row and n_targets columns.
+        y = np.ravel(y)
         ca, cb = base_inputs["ca"], base_inputs["cb"]
         n = len(self.params.active_joints)
         ca[self.params.active_joints] = y[:n]
@@ -371,7 +375,91 @@ t,q0,q5,dq0,dq5,pa0,pa5,pb0,pb5,ca0,ca5,cb0,cb5
 
 @pytest.fixture(scope="session")
 def toy_joint_data() -> Data:
-    return Data(TOY_JOINT_DATA_TXT)
+    return Data(StringIO(TOY_JOINT_DATA_TXT))
+
+
+class TestJointDataAdapter:
+    @pytest.fixture
+    def adapter(self) -> JointDataAdapter:
+        return JointDataAdapter(JointDataAdapterParams(active_joints=[5]))
+
+    def test_make_feature(self, toy_joint_data: Data, adapter: JointDataAdapter) -> None:
+        expected_data_text = """\
+20.80,-25.81,377.55,418.98,20.09
+20.09,-23.02,378.46,418.17,19.42
+19.42,-21.88,379.30,417.06,18.70
+18.70,-15.13,380.30,416.46,18.34
+18.34,-10.35,380.76,415.07,18.11
+18.11, -6.34,381.88,412.69,17.99
+17.99, -1.26,383.14,409.73,17.99
+17.99,  0.57,386.51,407.22,18.02
+18.02,  0.76,395.33,403.54,18.07
+18.07,  1.78,408.76,394.00,18.14
+18.14,  2.86,417.22,384.80,18.31
+18.31,  7.36,425.04,376.35,18.99
+18.99, 24.90,432.04,367.69,20.14
+20.14, 45.59,434.53,362.90,22.01
+22.01, 70.96,436.59,359.30,25.49
+25.49, 94.34,439.11,355.34,28.57
+28.57,106.93,440.78,353.43,32.02
+32.02,118.53,442.97,352.27,36.97
+36.97,125.99,445.54,351.05,40.85
+"""
+        feature = adapter.make_feature(toy_joint_data)
+        expected = np.loadtxt(StringIO(expected_data_text), delimiter=",")
+        nt.assert_array_equal(feature, expected)
+
+    def test_make_target(self, toy_joint_data: Data, adapter: JointDataAdapter) -> None:
+        expected_data_text = """\
+169.07,170.93
+172.22,167.78
+175.92,164.08
+179.60,160.40
+183.58,156.42
+187.50,152.50
+191.25,148.75
+194.99,145.01
+198.67,141.33
+202.33,137.67
+205.84,134.16
+208.50,131.50
+210.27,129.73
+210.46,129.54
+207.85,132.15
+205.37,134.63
+201.87,138.13
+195.71,144.29
+190.63,149.37
+"""
+        target = adapter.make_target(toy_joint_data)
+        expected = np.loadtxt(StringIO(expected_data_text), delimiter=",")
+        nt.assert_array_equal(target, expected)
+
+    def test_make_model_input(self, adapter: JointDataAdapter) -> None:
+        dof = 6
+        q = np.arange(dof, dtype=float)
+        dq = np.arange(dof, dtype=float) * 0.01
+        pa = np.arange(dof, dtype=float) + 300
+        pb = np.arange(dof, dtype=float) + 10
+
+        def qdes(t: float) -> np.ndarray:
+            return q + t
+
+        t = 4.0
+        x = adapter.make_model_input(t, {"q": q, "dq": dq, "pa": pa, "pb": pb}, {"qdes": qdes})
+        expected = np.array([[5, 0.05, 305, 15, 9]], dtype=float)
+        nt.assert_array_equal(x, expected)
+
+    def test_make_ctrl_input(self, adapter: JointDataAdapter) -> None:
+        dof = 6
+        base_ca = np.arange(dof, dtype=float) + 200
+        base_cb = np.arange(dof, dtype=float) + 20
+        y = np.array([[231, 28]], dtype=float)
+        ca, cb = adapter.make_ctrl_input(y, {"ca": base_ca, "cb": base_cb})
+        expected_ca = np.array([200, 201, 202, 203, 204, 231], dtype=float)
+        expected_cb = np.array([20, 21, 22, 23, 24, 28], dtype=float)
+        nt.assert_array_equal(ca, expected_ca)
+        nt.assert_array_equal(cb, expected_cb)
 
 
 def main() -> None:
