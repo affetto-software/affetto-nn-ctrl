@@ -487,12 +487,22 @@ class TestJointDataAdapter:
     @pytest.mark.parametrize(
         ("model", "kw", "name", "expected_score"),
         [
-            (LinearRegression(), {}, "linear", 0.0),
-            (Ridge(alpha=0.1), {"alpha": 0.1}, "ridge", 0.0),
-            (Ridge(alpha=1.0), {"alpha": 1.0}, "ridge", 0.0),
-            (MLPRegressor(random_state=42, max_iter=200), {"max_iter": 200}, "mlp", 0.0),
-            (MLPRegressor(random_state=42, max_iter=500), {"max_iter": 500}, "mlp", 0.0),
-            (MLPRegressor(random_state=42, max_iter=800), {"max_iter": 800}, "mlp", 0.0),
+            (LinearRegression(), {}, "linear", 0.43617892031416844),
+            (Ridge(alpha=0.1), {"alpha": 0.1}, "ridge", 0.436189557255996),
+            (Ridge(alpha=1.0), {"alpha": 1.0}, "ridge", 0.4362793601129537),
+            (MLPRegressor(random_state=42, max_iter=200), {"max_iter": 200}, "mlp", 0.46797910150668864),
+            (
+                MLPRegressor(random_state=42, hidden_layer_sizes=(100, 100), max_iter=500),
+                {"hidden_layer_sizes": "100-100", "max_iter": 500},
+                "mlp",
+                0.5007867097957437,
+            ),
+            (
+                MLPRegressor(random_state=42, hidden_layer_sizes=(200,), max_iter=500),
+                {"hidden_layer_sizes": 200, "max_iter": 500},
+                "mlp",
+                0.4847716669330141,
+            ),
         ],
     )
     def test_model(
@@ -506,7 +516,7 @@ class TestJointDataAdapter:
         train_datasets = map(Data, TESTS_DATA_DIR_PATH.glob("motion_data_00*.csv"))
         test_dataset = Data(TESTS_DATA_DIR_PATH / "motion_data_010.csv")
         adapter = JointDataAdapter(JointDataAdapterParams(active_joints=[5]))
-        output = make_prediction_data_path(make_work_directory, "simple", name, **kw)
+        output = make_prediction_data_path(make_work_directory, "joint", name, **kw)
         y_test, score = self.generate_prediction_data(output, train_datasets, test_dataset, adapter, model)
         assert_file_contents(TESTS_DATA_DIR_PATH / output.name, output)
         assert expected_score == pytest.approx(score)
@@ -547,8 +557,16 @@ def generate_expected_data_for_joint_data_adapter(*, show_plot: bool = True) -> 
         (Ridge(alpha=0.1), {"alpha": 0.1}, "ridge"),
         (Ridge(alpha=1.0), {"alpha": 1.0}, "ridge"),
         (MLPRegressor(random_state=42, max_iter=200), {"max_iter": 200}, "mlp"),
-        (MLPRegressor(random_state=42, max_iter=500), {"max_iter": 500}, "mlp"),
-        (MLPRegressor(random_state=42, max_iter=800), {"max_iter": 800}, "mlp"),
+        (
+            MLPRegressor(random_state=42, hidden_layer_sizes=(100, 100), max_iter=500),
+            {"hidden_layer_sizes": "100-100", "max_iter": 500},
+            "mlp",
+        ),
+        (
+            MLPRegressor(random_state=42, hidden_layer_sizes=(200,), max_iter=500),
+            {"hidden_layer_sizes": 200, "max_iter": 500},
+            "mlp",
+        ),
     ]
     for model, kw, name in models:
         output = make_prediction_data_path(TESTS_DATA_DIR_PATH, "joint", name, **kw)
