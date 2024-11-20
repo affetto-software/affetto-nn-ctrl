@@ -30,6 +30,7 @@ from affetto_nn_ctrl.model_utility import (
     Regressor,
     StatesBase,
     extract_data,
+    load_train_datasets,
     train_model,
 )
 
@@ -461,6 +462,103 @@ class TestJointDataAdapter:
         nt.assert_array_equal(ca, expected_ca)
         nt.assert_array_equal(cb, expected_cb)
 
+    def predict(self, test_dataset: Data, adapter: JointDataAdapter, model: Regressor) -> tuple[np.ndarray, float]:
+        x_test, y_true = load_train_datasets(test_dataset, adapter)
+        y_pred = model.predict(x_test)
+        score = model.score(x_test, y_true)
+        return y_pred, score
+
+    def generate_prediction_data(
+        self,
+        output: Path,
+        train_datasets: Iterable[Data],
+        test_dataset: Data,
+        adapter: JointDataAdapter,
+        model: Regressor,
+    ) -> tuple[np.ndarray, float]:
+        model = train_model(model, train_datasets, adapter)
+        y_pred, score = self.predict(test_dataset, adapter, model)
+        np.savetxt(output, y_pred)
+        event_logger().info("Expected data for JointDataAdapter generated: %s", output)
+        event_logger().info("Score: %s", score)
+        return y_pred, score
+
+    @pytest.mark.filterwarnings("ignore::sklearn.exceptions.ConvergenceWarning")
+    @pytest.mark.parametrize(
+        ("model", "kw", "name", "expected_score"),
+        [
+            (LinearRegression(), {}, "linear", 0.0),
+            (Ridge(alpha=0.1), {"alpha": 0.1}, "ridge", 0.0),
+            (Ridge(alpha=1.0), {"alpha": 1.0}, "ridge", 0.0),
+            (MLPRegressor(random_state=42, max_iter=200), {"max_iter": 200}, "mlp", 0.0),
+            (MLPRegressor(random_state=42, max_iter=500), {"max_iter": 500}, "mlp", 0.0),
+            (MLPRegressor(random_state=42, max_iter=800), {"max_iter": 800}, "mlp", 0.0),
+        ],
+    )
+    def test_model(
+        self,
+        make_work_directory: Path,
+        model: Regressor,
+        kw: dict[str, str | float],
+        name: str,
+        expected_score: float,
+    ) -> None:
+        train_datasets = map(Data, TESTS_DATA_DIR_PATH.glob("motion_data_00*.csv"))
+        test_dataset = Data(TESTS_DATA_DIR_PATH / "motion_data_010.csv")
+        adapter = JointDataAdapter(JointDataAdapterParams(active_joints=[5]))
+        output = make_prediction_data_path(make_work_directory, "simple", name, **kw)
+        y_test, score = self.generate_prediction_data(output, train_datasets, test_dataset, adapter, model)
+        assert_file_contents(TESTS_DATA_DIR_PATH / output.name, output)
+        assert expected_score == pytest.approx(score)
+
+
+def check_expected_data_for_joint_data_adapter(
+    test_dataset: Data,
+    adapter: JointDataAdapter,
+    y_pred: np.ndarray,
+    title: str | None,
+) -> None:
+    x_test, y_true = load_train_datasets(test_dataset, adapter)
+
+    (line,) = plt.plot(y_true[:, 0], ls="--", label="ca (true)")
+    plt.plot(y_pred[:, 0], c=line.get_color(), label="ca (pred)")
+
+    (line,) = plt.plot(y_true[:, 1], ls="--", label="cb (true)")
+    plt.plot(y_pred[:, 1], c=line.get_color(), label="cb (pred)")
+
+    if title is not None:
+        plt.title(title)
+    plt.xlabel("x")
+    plt.ylabel("y")
+    plt.legend()
+    plt.show()
+    plt.close()
+
+
+def generate_expected_data_for_joint_data_adapter(*, show_plot: bool = True) -> None:
+    generator = TestJointDataAdapter()
+    adapter = JointDataAdapter(JointDataAdapterParams(active_joints=[5]))
+    TESTS_DATA_DIR_PATH.mkdir(parents=True, exist_ok=True)
+    train_datasets = list(map(Data, TESTS_DATA_DIR_PATH.glob("motion_data_00*.csv")))
+    test_dataset = Data(TESTS_DATA_DIR_PATH / "motion_data_010.csv")
+
+    models: list[tuple[Regressor, dict[str, str | float], str]] = [
+        (LinearRegression(), {}, "linear"),
+        (Ridge(alpha=0.1), {"alpha": 0.1}, "ridge"),
+        (Ridge(alpha=1.0), {"alpha": 1.0}, "ridge"),
+        (MLPRegressor(random_state=42, max_iter=200), {"max_iter": 200}, "mlp"),
+        (MLPRegressor(random_state=42, max_iter=500), {"max_iter": 500}, "mlp"),
+        (MLPRegressor(random_state=42, max_iter=800), {"max_iter": 800}, "mlp"),
+    ]
+    for model, kw, name in models:
+        output = make_prediction_data_path(TESTS_DATA_DIR_PATH, "joint", name, **kw)
+        y_pred, score = generator.generate_prediction_data(output, train_datasets, test_dataset, adapter, model)
+        if show_plot:
+            params = ",".join(":".join(map(str, x)) for x in kw.items())
+            title = f"{name} ({params}), score: {score}"
+            event_logger().info("Plotting expected data for %s (%s)", name, params)
+            check_expected_data_for_joint_data_adapter(test_dataset, adapter, y_pred, title)
+
 
 def main() -> None:
     import sys
@@ -472,7 +570,6 @@ def main() -> None:
     MENU:
       1) Expected data for testing SimpleDataAdapter class
       2) Expected data for testing JointDataAdapter class
-      3) Expected data for testing CtrlAdapter class
 
     EXAMPLE:
       $ python {' '.join(sys.argv)} 1
@@ -482,7 +579,7 @@ def main() -> None:
             case "1":
                 generate_expected_data_for_simple_data_adapter(show_plot=True)
             case "2":
-                pass
+                generate_expected_data_for_joint_data_adapter(show_plot=True)
             case _:
                 raise RuntimeError(msg)
     else:
@@ -493,5 +590,5 @@ if __name__ == "__main__":
     main()
 
 # Local Variables:
-# jinx-local-words: "Ctrl arg cb csv dq iter mlp noqa params pb qdes sklearn"
+# jinx-local-words: "Ctrl arg cb csv dq iter mlp noqa params pb pred qdes sklearn"
 # End:
