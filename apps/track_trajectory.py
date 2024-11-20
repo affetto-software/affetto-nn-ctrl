@@ -40,7 +40,7 @@ DEFAULT_N_REPEAT = 10
 APP_NAME_TRACK_TRAJECTORY = "performance"
 
 
-def record_data(
+def track_motion_trajectory(
     controller: CONTROLLER_T,
     model: DefaultTrainedModelType | None,
     data_logger: Logger,
@@ -139,7 +139,7 @@ def run(
         data_file_path = build_data_file_path(output_dir_path, prefix=output_prefix, iterator=cnt, ext=".csv")
         header_text = f"[{i+1}/{n_repeat}] Performing trajectory tracking..."
         event_logger().debug(header_text)
-        record_data(
+        track_motion_trajectory(
             (comm, ctrl, state),
             model,
             data_logger,
