@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING, Generic, Protocol, TypeAlias, TypedDict, TypeV
 import numpy as np
 from pyplotutil.datautil import Data
 
+from affetto_nn_ctrl.event_logging import event_logger
+
 if TYPE_CHECKING:
     import pandas as pd
     from affctrllib import AffPosCtrl
@@ -139,6 +141,8 @@ def load_train_datasets(
         _y_train = adapter.make_target(dataset)
         x_train = np.vstack((x_train, _x_train)) if x_train is not None else np.copy(_x_train)
         y_train = np.vstack((y_train, _y_train)) if y_train is not None else np.copy(_y_train)
+        if dataset.is_loaded_from_file():
+            event_logger().info("Loaded dataset: %s", dataset.datapath)
     if x_train is None or y_train is None:
         msg = f"No data sets found: {train_datasets}"
         raise RuntimeError(msg)
@@ -169,6 +173,8 @@ def train_model(model, x_train_or_datasets, y_train_or_adapter) -> Regressor:
         y_train = y_train_or_adapter
     else:
         x_train, y_train = load_train_datasets(x_train_or_datasets, y_train_or_adapter)
+    event_logger().debug("x_train.shape = %s", x_train.shape)
+    event_logger().debug("y_train.shape = %s", y_train.shape)
     return model.fit(x_train, y_train)
 
 
@@ -266,5 +272,5 @@ class DefaultCtrlAdapter(CtrlAdapter[DataAdapterParamsType, DefaultStates, Defau
 
 
 # Local Variables:
-# jinx-local-words: "Params cb dq dqdes noqa npqa pb qdes"
+# jinx-local-words: "Params cb dataset dq dqdes noqa npqa pb qdes"
 # End:
