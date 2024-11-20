@@ -314,27 +314,14 @@ class JointDataAdapter(DataAdapterBase[JointDataAdapterParams, DefaultStates, De
             keys.extend([f"{s}{i}" for i in joints])
         return keys
 
-    def extract_data(
-        self,
-        dataset: Data,
-        keys: Iterable[str],
-        shift: int,
-        keys_replace: Iterable[str] | None = None,
-    ) -> pd.DataFrame:
-        subset = dataset.df.loc[:, keys]
-        extracted = subset[:shift] if shift < 0 else subset[shift:]
-        if keys_replace is not None:
-            extracted = extracted.rename(columns=dict(zip(keys, keys_replace, strict=True)))
-        return extracted.reset_index(drop=True)
-
     def make_feature(self, dataset: Data) -> np.ndarray:
-        states = self.extract_data(dataset, self.get_keys(["q", "dq", "pa", "pb"]), -1)
-        reference = self.extract_data(dataset, self.get_keys(["q"]), 1, self.get_keys(["qdes"]))
+        states = extract_data(dataset, self.get_keys(["q", "dq", "pa", "pb"]), -1)
+        reference = extract_data(dataset, self.get_keys(["q"]), 1, self.get_keys(["qdes"]))
         feature_data = pd.concat((states, reference), axis=1)
         return feature_data.to_numpy()
 
     def make_target(self, dataset: Data) -> np.ndarray:
-        ctrl_input = self.extract_data(dataset, self.get_keys(["ca", "cb"]), 1)
+        ctrl_input = extract_data(dataset, self.get_keys(["ca", "cb"]), 1)
         return ctrl_input.to_numpy()
 
     def make_model_input(self, t: float, states: DefaultStates, refs: DefaultRefs) -> np.ndarray:
