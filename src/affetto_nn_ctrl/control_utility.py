@@ -24,7 +24,7 @@ else:
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Sequence
 
-    from affetto_nn_ctrl import CONTROLLER_T
+    from affetto_nn_ctrl import CONTROLLER_T, RefFuncType
 
 
 __SEED: int | None = None
@@ -123,7 +123,7 @@ def create_const_trajectory(
     qdes: float | list[float] | np.ndarray,
     joint: int | list[int],
     q0: np.ndarray,
-) -> tuple[Callable[[float], np.ndarray], Callable[[float], np.ndarray]]:
+) -> tuple[RefFuncType, RefFuncType]:
     def qdes_func(_: float) -> np.ndarray:
         q = np.copy(q0)
         q[0] = 50  # make waist joint keep at middle.
@@ -765,7 +765,7 @@ class RandomTrajectory:
 
         self.initialize_updater(t0, q0)
 
-    def get_qdes_func(self) -> Callable[[float], np.ndarray]:
+    def get_qdes_func(self) -> RefFuncType:
         def qdes_async(t: float) -> np.ndarray:
             self.update_async_updater(t)
             qdes = self.q0.copy()
@@ -782,7 +782,7 @@ class RandomTrajectory:
             return qdes_async
         return qdes_sync
 
-    def get_dqdes_func(self) -> Callable[[float], np.ndarray]:
+    def get_dqdes_func(self) -> RefFuncType:
         def dqdes_async(t: float) -> np.ndarray:
             self.update_async_updater(t)
             dqdes = np.zeros(self.q0.shape, dtype=float)
@@ -869,7 +869,7 @@ class Spline:
         self,
         q0: np.ndarray | None = None,
         duration: float | None = None,
-    ) -> Callable[[float], np.ndarray]:
+    ) -> RefFuncType:
         if q0 is None:
             q0 = self.q0
         if duration is None:
@@ -886,7 +886,7 @@ class Spline:
         self,
         q0: np.ndarray | None = None,
         duration: float | None = None,
-    ) -> Callable[[float], np.ndarray]:
+    ) -> RefFuncType:
         if q0 is None:
             q0 = self.q0
         if duration is None:
