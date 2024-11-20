@@ -1,0 +1,20 @@
+[model]
+[model.adapter]
+name = "preview-ref"
+params = "default"
+
+[model.adapter.preview-ref.params.default]
+[model.adapter.delay-states.params.default]
+[model.adapter.delay-states-all.params.default]
+
+[model.regressor]
+name = "mlp"
+params = "default"
+
+[model.regressor.linear.params.default]
+[model.regressor.ridge.params.default]
+[model.regressor.mlp.params.default]
+
+# Local Variables:
+# jinx-local-words: "mlp params regressor"
+# End:
