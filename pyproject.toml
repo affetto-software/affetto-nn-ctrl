@@ -136,6 +136,10 @@ docstring-code-line-length = "dynamic"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "serial",
+]
 
 [tool.pyright]
 include = ["src"]

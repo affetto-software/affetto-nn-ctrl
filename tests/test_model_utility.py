@@ -161,6 +161,7 @@ class TestSimpleDataAdapter:
         event_logger().info("Expected data for SimpleDataAdapter generated: %s", output)
         return prediction
 
+    @pytest.mark.slow
     @pytest.mark.filterwarnings("ignore::sklearn.exceptions.ConvergenceWarning")
     @pytest.mark.parametrize(
         ("model", "kw", "name"),
@@ -483,6 +484,7 @@ class TestJointDataAdapter:
         event_logger().info("Score: %s", score)
         return y_pred, score
 
+    @pytest.mark.slow
     @pytest.mark.filterwarnings("ignore::sklearn.exceptions.ConvergenceWarning")
     @pytest.mark.parametrize(
         ("model", "kw", "name", "expected_score"),
