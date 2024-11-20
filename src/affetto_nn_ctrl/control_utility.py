@@ -146,7 +146,7 @@ def reset_logger(logger: Logger | None, log_filename: str | Path | None) -> Logg
     return logger
 
 
-def _select_time_updater(timer: Timer, time_updater: str) -> Callable[[], float]:
+def select_time_updater(timer: Timer, time_updater: str) -> Callable[[], float]:
     current_time_func: Callable[[], float]
     if time_updater == "elapsed":
         current_time_func = timer.elapsed_time
@@ -172,7 +172,7 @@ def control_position(
     comm, ctrl, state = controller
     ca, cb = np.zeros(ctrl.dof, dtype=float), np.zeros(ctrl.dof, dtype=float)
     timer = Timer(rate=ctrl.freq)
-    current_time = _select_time_updater(timer, time_updater)
+    current_time = select_time_updater(timer, time_updater)
 
     timer.start()
     t = 0.0
@@ -207,7 +207,7 @@ def record_motion(
     comm, ctrl, state = controller
     ca, cb = np.zeros(ctrl.dof, dtype=float), np.zeros(ctrl.dof, dtype=float)
     timer = Timer(rate=ctrl.freq)
-    current_time = _select_time_updater(timer, time_updater)
+    current_time = select_time_updater(timer, time_updater)
 
     # Make active joints inactive in controller.
     ctrl.set_inactive_joints(active_joints, pressure=0.0)
@@ -247,7 +247,7 @@ def control_pressure(
     ca, cb = np.zeros(ctrl.dof, dtype=float), np.zeros(ctrl.dof, dtype=float)
     timer = Timer(rate=ctrl.freq)
     dummy = np.asarray([-1.0 for _ in range(ctrl.dof)])
-    current_time = _select_time_updater(timer, time_updater)
+    current_time = select_time_updater(timer, time_updater)
 
     timer.start()
     t = 0.0
