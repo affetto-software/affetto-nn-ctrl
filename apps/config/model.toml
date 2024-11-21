@@ -1,20 +1,69 @@
 [model]
+
 [model.adapter]
 name = "preview-ref"
 params = "default"
+active_joints = [2, 3, 4, 5]
 
 [model.adapter.preview-ref.params.default]
+ctrl_step = 1
+preview_step = 5
+
 [model.adapter.delay-states.params.default]
+ctrl_step = 1
+delay_step = 5
+
 [model.adapter.delay-states-all.params.default]
+active_joints = [2, 5]
+ctrl_step = 1
+delay_step = 5
 
 [model.regressor]
 name = "mlp"
 params = "default"
 
 [model.regressor.linear.params.default]
+fit_intercept = true
+copy_X = true
+n_jobs = "None"
+positive = false
+
 [model.regressor.ridge.params.default]
+alpha = 1.0
+fit_intercept = true
+copy_X = true
+max_iter = "None"
+tol = 1e-4
+solver = "auto"
+positive = false
+random_state = "None"
+
 [model.regressor.mlp.params.default]
+hidden_layer_sizes = [100]
+activation = "relu"
+solver = "adam"
+alpha = 0.0001
+batch_size = "auto"
+learning_rate = "constant"
+learning_rate_init = 0.001
+power_t = 0.5
+max_iter = 200
+shuffle = true
+random_state = "None"
+tol = 1e-4
+verbose = false
+warm_start = false
+momentum = 0.9
+nesterovs_momentum = true
+early_stopping = false
+validation_fraction = 0.1
+beta_1 = 0.9
+beta_2 = 0.999
+epsilon = 1e-8
+n_iter_no_change = 10
+
 
 # Local Variables:
-# jinx-local-words: "mlp params regressor"
+# jinx-local-words: "adam cholesky ctrl init invscaling iter lbfgs lsqr mlp nesterovs params regressor relu sgd svd tanh tol"
+# fill-column: 120
 # End:
