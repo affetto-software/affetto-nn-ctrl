@@ -157,7 +157,7 @@ venvPath = "."
 venv = ".venv"
 
 [tool.mypy]
-files = ["src", "tests"]
+files = ["src", "tests", "apps"]
 python_executable = ".venv/bin/python"
 check_untyped_defs = true       # Type-checks the interior of functions without type annotations.
 
