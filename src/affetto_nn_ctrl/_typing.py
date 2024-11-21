@@ -4,6 +4,7 @@ from enum import Enum, auto
 from typing import Any, Final, Literal, TypeAlias, TypeVar
 
 Unknown: TypeAlias = Any
+T = TypeVar("T")
 T_co = TypeVar("T_co", covariant=True)
 
 

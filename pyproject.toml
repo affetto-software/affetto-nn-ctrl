@@ -140,7 +140,7 @@ testpaths = ["tests"]
 addopts = "-ra"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "serial",
+    "serious",
 ]
 
 [tool.pyright]
@@ -167,7 +167,8 @@ module = [
   "numpy.*",
   "pandas.*",
   "scipy.*",
-  "sklearn.*"
+  "sklearn.*",
+  "tomli.*",
 ]
 ignore_missing_imports = true
 

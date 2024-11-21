@@ -26,7 +26,6 @@ params = "default"
 [model.preprocessing.minmax.default]
 [model.preprocessing.maxabs.default]
 [model.preprocessing.robust.default]
-[model.preprocessing.none.default]
 
 [model.regressor]
 name = "mlp"

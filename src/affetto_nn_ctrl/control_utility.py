@@ -17,7 +17,7 @@ from scipy import interpolate
 from affetto_nn_ctrl.event_logging import event_logger
 
 if sys.version_info < (3, 11):
-    import tomli as tomllib  # type: ignore[import-not-found]
+    import tomli as tomllib
 else:
     import tomllib
 
