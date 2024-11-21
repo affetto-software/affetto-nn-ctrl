@@ -120,26 +120,14 @@ class DummyDataAdapter(DataAdapterBase[DataAdapterParamsBase, StatesBase, RefsBa
 dummy_data_adapter = DummyDataAdapter(DataAdapterParamsBase())
 
 
-class LinearRegressor(Protocol):
-    def fit(self, X: np.ndarray, y: np.ndarray, sample_weight: np.ndarray | None = None) -> LinearRegressor: ...  # noqa: N803
+class Regressor(Protocol):
+    def fit(self, X: np.ndarray, y: np.ndarray) -> Regressor: ...  # noqa: N803
 
-    def predict(self, X: np.ndarray) -> np.ndarray | Unknown: ...  # noqa: N803
+    def predict(self, X: np.ndarray) -> np.ndarray: ...  # noqa: N803
 
     def score(self, X: np.ndarray, y: np.ndarray, sample_weight: np.ndarray | None = None) -> float: ...  # noqa: N803
 
     def get_params(self) -> dict: ...
-
-
-class MultiLayerPerceptronRegressor(Protocol):
-    def fit(self, X: np.ndarray, y: np.ndarray) -> MultiLayerPerceptronRegressor: ...  # noqa: N803
-
-    def predict(self, X: np.ndarray) -> np.ndarray | Unknown: ...  # noqa: N803
-
-    def score(self, X: np.ndarray, y: np.ndarray, sample_weight: np.ndarray | None = None) -> float | Unknown: ...  # noqa: N803
-    def get_params(self) -> dict: ...
-
-
-Regressor: TypeAlias = LinearRegressor | MultiLayerPerceptronRegressor
 
 
 def extract_data(
