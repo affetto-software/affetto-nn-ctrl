@@ -308,6 +308,14 @@ def load_data_adapter(config: dict[str, Unknown], active_joints: list[int] | Non
     return adapter
 
 
+def load_scaler(config: dict[str, Unknown]) -> Scaler:
+    return _load_from_map(config, SCALER_MAP, "scaler")
+
+
+def load_regressor(config: dict[str, Unknown]) -> Regressor:
+    return _load_from_map(config, REGRESSOR_MAP, "regressor")
+
+
 def extract_data(
     dataset: Data,
     keys: Iterable[str],

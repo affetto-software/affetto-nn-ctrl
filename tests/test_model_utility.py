@@ -16,6 +16,7 @@ from pyplotutil.datautil import Data
 from sklearn import datasets
 from sklearn.linear_model import LinearRegression, Ridge
 from sklearn.neural_network import MLPRegressor
+from sklearn.preprocessing import MaxAbsScaler, MinMaxScaler, RobustScaler, StandardScaler
 
 from affetto_nn_ctrl import ROOT_DIR_PATH
 from affetto_nn_ctrl.event_logging import event_logger, start_event_logging
@@ -34,9 +35,11 @@ from affetto_nn_ctrl.model_utility import (
     PreviewRefParams,
     RefsBase,
     Regressor,
+    Scaler,
     StatesBase,
     extract_data,
     load_data_adapter,
+    load_scaler,
     load_train_datasets,
     train_model,
     update_config_by_selector,
@@ -608,6 +611,10 @@ delay_step = 7
 active_joints = [2, 5]
 ctrl_step = 1
 delay_step = 8
+
+[model.adapter.delay-states-all.non-default]
+ctrl_step = 2
+delay_step = 4
 """
 
 
@@ -629,9 +636,9 @@ def test_load_data_adapter_typical_config(data_adapter_config: dict) -> None:
     [
         ("delay-states", [2, 3], DelayStates(DelayStatesParams([2, 3], ctrl_step=1, delay_step=7))),
         (
-            "delay-states-all.default",
+            "delay-states-all.non-default",
             None,
-            DelayStatesAll(DelayStatesAllParams([2, 5], ctrl_step=1, delay_step=8)),
+            DelayStatesAll(DelayStatesAllParams([2, 3, 4, 5], ctrl_step=2, delay_step=4)),
         ),
         (
             "delay-states-all.default",
@@ -718,7 +725,7 @@ def test_load_data_adapter(config: dict[str, object], expected: DataAdapterBase)
         },
     ],
 )
-def test_load_data_error_unknown_name(config: dict[str, object]) -> None:
+def test_load_data_adapter_error_unknown_name(config: dict[str, object]) -> None:
     msg = r"unknown data adapter name:"
     with pytest.raises(KeyError, match=msg):
         load_data_adapter(config)
@@ -736,7 +743,7 @@ def test_load_data_error_unknown_name(config: dict[str, object]) -> None:
         },
     ],
 )
-def test_load_data_error_unknown_params_set(config: dict[str, object]) -> None:
+def test_load_data_adapter_error_unknown_params_set(config: dict[str, object]) -> None:
     msg = r"unknown parameter set name:"
     with pytest.raises(KeyError, match=msg):
         load_data_adapter(config)
@@ -753,7 +760,7 @@ def test_load_data_error_unknown_params_set(config: dict[str, object]) -> None:
         },
     ],
 )
-def test_load_data_no_name_key(config: dict[str, object]) -> None:
+def test_load_data_adapter_error_no_name_key(config: dict[str, object]) -> None:
     msg = r"'name' is required to load data adapter"
     with pytest.raises(KeyError, match=msg):
         load_data_adapter(config)
@@ -765,10 +772,182 @@ def test_load_data_no_name_key(config: dict[str, object]) -> None:
         {"name": "delay-states", "active_joints": [0, 1, 2], "unknown_key": 0},
     ],
 )
-def test_load_data_error_unknown_key_in_params(config: dict[str, object]) -> None:
+def test_load_data_adapter_error_unknown_key_in_params(config: dict[str, object]) -> None:
     msg = r"got an unexpected keyword argument"
     with pytest.raises(TypeError, match=msg):
         load_data_adapter(config)
+
+
+SCALER_CONFIG_TEXT = """\
+[model.scaler]
+name = "std"
+params = "default"
+
+[model.scaler.std.default]
+with_mean = true
+with_std = true
+
+[model.scaler.minmax.default]
+feature_range = [0, 1]
+clip = false
+
+[model.scaler.maxabs.default]
+[model.scaler.robust.default]
+with_centering = true
+with_scaling = true
+quantile_range = [25.0, 75.0]
+unit_variance = false
+"""
+
+
+@pytest.fixture
+def scaler_config() -> dict:
+    return tomllib.loads(SCALER_CONFIG_TEXT)
+
+
+def test_load_scaler_typical_config(scaler_config: dict) -> None:
+    config = scaler_config["model"]["scaler"]
+    actual = load_scaler(config)
+    expected = StandardScaler()
+    assert type(actual) is type(expected)
+    assert actual.get_params() == expected.get_params()
+
+
+@pytest.mark.parametrize(
+    ("selector", "expected"),
+    [
+        ("minmax", MinMaxScaler()),
+        ("robust.default", RobustScaler()),
+    ],
+)
+def test_load_scaler_config_modified_by_user(
+    scaler_config: dict,
+    selector: str,
+    expected: Scaler,
+) -> None:
+    config = scaler_config["model"]["scaler"]
+    config = update_config_by_selector(config, selector)
+    actual = load_scaler(config)
+    assert type(actual) is type(expected)
+    assert actual.get_params() == expected.get_params()
+
+
+@pytest.mark.parametrize(
+    ("config", "expected"),
+    [
+        ({"name": "std"}, StandardScaler()),
+        ({"name": "minmax", "feature_range": (0.1, 0.9)}, MinMaxScaler(feature_range=(0.1, 0.9))),
+        ({"name": "maxabs"}, MaxAbsScaler()),
+        ({"name": "robust", "with_centering": False}, RobustScaler(with_centering=False)),
+        (
+            {"name": "std", "params": "default", "std": {"default": {"with_std": False}}},
+            StandardScaler(with_std=False),
+        ),
+        (
+            {
+                "name": "minmax",
+                "params": "good-params",
+                "std": {"default": {"with_std": False}},
+                "minmax": {"default": {}, "good-params": {"feature_range": (0.2, 0.99), "clip": True}},
+            },
+            MinMaxScaler(feature_range=(0.2, 0.99), clip=True),
+        ),
+        (
+            {
+                "name": "robust",
+                "params": "good-params",
+                "std": {"default": {"with_std": False}},
+                "minmax": {"default": {}, "good-params": {"feature_range": (0.2, 0.99), "clip": True}},
+                "maxabs": {"default": {}},
+                "robust": {
+                    "default": {"with_centering": False},
+                    "good-params": {"with_scaling": False, "quntile_range": (20.0, 80.0), "unit_variance": True},
+                },
+            },
+            RobustScaler(with_centering=False, quantile_range=(20.0, 80.0), unit_variance=True),
+        ),
+    ],
+)
+def test_load_scaler(config: dict[str, object], expected: Scaler) -> None:
+    actual = load_scaler(config)
+    assert type(actual) is type(expected)
+    assert actual.get_params() == expected.get_params()
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {
+            "name": "none",
+            "params": "good-params",
+            "std": {"default": {"with_std": False}},
+            "minmax": {"default": {}, "good-params": {"feature_range": (0.2, 0.99), "clip": True}},
+            "maxabs": {"default": {}},
+            "robust": {
+                "default": {"with_centering": False},
+                "good-params": {"with_scaling": False, "quntile_range": (20.0, 80.0), "unit_variance": True},
+            },
+        },
+    ],
+)
+def test_load_scaler_none(config: dict[str, object]) -> None:
+    actual = load_scaler(config)
+    assert type(actual) is None
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"name": "unknown_scaler"},
+        {"name": "unknown_scaler", "params": "default", "std": {"default": {"with_std": False}}},
+    ],
+)
+def test_load_scaler_error_unknown_name(config: dict[str, object]) -> None:
+    msg = r"unknown scaler name:"
+    with pytest.raises(KeyError, match=msg):
+        load_scaler(config)
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {
+            "name": "minmax",
+            "params": "unknown-params",
+            "std": {"default": {"with_std": False}},
+            "minmax": {"default": {}, "good-params": {"feature_range": (0.2, 0.99), "clip": True}},
+        },
+    ],
+)
+def test_load_scaler_error_unknown_params_set(config: dict[str, object]) -> None:
+    msg = r"unknown parameter set name:"
+    with pytest.raises(KeyError, match=msg):
+        load_scaler(config)
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {},
+        {"params": "default", "std": {"default": {}}},
+    ],
+)
+def test_load_scaler_error_no_name_key(config: dict[str, object]) -> None:
+    msg = r"'name' is required to load scaler"
+    with pytest.raises(KeyError, match=msg):
+        load_scaler(config)
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"name": "std", "unknown_key": True},
+    ],
+)
+def test_load_scaler_error_unknown_key_in_params(config: dict[str, object]) -> None:
+    msg = r"got an unexpected keyword argument"
+    with pytest.raises(TypeError, match=msg):
+        load_scaler(config)
 
 
 def main() -> None:
@@ -801,5 +980,5 @@ if __name__ == "__main__":
     main()
 
 # Local Variables:
-# jinx-local-words: "Ctrl arg cb csv ctrl dq iter mlp noqa params pb pred qdes sgd sklearn"
+# jinx-local-words: "Ctrl arg cb csv ctrl dq iter maxabs minmax mlp noqa params pb pred qdes quantile quntile scaler sgd sklearn"
 # End:

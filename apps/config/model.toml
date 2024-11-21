@@ -18,14 +18,24 @@ active_joints = [2, 5]
 ctrl_step = 1
 delay_step = 5
 
-[model.preprocessing]
+[model.scaler]
 name = "std"
 params = "default"
 
-[model.preprocessing.std.default]
-[model.preprocessing.minmax.default]
-[model.preprocessing.maxabs.default]
-[model.preprocessing.robust.default]
+[model.scaler.std.default]
+with_mean = true
+with_std = true
+
+[model.scaler.minmax.default]
+feature_range = [0, 1]
+clip = false
+
+[model.scaler.maxabs.default]
+[model.scaler.robust.default]
+with_centering = true
+with_scaling = true
+quantile_range = [25.0, 75.0]
+unit_variance = false
 
 [model.regressor]
 name = "mlp"
@@ -73,6 +83,6 @@ n_iter_no_change = 10
 
 
 # Local Variables:
-# jinx-local-words: "adam cholesky ctrl init invscaling iter lbfgs lsqr maxabs minmax mlp nesterovs params preprocessing regressor relu sgd svd tanh tol"
+# jinx-local-words: "adam cholesky ctrl init invscaling iter lbfgs lsqr maxabs minmax mlp nesterovs params preprocessing quantile regressor relu scaler sgd svd tanh tol"
 # fill-column: 120
 # End:
