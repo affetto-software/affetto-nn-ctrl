@@ -25,13 +25,21 @@ from affetto_nn_ctrl.model_utility import (
     DefaultInputs,
     DefaultRefs,
     DefaultStates,
+    DelayStates,
+    DelayStatesAll,
+    DelayStatesAllParams,
+    DelayStatesParams,
     InputsBase,
+    PreviewRef,
+    PreviewRefParams,
     RefsBase,
     Regressor,
     StatesBase,
     extract_data,
+    load_data_adapter,
     load_train_datasets,
     train_model,
+    update_config_by_selector,
 )
 
 try:
@@ -42,7 +50,10 @@ except ImportError:
 
 if sys.version_info >= (3, 11):
     from typing import NotRequired
+
+    import tomllib
 else:
+    import tomli as tomllib
     from typing_extensions import NotRequired
 
 if TYPE_CHECKING:
@@ -579,6 +590,187 @@ def generate_expected_data_for_joint_data_adapter(*, show_plot: bool = True) -> 
             check_expected_data_for_joint_data_adapter(test_dataset, adapter, y_pred, title)
 
 
+DATA_ADAPTER_CONFIG_TEXT = """\
+[model.adapter]
+name = "preview-ref"
+params = "default"
+active_joints = [2, 3, 4, 5]
+
+[model.adapter.preview-ref.default]
+ctrl_step = 1
+preview_step = 5
+
+[model.adapter.delay-states.default]
+ctrl_step = 1
+delay_step = 7
+
+[model.adapter.delay-states-all.default]
+active_joints = [2, 5]
+ctrl_step = 1
+delay_step = 8
+"""
+
+
+@pytest.fixture
+def data_adapter_config() -> dict:
+    return tomllib.loads(DATA_ADAPTER_CONFIG_TEXT)
+
+
+def test_load_data_adapter_typical_config(data_adapter_config: dict) -> None:
+    config = data_adapter_config["model"]["adapter"]
+    actual = load_data_adapter(config)
+    expected = PreviewRef(PreviewRefParams([2, 3, 4, 5], ctrl_step=1, preview_step=5))
+    assert type(actual) is type(expected)
+    assert actual.params == expected.params
+
+
+@pytest.mark.parametrize(
+    ("selector", "active_joints", "expected"),
+    [
+        ("delay-states", [2, 3], DelayStates(DelayStatesParams([2, 3], ctrl_step=1, delay_step=7))),
+        (
+            "delay-states-all.default",
+            None,
+            DelayStatesAll(DelayStatesAllParams([2, 5], ctrl_step=1, delay_step=8)),
+        ),
+        (
+            "delay-states-all.default",
+            [1, 2, 3],
+            DelayStatesAll(DelayStatesAllParams([1, 2, 3], ctrl_step=1, delay_step=8)),
+        ),
+    ],
+)
+def test_load_data_adapter_config_modified_by_user(
+    data_adapter_config: dict,
+    selector: str,
+    active_joints: list[int] | None,
+    expected: DataAdapterBase,
+) -> None:
+    config = data_adapter_config["model"]["adapter"]
+    config = update_config_by_selector(config, selector)
+    actual = load_data_adapter(config, active_joints)
+    assert type(actual) is type(expected)
+    assert actual.params == expected.params
+
+
+@pytest.mark.parametrize(
+    ("config", "expected"),
+    [
+        ({"name": "preview-ref", "active_joints": [2, 3]}, PreviewRef(PreviewRefParams([2, 3]))),
+        (
+            {"name": "delay-states", "active_joints": [0, 1, 2], "ctrl_step": 2},
+            DelayStates(DelayStatesParams([0, 1, 2], ctrl_step=2)),
+        ),
+        (
+            {"name": "delay-states-all", "active_joints": [5], "delay_step": 5},
+            DelayStatesAll(DelayStatesAllParams([5], delay_step=5)),
+        ),
+        (
+            {
+                "name": "preview-ref",
+                "params": "default",
+                "active_joints": [1, 3],
+                "preview-ref": {"default": {"ctrl_step": 3}},
+            },
+            PreviewRef(PreviewRefParams([1, 3], ctrl_step=3)),
+        ),
+        (
+            {
+                "name": "delay-states",
+                "params": "good-params",
+                "active_joints": [2, 3, 4],
+                "preview-ref": {"default": {"ctrl_step": 2}},
+                "delay-states": {"default": {"ctrl_step": 3}, "good-params": {"ctrl_step": 2, "delay_step": 10}},
+            },
+            DelayStates(DelayStatesParams([2, 3, 4], ctrl_step=2, delay_step=10)),
+        ),
+        (
+            {
+                "name": "delay-states-all",
+                "params": "good-params",
+                "active_joints": [],
+                "preview-ref": {"default": {"ctrl_step": 2}},
+                "delay-states": {"default": {"ctrl_step": 3}, "good-params": {"ctrl_step": 2, "delay_step": 10}},
+                "delay-states-all": {
+                    "default": {"ctrl_step": 4},
+                    "good-params": {"active_joints": [5], "ctrl_step": 5, "delay_step": 15},
+                },
+            },
+            DelayStatesAll(DelayStatesAllParams([5], ctrl_step=5, delay_step=15)),
+        ),
+    ],
+)
+def test_load_data_adapter(config: dict[str, object], expected: DataAdapterBase) -> None:
+    actual = load_data_adapter(config)
+    assert type(actual) is type(expected)
+    assert actual.params == expected.params
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"name": "unknown_adapter", "active_joints": [0, 1]},
+        {
+            "name": "unknown_adapter",
+            "params": "default",
+            "active_joints": [1, 3],
+            "preview-ref": {"default": {"ctrl_step": 3}},
+        },
+    ],
+)
+def test_load_data_error_unknown_name(config: dict[str, object]) -> None:
+    msg = r"unknown data adapter name:"
+    with pytest.raises(KeyError, match=msg):
+        load_data_adapter(config)
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {
+            "name": "delay-states",
+            "params": "unknown-params",
+            "active_joints": [2, 3, 4],
+            "preview-ref": {"default": {"ctrl_step": 2}},
+            "delay-states": {"default": {"ctrl_step": 3}, "good-params": {"ctrl_step": 2, "delay_step": 10}},
+        },
+    ],
+)
+def test_load_data_error_unknown_params_set(config: dict[str, object]) -> None:
+    msg = r"unknown parameter set name:"
+    with pytest.raises(KeyError, match=msg):
+        load_data_adapter(config)
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"active_joints": [0, 1]},
+        {
+            "params": "default",
+            "active_joints": [1, 3],
+            "preview-ref": {"default": {"ctrl_step": 3}},
+        },
+    ],
+)
+def test_load_data_no_name_key(config: dict[str, object]) -> None:
+    msg = r"'name' is required to load data adapter"
+    with pytest.raises(KeyError, match=msg):
+        load_data_adapter(config)
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"name": "delay-states", "active_joints": [0, 1, 2], "unknown_key": 0},
+    ],
+)
+def test_load_data_error_unknown_key_in_params(config: dict[str, object]) -> None:
+    msg = r"got an unexpected keyword argument"
+    with pytest.raises(TypeError, match=msg):
+        load_data_adapter(config)
+
+
 def main() -> None:
     import sys
 
@@ -609,5 +801,5 @@ if __name__ == "__main__":
     main()
 
 # Local Variables:
-# jinx-local-words: "Ctrl arg cb csv dq iter mlp noqa params pb pred qdes sklearn"
+# jinx-local-words: "Ctrl arg cb csv ctrl dq iter mlp noqa params pb pred qdes sgd sklearn"
 # End:

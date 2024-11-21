@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Generic, Protocol, TypeAlias, TypedDict, TypeVar, cast, overload
@@ -11,6 +11,10 @@ import joblib
 import numpy as np
 from affctrllib import Logger, Timer
 from pyplotutil.datautil import Data
+from sklearn.linear_model import LinearRegression, Ridge
+from sklearn.neural_network import MLPRegressor
+from sklearn.pipeline import Pipeline, make_pipeline
+from sklearn.preprocessing import MaxAbsScaler, MinMaxScaler, RobustScaler, StandardScaler
 
 from affetto_nn_ctrl.control_utility import reset_logger, select_time_updater
 from affetto_nn_ctrl.event_logging import event_logger
@@ -20,7 +24,7 @@ if TYPE_CHECKING:
     from affctrllib import AffPosCtrl
 
     from affetto_nn_ctrl import CONTROLLER_T, RefFuncType
-    from affetto_nn_ctrl._typing import Unknown
+    from affetto_nn_ctrl._typing import T, Unknown
 
 if sys.version_info >= (3, 11):
     from typing import NotRequired
@@ -120,14 +124,188 @@ class DummyDataAdapter(DataAdapterBase[DataAdapterParamsBase, StatesBase, RefsBa
 dummy_data_adapter = DummyDataAdapter(DataAdapterParamsBase())
 
 
+@dataclass
+class PreviewRefParams(DataAdapterParamsBase):
+    active_joints: list[int]
+    ctrl_step: int = 1
+    preview_step: int = 0
+
+
+class PreviewRef(DataAdapterBase[PreviewRefParams, DefaultStates, DefaultRefs, DefaultInputs]):
+    def __init__(self, params: PreviewRefParams) -> None:
+        super().__init__(params)
+
+    def make_feature(self, dataset: Data) -> np.ndarray:
+        raise NotImplementedError
+
+    def make_target(self, dataset: Data) -> np.ndarray:
+        raise NotImplementedError
+
+    def make_model_input(self, t: float, states: StatesBase, refs: RefsBase) -> np.ndarray:
+        raise NotImplementedError
+
+    def make_ctrl_input(self, y: np.ndarray, base_inputs: InputsBase) -> tuple[np.ndarray, ...]:
+        raise NotImplementedError
+
+    def reset(self) -> None:
+        raise NotImplementedError
+
+
+@dataclass
+class DelayStatesParams(DataAdapterParamsBase):
+    active_joints: list[int]
+    ctrl_step: int = 1
+    delay_step: int = 0
+
+
+class DelayStates(DataAdapterBase[DelayStatesParams, DefaultStates, DefaultRefs, DefaultInputs]):
+    def __init__(self, params: DelayStatesParams) -> None:
+        super().__init__(params)
+
+    def make_feature(self, dataset: Data) -> np.ndarray:
+        raise NotImplementedError
+
+    def make_target(self, dataset: Data) -> np.ndarray:
+        raise NotImplementedError
+
+    def make_model_input(self, t: float, states: StatesBase, refs: RefsBase) -> np.ndarray:
+        raise NotImplementedError
+
+    def make_ctrl_input(self, y: np.ndarray, base_inputs: InputsBase) -> tuple[np.ndarray, ...]:
+        raise NotImplementedError
+
+    def reset(self) -> None:
+        raise NotImplementedError
+
+
+@dataclass
+class DelayStatesAllParams(DataAdapterParamsBase):
+    active_joints: list[int]
+    ctrl_step: int = 1
+    delay_step: int = 0
+
+
+class DelayStatesAll(DataAdapterBase[DelayStatesAllParams, DefaultStates, DefaultRefs, DefaultInputs]):
+    def __init__(self, params: DelayStatesAllParams) -> None:
+        super().__init__(params)
+
+    def make_feature(self, dataset: Data) -> np.ndarray:
+        raise NotImplementedError
+
+    def make_target(self, dataset: Data) -> np.ndarray:
+        raise NotImplementedError
+
+    def make_model_input(self, t: float, states: StatesBase, refs: RefsBase) -> np.ndarray:
+        raise NotImplementedError
+
+    def make_ctrl_input(self, y: np.ndarray, base_inputs: InputsBase) -> tuple[np.ndarray, ...]:
+        raise NotImplementedError
+
+    def reset(self) -> None:
+        raise NotImplementedError
+
+
+class Scaler(Protocol):
+    def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> Scaler: ...  # noqa: N803
+
+    def inverse_transform(self, X: np.ndarray) -> np.ndarray: ...  # noqa: N803
+
+    def transform(self, X: np.ndarray) -> np.ndarray | Unknown: ...  # noqa: N803
+
+    def get_params(self) -> dict[str, object]: ...
+
+
 class Regressor(Protocol):
     def fit(self, X: np.ndarray, y: np.ndarray) -> Regressor: ...  # noqa: N803
 
-    def predict(self, X: np.ndarray) -> np.ndarray: ...  # noqa: N803
+    def predict(self, X: np.ndarray) -> np.ndarray | Unknown: ...  # noqa: N803
 
-    def score(self, X: np.ndarray, y: np.ndarray, sample_weight: np.ndarray | None = None) -> float: ...  # noqa: N803
+    def score(
+        self,
+        X: np.ndarray,  # noqa: N803
+        y: np.ndarray,
+        sample_weight: np.ndarray | None = None,
+    ) -> float | Unknown: ...
 
-    def get_params(self) -> dict: ...
+    def get_params(self) -> dict[str, object]: ...
+
+
+DATA_ADAPTER_MAP: Mapping[str, tuple[type[DataAdapterBase], type[DataAdapterParamsBase]]] = {
+    "preview-ref": (PreviewRef, PreviewRefParams),
+    "delay-states": (DelayStates, DelayStatesParams),
+    "delay-states-all": (DelayStatesAll, DelayStatesAllParams),
+}
+
+SCALER_MAP: Mapping[str, tuple[type[Scaler], None]] = {
+    "std": (StandardScaler, None),
+    "minmax": (MinMaxScaler, None),
+    "maxabs": (MaxAbsScaler, None),
+    "robust": (RobustScaler, None),
+}
+
+
+REGRESSOR_MAP: Mapping[str, tuple[type[Regressor], None]] = {
+    "linear": (LinearRegression, None),
+    "ridge": (Ridge, None),
+    "mlp": (MLPRegressor, None),
+}
+
+
+def pop_multi_keys(config: dict[str, Unknown], keys: Iterable[str]) -> dict[str, Unknown]:
+    return {key: config.pop(key, {}) for key in keys}
+
+
+def _load_from_map(
+    config: dict[str, Unknown],
+    _map: Mapping[str, tuple[type[T], type[DataAdapterParamsBase] | None]],
+    _display: str,
+) -> T:
+    try:
+        name = config.pop("name")
+    except KeyError as e:
+        msg = f"'name' is required to load {_display}"
+        raise KeyError(msg) from e
+
+    try:
+        _type, params_type = _map[name]
+    except KeyError as e:
+        msg = f"unknown {_display} name: {name}"
+        raise KeyError(msg) from e
+
+    params_set = pop_multi_keys(config, _map.keys())
+    selected_params_set = config.pop("params", None)
+    if isinstance(selected_params_set, str):
+        try:
+            config.update(params_set[name][selected_params_set])
+        except KeyError as e:
+            msg = f"unknown parameter set name: {selected_params_set}"
+            raise KeyError(msg) from e
+    elif selected_params_set is not None:
+        msg = f"value of 'params' is not string: {selected_params_set}"
+        raise ValueError(msg)
+
+    if params_type is None:
+        return _type(**config)
+    return _type(params_type(**config))  # type: ignore[call-arg]
+
+
+def update_config_by_selector(
+    config: dict[str, Unknown],
+    selector: str | None,
+) -> dict[str, Unknown]:
+    if selector is not None:
+        splitted = selector.split(".")
+        config.update(name=splitted[0])
+        if len(splitted) > 1:
+            config.update(params=splitted[1])
+    return config
+
+
+def load_data_adapter(config: dict[str, Unknown], active_joints: list[int] | None = None) -> DataAdapterBase:
+    adapter = _load_from_map(config, DATA_ADAPTER_MAP, "data adapter")
+    if active_joints is not None:
+        adapter.params.active_joints = active_joints
+    return adapter
 
 
 def extract_data(
@@ -166,23 +344,30 @@ def load_train_datasets(
     return x_train, y_train
 
 
+def construct_model(*steps: Scaler | Regressor) -> Regressor | Pipeline:
+    return make_pipeline(*steps)
+
+
+TrainableModel = TypeVar("TrainableModel", Regressor, Pipeline)
+
+
 @overload
 def train_model(
-    model: Regressor,
+    model: TrainableModel,
     x_train_or_datasets: np.ndarray,
     y_train_or_adapter: np.ndarray,
-) -> Regressor: ...
+) -> TrainableModel: ...
 
 
 @overload
 def train_model(
-    model: Regressor,
+    model: TrainableModel,
     x_train_or_datasets: Data | Iterable[Data],
     y_train_or_adapter: DataAdapterBase[DataAdapterParamsType, StatesType, RefsType, InputsType],
-) -> Regressor: ...
+) -> TrainableModel: ...
 
 
-def train_model(model, x_train_or_datasets, y_train_or_adapter) -> Regressor:
+def train_model(model, x_train_or_datasets, y_train_or_adapter):
     if isinstance(x_train_or_datasets, np.ndarray) and isinstance(y_train_or_adapter, np.ndarray):
         x_train = x_train_or_datasets
         y_train = y_train_or_adapter
@@ -195,7 +380,7 @@ def train_model(model, x_train_or_datasets, y_train_or_adapter) -> Regressor:
 
 @dataclass
 class TrainedModel(Generic[DataAdapterParamsType, StatesType, RefsType, InputsType]):
-    model: Regressor
+    model: Regressor | Pipeline
     adapter: DataAdapterBase[DataAdapterParamsType, StatesType, RefsType, InputsType]
 
     def get_params(self) -> dict:
@@ -209,7 +394,9 @@ class TrainedModel(Generic[DataAdapterParamsType, StatesType, RefsType, InputsTy
 
     @property
     def model_name(self) -> str:
-        return type(self.model).__name__
+        if isinstance(self.model, Pipeline):
+            return " -> ".join(str(step[1]) for step in self.model.steps)
+        return str(self.model)
 
 
 def dump_model(model: TrainedModel, output: str | Path) -> Path:
@@ -352,5 +539,5 @@ def control_position_or_model(
 
 
 # Local Variables:
-# jinx-local-words: "Params cb dataset dq dqdes noqa npqa pb qdes"
+# jinx-local-words: "Params arg cb dataset dq dqdes maxabs minmax mlp noqa npqa params pb qdes regressor scaler"
 # End:
