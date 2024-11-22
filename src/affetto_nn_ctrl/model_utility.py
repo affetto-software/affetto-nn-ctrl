@@ -257,11 +257,16 @@ def pop_multi_keys(config: dict[str, Unknown], keys: Iterable[str]) -> dict[str,
 
 def _tweak_config_values(config: dict[str, Unknown]) -> dict[str, Unknown]:
     for key, value in config.items():
+        if isinstance(value, str) and value.lower() == "none":
+            config[key] = None
+
         match key:
             case "feature_range":
                 config[key] = tuple(value)  # MinMaxScaler
             case "quantile_range":
                 config[key] = tuple(value)  # RobustScaler
+            case "hidden_layer_sizes":
+                config[key] = tuple(value)  # MLPRegressor
     return config
 
 
@@ -560,5 +565,5 @@ def control_position_or_model(
 
 
 # Local Variables:
-# jinx-local-words: "Params arg cb dataset dq dqdes maxabs minmax mlp noqa npqa params pb qdes quantile regressor scaler" # noqa: E501
+# jinx-local-words: "MLPRegressor Params arg cb dataset dq dqdes maxabs minmax mlp noqa npqa params pb qdes quantile regressor scaler" # noqa: E501
 # End:

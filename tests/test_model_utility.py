@@ -39,6 +39,7 @@ from affetto_nn_ctrl.model_utility import (
     StatesBase,
     extract_data,
     load_data_adapter,
+    load_regressor,
     load_scaler,
     load_train_datasets,
     train_model,
@@ -959,6 +960,206 @@ def test_load_scaler_error_unknown_key_in_params(config: dict[str, object]) -> N
         load_scaler(config)
 
 
+REGRESSOR_CONFIG_TEXT = """\
+[model.regressor]
+name = "mlp"
+params = "default"
+
+[model.regressor.linear.default]
+fit_intercept = true
+copy_X = true
+n_jobs = "None"
+positive = false
+
+[model.regressor.ridge.default]
+alpha = 1.0
+fit_intercept = true
+copy_X = true
+max_iter = "None"
+tol = 1e-4
+solver = "auto"
+positive = false
+random_state = "None"
+
+[model.regressor.mlp.default]
+hidden_layer_sizes = [100]
+activation = "relu"
+solver = "adam"
+alpha = 0.0001
+batch_size = "auto"
+learning_rate = "constant"
+learning_rate_init = 0.001
+power_t = 0.5
+max_iter = 200
+shuffle = true
+random_state = "None"
+tol = 1e-4
+verbose = false
+warm_start = false
+momentum = 0.9
+nesterovs_momentum = true
+early_stopping = false
+validation_fraction = 0.1
+beta_1 = 0.9
+beta_2 = 0.999
+epsilon = 1e-8
+n_iter_no_change = 10
+"""
+
+
+@pytest.fixture
+def regressor_config() -> dict:
+    return tomllib.loads(REGRESSOR_CONFIG_TEXT)
+
+
+def test_load_regressor_typical_config(regressor_config: dict) -> None:
+    config = regressor_config["model"]["regressor"]
+    actual = load_regressor(config)
+    expected = MLPRegressor()
+    assert type(actual) is type(expected)
+    assert actual.get_params() == expected.get_params()
+
+
+@pytest.mark.parametrize(
+    ("selector", "expected"),
+    [
+        ("linear", LinearRegression()),
+        ("ridge.default", Ridge()),
+        ("mlp.default", MLPRegressor()),
+    ],
+)
+def test_load_regressor_config_modified_by_user(
+    regressor_config: dict,
+    selector: str,
+    expected: Regressor,
+) -> None:
+    config = regressor_config["model"]["regressor"]
+    config = update_config_by_selector(config, selector)
+    actual = load_regressor(config)
+    assert type(actual) is type(expected)
+    assert actual.get_params() == expected.get_params()
+
+
+@pytest.mark.parametrize(
+    ("config", "expected"),
+    [
+        ({"name": "linear"}, LinearRegression()),
+        (
+            {"name": "ridge", "fit_intercept": False, "alpha": 0.9, "random_state": 42},
+            Ridge(alpha=0.9, fit_intercept=False, random_state=42),
+        ),
+        (
+            {"name": "mlp", "hidden_layer_sizes": [100, 100], "activation": "tanh", "batch_size": "auto"},
+            MLPRegressor(hidden_layer_sizes=(100, 100), activation="tanh"),
+        ),
+        (
+            {
+                "name": "linear",
+                "params": "good-params",
+                "fit_intercept": False,
+                "linear": {"default": {}, "good-params": {"fit_intercept": True, "n_jobs": -1}},
+                "ridge": {"default": {"fit_intercept": False, "alpha": 0.9, "random_state": 42}},
+            },
+            LinearRegression(fit_intercept=True, n_jobs=-1),
+        ),
+        (
+            {
+                "name": "ridge",
+                "params": "default",
+                "fit_intercept": False,
+                "linear": {"default": {}, "good-params": {"fit_intercept": True, "n_jobs": -1}},
+                "ridge": {"default": {"fit_intercept": False, "max_iter": "None", "random_state": 42}},
+            },
+            Ridge(fit_intercept=False, max_iter=None, random_state=42),
+        ),
+        (
+            {
+                "name": "mlp",
+                "params": "bad-params",
+                "linear": {"default": {}},
+                "ridge": {"default": {}},
+                "mlp": {
+                    "default": {},
+                    "good-params": {
+                        "hidden_layer_sizes": [200],
+                        "activation": "logistic",
+                        "max_iter": 200,
+                        "random_state": 123,
+                    },
+                    "bad-params": {
+                        "hidden_layer_sizes": [100, 100],
+                        "activation": "relu",
+                        "max_iter": 500,
+                        "random_state": 123,
+                    },
+                },
+            },
+            MLPRegressor(hidden_layer_sizes=(100, 100), activation="relu", max_iter=500, random_state=123),
+        ),
+    ],
+)
+def test_load_regressor(config: dict[str, object], expected: Regressor) -> None:
+    actual = load_regressor(config)
+    assert actual is not None
+    assert type(actual) is type(expected)
+    assert actual.get_params() == expected.get_params()
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"name": "unknown_regressor"},
+        {"name": "unknown_regressor", "params": "default", "linear": {"default": {"fit_intercept": False}}},
+    ],
+)
+def test_load_regressor_error_unknown_name(config: dict[str, object]) -> None:
+    msg = r"unknown regressor name:"
+    with pytest.raises(KeyError, match=msg):
+        load_regressor(config)
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {
+            "name": "ridge",
+            "params": "unknown-params",
+            "linear": {"default": {"fit_intercept": False}},
+            "ridge": {"default": {}, "good-params": {"fit_intercept": False, "alpha": 0.1, "random_state": 42}},
+        },
+    ],
+)
+def test_load_regressor_error_unknown_params_set(config: dict[str, object]) -> None:
+    msg = r"unknown parameter set name:"
+    with pytest.raises(KeyError, match=msg):
+        load_regressor(config)
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {},
+        {"params": "default", "linear": {"default": {}}},
+    ],
+)
+def test_load_regressor_error_no_name_key(config: dict[str, object]) -> None:
+    msg = r"'name' is required to load regressor"
+    with pytest.raises(KeyError, match=msg):
+        load_regressor(config)
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"name": "linear", "unknown_key": True},
+    ],
+)
+def test_load_regressor_error_unknown_key_in_params(config: dict[str, object]) -> None:
+    msg = r"got an unexpected keyword argument"
+    with pytest.raises(TypeError, match=msg):
+        load_regressor(config)
+
+
 def main() -> None:
     import sys
 
@@ -989,5 +1190,5 @@ if __name__ == "__main__":
     main()
 
 # Local Variables:
-# jinx-local-words: "Ctrl arg cb csv ctrl dq iter maxabs minmax mlp noqa params pb pred qdes quantile quantile scaler sgd sklearn" # noqa: E501
+# jinx-local-words: "Ctrl adam arg cb csv ctrl dq init iter maxabs minmax mlp nesterovs noqa params pb pred qdes quantile quntile regressor relu scaler sgd sklearn tanh tol" # noqa: E501
 # End:
