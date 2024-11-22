@@ -255,6 +255,16 @@ def pop_multi_keys(config: dict[str, Unknown], keys: Iterable[str]) -> dict[str,
     return {key: config.pop(key, {}) for key in keys}
 
 
+def _tweak_config_values(config: dict[str, Unknown]) -> dict[str, Unknown]:
+    for key, value in config.items():
+        match key:
+            case "feature_range":
+                config[key] = tuple(value)  # MinMaxScaler
+            case "quantile_range":
+                config[key] = tuple(value)  # RobustScaler
+    return config
+
+
 def _load_from_map(
     config: dict[str, Unknown],
     _map: Mapping[str, tuple[type[T], type[DataAdapterParamsBase] | None]],
@@ -284,6 +294,7 @@ def _load_from_map(
         msg = f"value of 'params' is not string: {selected_params_set}"
         raise ValueError(msg)
 
+    _tweak_config_values(config)
     if params_type is None:
         return _type(**config)
     return _type(params_type(**config))  # type: ignore[call-arg]
@@ -308,7 +319,9 @@ def load_data_adapter(config: dict[str, Unknown], active_joints: list[int] | Non
     return adapter
 
 
-def load_scaler(config: dict[str, Unknown]) -> Scaler:
+def load_scaler(config: dict[str, Unknown]) -> Scaler | None:
+    if config.get("name", "x").lower() == "none":
+        return None
     return _load_from_map(config, SCALER_MAP, "scaler")
 
 
@@ -547,5 +560,5 @@ def control_position_or_model(
 
 
 # Local Variables:
-# jinx-local-words: "Params arg cb dataset dq dqdes maxabs minmax mlp noqa npqa params pb qdes regressor scaler"
+# jinx-local-words: "Params arg cb dataset dq dqdes maxabs minmax mlp noqa npqa params pb qdes quantile regressor scaler" # noqa: E501
 # End:

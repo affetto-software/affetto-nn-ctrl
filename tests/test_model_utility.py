@@ -809,6 +809,7 @@ def test_load_scaler_typical_config(scaler_config: dict) -> None:
     config = scaler_config["model"]["scaler"]
     actual = load_scaler(config)
     expected = StandardScaler()
+    assert actual is not None
     assert type(actual) is type(expected)
     assert actual.get_params() == expected.get_params()
 
@@ -817,7 +818,9 @@ def test_load_scaler_typical_config(scaler_config: dict) -> None:
     ("selector", "expected"),
     [
         ("minmax", MinMaxScaler()),
+        ("std.default", StandardScaler()),
         ("robust.default", RobustScaler()),
+        ("none", None),
     ],
 )
 def test_load_scaler_config_modified_by_user(
@@ -828,8 +831,11 @@ def test_load_scaler_config_modified_by_user(
     config = scaler_config["model"]["scaler"]
     config = update_config_by_selector(config, selector)
     actual = load_scaler(config)
-    assert type(actual) is type(expected)
-    assert actual.get_params() == expected.get_params()
+    if actual is not None:
+        assert type(actual) is type(expected)
+        assert actual.get_params() == expected.get_params()
+    else:
+        assert actual is None
 
 
 @pytest.mark.parametrize(
@@ -861,15 +867,16 @@ def test_load_scaler_config_modified_by_user(
                 "maxabs": {"default": {}},
                 "robust": {
                     "default": {"with_centering": False},
-                    "good-params": {"with_scaling": False, "quntile_range": (20.0, 80.0), "unit_variance": True},
+                    "good-params": {"with_scaling": False, "quantile_range": (20.0, 80.0), "unit_variance": True},
                 },
             },
-            RobustScaler(with_centering=False, quantile_range=(20.0, 80.0), unit_variance=True),
+            RobustScaler(with_scaling=False, quantile_range=(20.0, 80.0), unit_variance=True),
         ),
     ],
 )
 def test_load_scaler(config: dict[str, object], expected: Scaler) -> None:
     actual = load_scaler(config)
+    assert actual is not None
     assert type(actual) is type(expected)
     assert actual.get_params() == expected.get_params()
 
@@ -877,22 +884,24 @@ def test_load_scaler(config: dict[str, object], expected: Scaler) -> None:
 @pytest.mark.parametrize(
     "config",
     [
+        {"name": "none"},
+        {"name": "None", "params": "default"},
         {
-            "name": "none",
+            "name": "NONE",
             "params": "good-params",
             "std": {"default": {"with_std": False}},
             "minmax": {"default": {}, "good-params": {"feature_range": (0.2, 0.99), "clip": True}},
             "maxabs": {"default": {}},
             "robust": {
                 "default": {"with_centering": False},
-                "good-params": {"with_scaling": False, "quntile_range": (20.0, 80.0), "unit_variance": True},
+                "good-params": {"with_scaling": False, "quantile_range": (20.0, 80.0), "unit_variance": True},
             },
         },
     ],
 )
 def test_load_scaler_none(config: dict[str, object]) -> None:
     actual = load_scaler(config)
-    assert type(actual) is None
+    assert actual is None
 
 
 @pytest.mark.parametrize(
@@ -980,5 +989,5 @@ if __name__ == "__main__":
     main()
 
 # Local Variables:
-# jinx-local-words: "Ctrl arg cb csv ctrl dq iter maxabs minmax mlp noqa params pb pred qdes quantile quntile scaler sgd sklearn"
+# jinx-local-words: "Ctrl arg cb csv ctrl dq iter maxabs minmax mlp noqa params pb pred qdes quantile quantile scaler sgd sklearn" # noqa: E501
 # End:
