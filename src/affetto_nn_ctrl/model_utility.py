@@ -28,7 +28,10 @@ if TYPE_CHECKING:
 
 if sys.version_info >= (3, 11):
     from typing import NotRequired
+
+    import tomllib
 else:
+    import tomli as tomllib
     from typing_extensions import NotRequired
 
 
@@ -228,6 +231,11 @@ class Regressor(Protocol):
     ) -> float | Unknown: ...
 
     def get_params(self) -> dict[str, object]: ...
+
+
+def load_model_config_file(config_file: str | Path) -> dict[str, Unknown]:
+    with Path(config_file).open("rb") as f:
+        return tomllib.load(f)
 
 
 DATA_ADAPTER_MAP: Mapping[str, tuple[type[DataAdapterBase], type[DataAdapterParamsBase]]] = {
