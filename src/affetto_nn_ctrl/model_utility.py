@@ -351,6 +351,18 @@ def load_regressor(config: dict[str, Unknown], selector: str | None = None) -> R
     return _load_from_map(config, REGRESSOR_MAP, "regressor")
 
 
+def load_model(
+    config: dict[str, Unknown],
+    scaler_selector: str | None = None,
+    regressor_selector: str | None = None,
+) -> Regressor | Pipeline:
+    scaler = load_scaler(config["scaler"], scaler_selector)
+    regressor = load_regressor(config["regressor"], regressor_selector)
+    if scaler is None:
+        return regressor
+    return make_pipeline(scaler, regressor)
+
+
 def extract_data(
     dataset: Data,
     keys: Iterable[str],
