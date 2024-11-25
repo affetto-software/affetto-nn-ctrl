@@ -96,9 +96,7 @@ def parse() -> argparse.Namespace:
     )
     # Input
     parser.add_argument(
-        "-d",
-        "--datasets",
-        required=True,
+        "datasets",
         nargs="+",
         help="Path to file or directory in which trained model is encoded. "
         "If no model is provided, PID controller is used.",
@@ -118,19 +116,22 @@ def parse() -> argparse.Namespace:
     # Parameters
     parser.add_argument(
         "-m",
-        "--model-configuration",
+        "--model-config",
         required=True,
         help="Config file path for regressor model and data adapter.",
     )
     parser.add_argument(
+        "-a",
         "--adapter",
         help="Data adapter selector. Choose name and parameter set among those defined in model configuration file.",
     )
     parser.add_argument(
+        "-s",
         "--scaler",
         help="Scaler selector. Choose name and parameter set among those defined in model configuration file.",
     )
     parser.add_argument(
+        "-r",
         "--regressor",
         help="Regressor selector. Choose name and parameter set among those defined in model configuration file.",
     )
@@ -207,7 +208,7 @@ def main() -> None:
     start_logging(sys.argv, output_dir, __name__, args.verbose)
     event_logger().info("Output directory: %s", output_dir)
     prepare_data_dir_path(output_dir, make_latest_symlink=args.make_latest_symlink)
-    copy_config(args.config, args.init_config, output_dir)
+    copy_config(None, None, args.model_config, output_dir)
     event_logger().debug("Parsed arguments: %s", args)
 
     # Start mainloop
