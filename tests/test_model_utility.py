@@ -39,6 +39,7 @@ from affetto_nn_ctrl.model_utility import (
     StatesBase,
     extract_data,
     load_data_adapter,
+    load_datasets,
     load_regressor,
     load_scaler,
     load_train_datasets,
@@ -305,6 +306,124 @@ def test_extract_data_replace_keys(
     n = len(expected_data)
     pt.assert_index_equal(extracted_data.index, pd.RangeIndex(n))
     pt.assert_frame_equal(extracted_data, expected_data)
+
+
+@pytest.mark.parametrize(
+    ("paths", "expected_paths"),
+    [
+        (["motion_data_000.csv"], ["motion_data_000.csv"]),
+        (["motion_data_001.csv", "motion_data_002.csv"], ["motion_data_001.csv", "motion_data_002.csv"]),
+        (["dummy_datasets"], [f"dummy_datasets/dummy_data_{i:03}.csv" for i in range(11)]),
+        (
+            ["motion_data_003.csv", "dummy_datasets"],
+            ["motion_data_003.csv"] + [f"dummy_datasets/dummy_data_{i:03}.csv" for i in range(11)],
+        ),
+        (
+            ["dummy_datasets", "motion_data_004.csv", "dummy_datasets"],
+            [f"dummy_datasets/dummy_data_{i:03}.csv" for i in range(11)]
+            + ["motion_data_004.csv"]
+            + [f"dummy_datasets/dummy_data_{i:03}.csv" for i in range(11)],
+        ),
+    ],
+)
+def test_load_datasets(paths: list[str], expected_paths: list[str]) -> None:
+    datasets = load_datasets([TESTS_DATA_DIR_PATH / path for path in paths])
+    assert len(datasets) == len(expected_paths)
+    for actual, expected in zip(datasets, expected_paths, strict=True):
+        assert type(actual) is Data
+        assert actual.datapath == TESTS_DATA_DIR_PATH / expected
+
+
+@pytest.mark.parametrize(
+    ("paths", "glob_pattern", "expected_paths"),
+    [
+        (["dummy_datasets"], "dummy_data_00*.csv", [f"dummy_datasets/dummy_data_{i:03}.csv" for i in range(10)]),
+        (
+            ["motion_data_000.csv", "dummy_datasets"],
+            "*00?.csv",
+            ["motion_data_000.csv"] + [f"dummy_datasets/dummy_data_{i:03}.csv" for i in range(10)],
+        ),
+        (
+            ["motion_data_001.csv", "dummy_datasets"],
+            "non-exist-*.csv",
+            ["motion_data_001.csv"],
+        ),
+        (
+            ["dummy_datasets", "motion_data_002.csv", "dummy_datasets"],
+            "dummy_*_00[1-3].csv",
+            [f"dummy_datasets/dummy_data_{i:03}.csv" for i in range(1, 4)]
+            + ["motion_data_002.csv"]
+            + [f"dummy_datasets/dummy_data_{i:03}.csv" for i in range(1, 4)],
+        ),
+    ],
+)
+def test_load_datasets_glob(paths: list[str], glob_pattern: str, expected_paths: list[str]) -> None:
+    datasets = load_datasets([TESTS_DATA_DIR_PATH / path for path in paths], glob_pattern)
+    assert len(datasets) == len(expected_paths)
+    for actual, expected in zip(datasets, expected_paths, strict=True):
+        assert type(actual) is Data
+        assert actual.datapath == TESTS_DATA_DIR_PATH / expected
+
+
+@pytest.mark.parametrize(
+    ("paths", "n_pickup", "expected_paths"),
+    [
+        (["dummy_datasets"], 10, [f"dummy_datasets/dummy_data_{i:03}.csv" for i in range(10)]),
+        (
+            ["motion_data_000.csv", "dummy_datasets"],
+            3,
+            ["motion_data_000.csv"] + [f"dummy_datasets/dummy_data_{i:03}.csv" for i in range(3)],
+        ),
+        (
+            ["motion_data_001.csv", "dummy_datasets"],
+            0,
+            ["motion_data_001.csv"],
+        ),
+        (
+            ["dummy_datasets", "motion_data_002.csv", "dummy_datasets"],
+            2,
+            [f"dummy_datasets/dummy_data_{i:03}.csv" for i in range(2)]
+            + ["motion_data_002.csv"]
+            + [f"dummy_datasets/dummy_data_{i:03}.csv" for i in range(2)],
+        ),
+    ],
+)
+def test_load_datasets_n_pickup(paths: list[str], n_pickup: int, expected_paths: list[str]) -> None:
+    datasets = load_datasets([TESTS_DATA_DIR_PATH / path for path in paths], n_pickup=n_pickup)
+    assert len(datasets) == len(expected_paths)
+    for actual, expected in zip(datasets, expected_paths, strict=True):
+        assert type(actual) is Data
+        assert actual.datapath == TESTS_DATA_DIR_PATH / expected
+
+
+@pytest.mark.parametrize(
+    ("paths", "glob_pattern", "n_pickup", "expected_paths"),
+    [
+        (
+            ["dummy_datasets", "motion_data_002.csv"],
+            "dummy_*_00[2-9].csv",
+            5,
+            [f"dummy_datasets/dummy_data_{i:03}.csv" for i in range(2, 7)] + ["motion_data_002.csv"],
+        ),
+    ],
+)
+def test_load_datasets_glob_n_pickup(
+    paths: list[str],
+    glob_pattern: str,
+    n_pickup: int,
+    expected_paths: list[str],
+) -> None:
+    datasets = load_datasets([TESTS_DATA_DIR_PATH / path for path in paths], glob_pattern, n_pickup)
+    assert len(datasets) == len(expected_paths)
+    for actual, expected in zip(datasets, expected_paths, strict=True):
+        assert type(actual) is Data
+        assert actual.datapath == TESTS_DATA_DIR_PATH / expected
+
+
+def test_load_datasets_error_no_datsets_found() -> None:
+    msg = "No dataset found with"
+    with pytest.raises(RuntimeError, match=msg):
+        load_datasets(TESTS_DATA_DIR_PATH / "dummy_datasets", "non-exist.csv")
 
 
 @dataclass
@@ -1279,5 +1398,5 @@ if __name__ == "__main__":
     main()
 
 # Local Variables:
-# jinx-local-words: "Ctrl adam arg cb csv ctrl dq init iter maxabs minmax mlp nesterovs noqa params pb pred qdes quantile quntile regressor relu scaler sgd sklearn tanh tol" # noqa: E501
+# jinx-local-words: "Ctrl adam arg cb csv ctrl dataset datasets dq init iter maxabs minmax mlp nesterovs noqa params pb pred qdes quantile quntile regressor relu scaler sgd sklearn tanh tol"
 # End:

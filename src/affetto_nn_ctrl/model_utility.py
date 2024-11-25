@@ -364,6 +364,42 @@ def extract_data(
     return extracted.reset_index(drop=True)
 
 
+def _load_datasets(
+    data_file_or_directory: str | Path,
+    glob_pattern: str,
+    n_pickup: int | None,
+) -> list[Data]:
+    collection: list[Data] = []
+    path = Path(data_file_or_directory)
+    if path.is_dir():
+        for p in sorted(path.glob(glob_pattern)):
+            collection.append(Data(p))
+            if n_pickup is not None:
+                collection = collection[:n_pickup]
+    else:
+        collection.append(Data(path))
+
+    return collection
+
+
+def load_datasets(
+    dataset_paths: str | Path | Iterable[str | Path],
+    glob_pattern: str = "**/*.csv",
+    n_pickup: int | None = None,
+) -> list[Data]:
+    if isinstance(dataset_paths, str | Path):
+        dataset_paths = [dataset_paths]
+
+    datasets: list[Data] = []
+    for dataset_path in dataset_paths:
+        datasets.extend(_load_datasets(dataset_path, glob_pattern, n_pickup))
+
+    if len(datasets) == 0:
+        msg = f"No dataset found with {glob_pattern}: {dataset_paths}"
+        raise RuntimeError(msg)
+    return datasets
+
+
 def load_train_datasets(
     train_datasets: Data | Iterable[Data],
     adapter: DataAdapterBase[DataAdapterParamsType, StatesType, RefsType, InputsType],
@@ -582,5 +618,5 @@ def control_position_or_model(
 
 
 # Local Variables:
-# jinx-local-words: "MLPRegressor Params arg cb dataset dq dqdes maxabs minmax mlp noqa npqa params pb qdes quantile rb regressor scaler"
+# jinx-local-words: "MLPRegressor Params arg cb csv dataset dq dqdes maxabs minmax mlp noqa npqa params pb qdes quantile rb regressor scaler"
 # End:
