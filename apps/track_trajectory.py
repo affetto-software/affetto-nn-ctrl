@@ -334,7 +334,7 @@ def main() -> None:
     start_logging(sys.argv, output_dir, __name__, args.verbose)
     event_logger().info("Output directory: %s", output_dir)
     prepare_data_dir_path(output_dir, make_latest_symlink=args.make_latest_symlink)
-    copy_config(args.config, args.init_config, output_dir)
+    copy_config(args.config, args.init_config, None, output_dir)
     event_logger().debug("Parsed arguments: %s", args)
 
     # Start mainloop

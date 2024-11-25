@@ -142,17 +142,17 @@ def prepare_data_dir_path(
 
 
 def copy_config(
-    config: str | Path,
+    config: str | Path | None,
     init_config: str | Path | None,
+    model_config: str | Path | None,
     output_dir: Path,
 ) -> None:
     target_dir_path = output_dir / "config"
     prepare_data_dir_path(target_dir_path, make_latest_symlink=False)
-    shutil.copy(config, target_dir_path)
-    event_logger().debug("Config copied: %s -> %s", config, target_dir_path)
-    if init_config is not None:
-        shutil.copy(init_config, target_dir_path)
-        event_logger().debug("Initializer config copied: %s -> %s", init_config, target_dir_path)
+    for file, kind in zip((config, init_config, model_config), ("Robot", "Initializer", "Model"), strict=True):
+        if file is not None:
+            shutil.copy(file, target_dir_path)
+            event_logger().debug("%s config copied: %s -> %s", kind, config, target_dir_path)
 
 
 def is_latest_data_dir_path_maybe(dirpath: Path, pattern: str = "20*T*") -> bool:
