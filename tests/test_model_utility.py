@@ -64,6 +64,8 @@ else:
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from sklearn.pipeline import Pipeline
+
 
 def make_prediction_data_path(
     base_directory: Path,
@@ -151,7 +153,7 @@ class TestSimpleDataAdapter:
         dataset = Data(pd.DataFrame(dict(zip(columns, data.T, strict=True))))
         return dataset.split_by_row(int(0.75 * 20))
 
-    def predict(self, test_dataset: Data, adapter: SimpleDataAdapter, model: Regressor) -> np.ndarray:
+    def predict(self, test_dataset: Data, adapter: SimpleDataAdapter, model: Regressor | Pipeline) -> np.ndarray:
         prediction: list[tuple[np.ndarray, ...]] = []
         keys = [f"f{x}" for x in adapter.params.feature_index] + [f"t{x}" for x in adapter.params.target_index]
         for x_input in test_dataset:
@@ -171,8 +173,8 @@ class TestSimpleDataAdapter:
         adapter: SimpleDataAdapter,
         model: Regressor,
     ) -> np.ndarray:
-        model = train_model(model, train_dataset, adapter)
-        prediction = self.predict(test_dataset, adapter, model)
+        trained_model = train_model(model, train_dataset, adapter)
+        prediction = self.predict(test_dataset, adapter, trained_model.model)
         np.savetxt(output, prediction)
         event_logger().info("Expected data for SimpleDataAdapter generated: %s", output)
         return prediction
@@ -596,7 +598,12 @@ class TestJointDataAdapter:
         nt.assert_array_equal(ca, expected_ca)
         nt.assert_array_equal(cb, expected_cb)
 
-    def predict(self, test_dataset: Data, adapter: JointDataAdapter, model: Regressor) -> tuple[np.ndarray, float]:
+    def predict(
+        self,
+        test_dataset: Data,
+        adapter: JointDataAdapter,
+        model: Regressor | Pipeline,
+    ) -> tuple[np.ndarray, float]:
         x_test, y_true = load_train_datasets(test_dataset, adapter)
         y_pred = model.predict(x_test)
         score = model.score(x_test, y_true)
@@ -610,8 +617,8 @@ class TestJointDataAdapter:
         adapter: JointDataAdapter,
         model: Regressor,
     ) -> tuple[np.ndarray, float]:
-        model = train_model(model, train_datasets, adapter)
-        y_pred, score = self.predict(test_dataset, adapter, model)
+        trained_model = train_model(model, train_datasets, adapter)
+        y_pred, score = self.predict(test_dataset, adapter, trained_model.model)
         np.savetxt(output, y_pred)
         event_logger().info("Expected data for JointDataAdapter generated: %s", output)
         event_logger().info("Score: %s", score)
@@ -1398,5 +1405,5 @@ if __name__ == "__main__":
     main()
 
 # Local Variables:
-# jinx-local-words: "Ctrl adam arg cb csv ctrl dataset datasets dq init iter maxabs minmax mlp nesterovs noqa params pb pred qdes quantile quntile regressor relu scaler sgd sklearn tanh tol"
+# jinx-local-words: "Ctrl adam arg cb csv ctrl dataset datasets dq init iter maxabs minmax mlp nesterovs noqa params pb qdes quantile regressor relu scaler sgd sklearn tanh tol" # noqa: E501
 # End:

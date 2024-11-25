@@ -25,7 +25,7 @@ from affetto_nn_ctrl.event_logging import event_logger, start_logging
 from affetto_nn_ctrl.model_utility import (
     DefaultTrainedModelType,
     control_position_or_model,
-    load_model,
+    load_trained_model,
 )
 
 if TYPE_CHECKING:
@@ -129,7 +129,7 @@ def run(
     # Load trained model.
     model: DefaultTrainedModelType | None = None
     if model_filepath is not None:
-        model = load_model(model_filepath)
+        model = load_trained_model(model_filepath)
 
     # Perform trajectory tracking.
     for i in range(n_repeat):

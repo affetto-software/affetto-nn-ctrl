@@ -423,40 +423,6 @@ def load_train_datasets(
     return x_train, y_train
 
 
-def construct_model(*steps: Scaler | Regressor) -> Regressor | Pipeline:
-    return make_pipeline(*steps)
-
-
-TrainableModel = TypeVar("TrainableModel", Regressor, Pipeline)
-
-
-@overload
-def train_model(
-    model: TrainableModel,
-    x_train_or_datasets: np.ndarray,
-    y_train_or_adapter: np.ndarray,
-) -> TrainableModel: ...
-
-
-@overload
-def train_model(
-    model: TrainableModel,
-    x_train_or_datasets: Data | Iterable[Data],
-    y_train_or_adapter: DataAdapterBase[DataAdapterParamsType, StatesType, RefsType, InputsType],
-) -> TrainableModel: ...
-
-
-def train_model(model, x_train_or_datasets, y_train_or_adapter):
-    if isinstance(x_train_or_datasets, np.ndarray) and isinstance(y_train_or_adapter, np.ndarray):
-        x_train = x_train_or_datasets
-        y_train = y_train_or_adapter
-    else:
-        x_train, y_train = load_train_datasets(x_train_or_datasets, y_train_or_adapter)
-    event_logger().debug("x_train.shape = %s", x_train.shape)
-    event_logger().debug("y_train.shape = %s", y_train.shape)
-    return model.fit(x_train, y_train)
-
-
 @dataclass
 class TrainedModel(Generic[DataAdapterParamsType, StatesType, RefsType, InputsType]):
     model: Regressor | Pipeline
@@ -478,12 +444,24 @@ class TrainedModel(Generic[DataAdapterParamsType, StatesType, RefsType, InputsTy
         return str(self.model)
 
 
-def dump_model(model: TrainedModel, output: str | Path) -> Path:
+def train_model(
+    model: Regressor | Pipeline,
+    datasets: Data | Iterable[Data],
+    adapter: DataAdapterBase[DataAdapterParamsType, StatesType, RefsType, InputsType],
+) -> TrainedModel:
+    x_train, y_train = load_train_datasets(datasets, adapter)
+    event_logger().debug("x_train.shape = %s", x_train.shape)
+    event_logger().debug("y_train.shape = %s", y_train.shape)
+    model = model.fit(x_train, y_train)
+    return TrainedModel(model, adapter)
+
+
+def dump_trained_model(model: TrainedModel, output: str | Path) -> Path:
     joblib.dump(model, output)
     return Path(output)
 
 
-def load_model(model_filepath: str | Path) -> TrainedModel:
+def load_trained_model(model_filepath: str | Path) -> TrainedModel:
     return joblib.load(model_filepath)
 
 
