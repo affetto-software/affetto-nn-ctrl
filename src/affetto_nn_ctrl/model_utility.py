@@ -315,30 +315,39 @@ def _load_from_map(
 
 def update_config_by_selector(
     config: dict[str, Unknown],
-    selector: str | None,
+    selector: str,
 ) -> dict[str, Unknown]:
-    if selector is not None:
-        splitted = selector.split(".")
-        config.update(name=splitted[0])
-        if len(splitted) > 1:
-            config.update(params=splitted[1])
+    splitted = selector.split(".")
+    config.update(name=splitted[0])
+    if len(splitted) > 1:
+        config.update(params=splitted[1])
     return config
 
 
-def load_data_adapter(config: dict[str, Unknown], active_joints: list[int] | None = None) -> DataAdapterBase:
+def load_data_adapter(
+    config: dict[str, Unknown],
+    active_joints: list[int] | None = None,
+    selector: str | None = None,
+) -> DataAdapterBase:
+    if selector is not None:
+        config = update_config_by_selector(config, selector)
     adapter = _load_from_map(config, DATA_ADAPTER_MAP, "data adapter")
     if active_joints is not None:
         adapter.params.active_joints = active_joints
     return adapter
 
 
-def load_scaler(config: dict[str, Unknown]) -> Scaler | None:
+def load_scaler(config: dict[str, Unknown], selector: str | None = None) -> Scaler | None:
+    if selector is not None:
+        config = update_config_by_selector(config, selector)
     if config.get("name", "x").lower() == "none":
         return None
     return _load_from_map(config, SCALER_MAP, "scaler")
 
 
-def load_regressor(config: dict[str, Unknown]) -> Regressor:
+def load_regressor(config: dict[str, Unknown], selector: str | None = None) -> Regressor:
+    if selector is not None:
+        config = update_config_by_selector(config, selector)
     return _load_from_map(config, REGRESSOR_MAP, "regressor")
 
 
@@ -573,5 +582,5 @@ def control_position_or_model(
 
 
 # Local Variables:
-# jinx-local-words: "MLPRegressor Params arg cb dataset dq dqdes maxabs minmax mlp noqa npqa params pb qdes quantile regressor scaler" # noqa: E501
+# jinx-local-words: "MLPRegressor Params arg cb dataset dq dqdes maxabs minmax mlp noqa npqa params pb qdes quantile rb regressor scaler"
 # End:

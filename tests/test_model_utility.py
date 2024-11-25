@@ -715,6 +715,34 @@ def test_load_data_adapter(config: dict[str, object], expected: DataAdapterBase)
 
 
 @pytest.mark.parametrize(
+    ("selector", "active_joints", "expected"),
+    [
+        ("delay-states", [2, 3], DelayStates(DelayStatesParams([2, 3], ctrl_step=1, delay_step=7))),
+        (
+            "delay-states-all.non-default",
+            None,
+            DelayStatesAll(DelayStatesAllParams([2, 3, 4, 5], ctrl_step=2, delay_step=4)),
+        ),
+        (
+            "delay-states-all.default",
+            [1, 2, 3],
+            DelayStatesAll(DelayStatesAllParams([1, 2, 3], ctrl_step=1, delay_step=8)),
+        ),
+    ],
+)
+def test_load_data_adapter_with_selector(
+    data_adapter_config: dict,
+    selector: str,
+    active_joints: list[int] | None,
+    expected: DataAdapterBase,
+) -> None:
+    config = data_adapter_config["model"]["adapter"]
+    actual = load_data_adapter(config, active_joints, selector)
+    assert type(actual) is type(expected)
+    assert actual.params == expected.params
+
+
+@pytest.mark.parametrize(
     "config",
     [
         {"name": "unknown_adapter", "active_joints": [0, 1]},
@@ -798,6 +826,11 @@ with_centering = true
 with_scaling = true
 quantile_range = [25.0, 75.0]
 unit_variance = false
+[model.scaler.robust.non-default]
+with_centering = false
+with_scaling = false
+quantile_range = [30.0, 70.0]
+unit_variance = true
 """
 
 
@@ -820,7 +853,10 @@ def test_load_scaler_typical_config(scaler_config: dict) -> None:
     [
         ("minmax", MinMaxScaler()),
         ("std.default", StandardScaler()),
-        ("robust.default", RobustScaler()),
+        (
+            "robust.non-default",
+            RobustScaler(with_centering=False, with_scaling=False, quantile_range=(30.0, 70.0), unit_variance=True),
+        ),
         ("none", None),
     ],
 )
@@ -880,6 +916,32 @@ def test_load_scaler(config: dict[str, object], expected: Scaler) -> None:
     assert actual is not None
     assert type(actual) is type(expected)
     assert actual.get_params() == expected.get_params()
+
+
+@pytest.mark.parametrize(
+    ("selector", "expected"),
+    [
+        ("minmax", MinMaxScaler()),
+        ("std.default", StandardScaler()),
+        (
+            "robust.non-default",
+            RobustScaler(with_centering=False, with_scaling=False, quantile_range=(30.0, 70.0), unit_variance=True),
+        ),
+        ("none", None),
+    ],
+)
+def test_load_scaler_with_selector(
+    scaler_config: dict,
+    selector: str,
+    expected: Scaler,
+) -> None:
+    config = scaler_config["model"]["scaler"]
+    actual = load_scaler(config, selector)
+    if actual is not None:
+        assert type(actual) is type(expected)
+        assert actual.get_params() == expected.get_params()
+    else:
+        assert actual is None
 
 
 @pytest.mark.parametrize(
@@ -1004,6 +1066,12 @@ beta_1 = 0.9
 beta_2 = 0.999
 epsilon = 1e-8
 n_iter_no_change = 10
+
+[model.regressor.ridge.non-default]
+alpha = 0.95
+fit_intercept = false
+max_iter = 300
+random_state = 123
 """
 
 
@@ -1026,6 +1094,7 @@ def test_load_regressor_typical_config(regressor_config: dict) -> None:
         ("linear", LinearRegression()),
         ("ridge.default", Ridge()),
         ("mlp.default", MLPRegressor()),
+        ("ridge.non-default", Ridge(alpha=0.95, fit_intercept=False, max_iter=300, random_state=123)),
     ],
 )
 def test_load_regressor_config_modified_by_user(
@@ -1101,6 +1170,26 @@ def test_load_regressor_config_modified_by_user(
 def test_load_regressor(config: dict[str, object], expected: Regressor) -> None:
     actual = load_regressor(config)
     assert actual is not None
+    assert type(actual) is type(expected)
+    assert actual.get_params() == expected.get_params()
+
+
+@pytest.mark.parametrize(
+    ("selector", "expected"),
+    [
+        ("linear", LinearRegression()),
+        ("ridge.default", Ridge()),
+        ("mlp.default", MLPRegressor()),
+        ("ridge.non-default", Ridge(alpha=0.95, fit_intercept=False, max_iter=300, random_state=123)),
+    ],
+)
+def test_load_regressor_with_selector(
+    regressor_config: dict,
+    selector: str,
+    expected: Regressor,
+) -> None:
+    config = regressor_config["model"]["regressor"]
+    actual = load_regressor(config, selector)
     assert type(actual) is type(expected)
     assert actual.get_params() == expected.get_params()
 
