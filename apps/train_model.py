@@ -51,15 +51,23 @@ def run(
     event_logger().debug("Resolved active joints: %s", active_joints)
 
     # Load a model configuration file.
-    config = load_model_config_file(model_config)
+    config_dict = load_model_config_file(model_config)
+    event_logger().debug("Model config file loaded: %s", model_config)
 
     # Create a data apdater.
+    event_logger().debug("Loading datasets with following condition:")
+    event_logger().debug("     Path list: %s", dataset_paths)
+    event_logger().debug("  glob pattern: %s", glob_pattern)
+    event_logger().debug("        pickup: %s", n_pickup)
     datasets = load_datasets(dataset_paths, glob_pattern, n_pickup)
-    adapter = load_data_adapter(config["model"]["adapter"], active_joints, adapter_selector)
+    event_logger().info("%s dataset files in total have been loaded", len(datasets))
+    adapter = load_data_adapter(config_dict["model"]["adapter"], active_joints, adapter_selector)
 
     # Create a model and train it.
-    model = load_model(config["model"], scaler_selector, regressor_selector)
+    model = load_model(config_dict["model"], scaler_selector, regressor_selector)
+    event_logger().info("Training model...")
     trained_model = train_model(model, datasets, adapter)
+    event_logger().debug("Training has done")
 
     # Save the trained model.
     suffix = ""
@@ -74,6 +82,7 @@ def run(
         ext=".joblib",
     )
     dump_trained_model(trained_model, trained_model_file_path)
+    event_logger().info("Trained model saved: %s", trained_model_file_path)
 
 
 def parse() -> argparse.Namespace:

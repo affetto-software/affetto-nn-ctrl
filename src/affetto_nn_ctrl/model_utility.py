@@ -86,6 +86,9 @@ class DataAdapterBase(ABC, Generic[DataAdapterParamsType, StatesType, RefsType, 
     def params(self) -> DataAdapterParamsType:
         return self._params
 
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}({self.params})"
+
     @abstractmethod
     def make_feature(self, dataset: Data) -> np.ndarray:
         raise NotImplementedError
@@ -334,21 +337,26 @@ def load_data_adapter(
     adapter = _load_from_map(config, DATA_ADAPTER_MAP, "data adapter")
     if active_joints is not None:
         adapter.params.active_joints = active_joints
+    event_logger().debug("Loaded data adapter: %s", adapter)
     return adapter
 
 
 def load_scaler(config: dict[str, Unknown], selector: str | None = None) -> Scaler | None:
     if selector is not None:
         config = update_config_by_selector(config, selector)
-    if config.get("name", "x").lower() == "none":
-        return None
-    return _load_from_map(config, SCALER_MAP, "scaler")
+    scaler = None
+    if config.get("name", "x").lower() != "none":
+        scaler = _load_from_map(config, SCALER_MAP, "scaler")
+    event_logger().debug("Loaded scaler: %s", scaler)
+    return scaler
 
 
 def load_regressor(config: dict[str, Unknown], selector: str | None = None) -> Regressor:
     if selector is not None:
         config = update_config_by_selector(config, selector)
-    return _load_from_map(config, REGRESSOR_MAP, "regressor")
+    regressor = _load_from_map(config, REGRESSOR_MAP, "regressor")
+    event_logger().debug("Loaded regressor: %s", regressor)
+    return regressor
 
 
 def load_model(
@@ -384,12 +392,13 @@ def _load_datasets(
     collection: list[Data] = []
     path = Path(data_file_or_directory)
     if path.is_dir():
-        for p in sorted(path.glob(glob_pattern)):
-            collection.append(Data(p))
-            if n_pickup is not None:
-                collection = collection[:n_pickup]
+        collection.extend(Data(x) for x in sorted(path.glob(glob_pattern)))
+        if n_pickup is not None:
+            collection = collection[:n_pickup]
+        event_logger().debug("%s datasets loaded from %s", len(collection), path)
     else:
         collection.append(Data(path))
+        event_logger().debug("dataset loaded from %s", path)
 
     return collection
 
