@@ -6,15 +6,18 @@ params = "default"
 active_joints = [2, 3, 4, 5]
 
 [model.adapter.preview-ref.default]
+[model.adapter.delay-states.default]
+[model.adapter.delay-states-all.default]
+
+[model.adapter.preview-ref.option-list]
 ctrl_step = 1
 preview_step = 5
 
-[model.adapter.delay-states.default]
+[model.adapter.delay-states.option-list]
 ctrl_step = 1
 delay_step = 5
 
-[model.adapter.delay-states-all.default]
-active_joints = [2, 5]
+[model.adapter.delay-states-all.option-list]
 ctrl_step = 1
 delay_step = 5
 
@@ -23,15 +26,20 @@ name = "std"
 params = "default"
 
 [model.scaler.std.default]
+[model.scaler.minmax.default]
+[model.scaler.maxabs.default]
+[model.scaler.robust.default]
+
+[model.scaler.std.option-list]
 with_mean = true
 with_std = true
 
-[model.scaler.minmax.default]
+[model.scaler.minmax.option-list]
 feature_range = [0, 1]
 clip = false
 
-[model.scaler.maxabs.default]
-[model.scaler.robust.default]
+[model.scaler.maxabs.option-list]
+[model.scaler.robust.option-list]
 with_centering = true
 with_scaling = true
 quantile_range = [25.0, 75.0]
@@ -42,12 +50,16 @@ name = "mlp"
 params = "default"
 
 [model.regressor.linear.default]
+[model.regressor.ridge.default]
+[model.regressor.mlp.default]
+
+[model.regressor.linear.option-list]
 fit_intercept = true
 copy_X = true
 n_jobs = "None"
 positive = false
 
-[model.regressor.ridge.default]
+[model.regressor.ridge.option-list]
 alpha = 1.0
 fit_intercept = true
 copy_X = true
@@ -57,7 +69,7 @@ solver = "auto"
 positive = false
 random_state = "None"
 
-[model.regressor.mlp.default]
+[model.regressor.mlp.option-list]
 hidden_layer_sizes = [100]
 activation = "relu"
 solver = "adam"
