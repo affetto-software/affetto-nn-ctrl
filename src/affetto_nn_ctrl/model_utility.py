@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Generic, Protocol, TypeAlias, TypedDict, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Generic, Protocol, TypeAlias, TypedDict, TypeVar, cast
 
 import joblib
 import numpy as np
@@ -468,8 +468,8 @@ def train_model(
     return TrainedModel(model, adapter)
 
 
-def dump_trained_model(model: TrainedModel, output: str | Path) -> Path:
-    joblib.dump(model, output)
+def dump_trained_model(trained_model: TrainedModel, output: str | Path) -> Path:
+    joblib.dump(trained_model, output)
     return Path(output)
 
 
@@ -608,5 +608,5 @@ def control_position_or_model(
 
 
 # Local Variables:
-# jinx-local-words: "MLPRegressor Params arg cb csv dataset dq dqdes maxabs minmax mlp noqa npqa params pb qdes quantile rb regressor scaler"
+# jinx-local-words: "MLPRegressor Params arg cb csv dataset dq dqdes maxabs minmax mlp noqa npqa params pb qdes quantile rb regressor scaler" # noqa: E501
 # End:
