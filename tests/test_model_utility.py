@@ -464,12 +464,11 @@ class JointDataAdapter(DataAdapterBase[JointDataAdapterParams, DefaultStates, De
         return ctrl_input.to_numpy()
 
     def make_model_input(self, t: float, states: DefaultStates, refs: DefaultRefs) -> np.ndarray:
-        _ = t
         q = states["q"][self.params.active_joints]
         dq = states["dq"][self.params.active_joints]
         pa = states["pa"][self.params.active_joints]
         pb = states["pb"][self.params.active_joints]
-        qdes = refs["qdes"][self.params.active_joints]
+        qdes = refs["qdes"](t)[self.params.active_joints]
         model_input = np.concatenate((q, dq, pa, pb, qdes))  # concatenate feature vectors horizontally
         # Make matrix that has 1 row and n_features columns.
         return np.atleast_2d(model_input)
@@ -580,7 +579,9 @@ class TestJointDataAdapter:
         dq = np.arange(dof, dtype=float) * 0.01
         pa = np.arange(dof, dtype=float) + 300
         pb = np.arange(dof, dtype=float) + 10
-        qdes = q + 4
+
+        def qdes(t: float) -> np.ndarray:
+            return q + t
 
         t = 4.0
         x = adapter.make_model_input(t, {"q": q, "dq": dq, "pa": pa, "pb": pb}, {"qdes": qdes})

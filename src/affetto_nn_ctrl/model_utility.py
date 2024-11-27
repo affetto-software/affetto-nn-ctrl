@@ -16,6 +16,7 @@ from sklearn.neural_network import MLPRegressor
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import MaxAbsScaler, MinMaxScaler, RobustScaler, StandardScaler
 
+from affetto_nn_ctrl import RefFuncType
 from affetto_nn_ctrl.control_utility import reset_logger, select_time_updater
 from affetto_nn_ctrl.event_logging import event_logger
 
@@ -23,7 +24,7 @@ if TYPE_CHECKING:
     import pandas as pd
     from affctrllib import AffPosCtrl
 
-    from affetto_nn_ctrl import CONTROLLER_T, RefFuncType
+    from affetto_nn_ctrl import CONTROLLER_T
     from affetto_nn_ctrl._typing import T, Unknown
 
 if sys.version_info >= (3, 11):
@@ -67,8 +68,8 @@ class DefaultStates(StatesBase):
 
 
 class DefaultRefs(RefsBase):
-    qdes: np.ndarray
-    dqdes: NotRequired[np.ndarray]
+    qdes: RefFuncType
+    dqdes: NotRequired[RefFuncType]
 
 
 class DefaultInputs(InputsBase):
@@ -487,7 +488,7 @@ def load_trained_model(model_filepath: str | Path) -> TrainedModel:
 
 
 CtrlAdapterUpdater: TypeAlias = Callable[
-    [float, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray],
+    [float, np.ndarray, np.ndarray, np.ndarray, np.ndarray, RefFuncType, RefFuncType],
     tuple[np.ndarray, np.ndarray],
 ]
 
@@ -516,10 +517,10 @@ class CtrlAdapter(Generic[DataAdapterParamsType, StatesType, RefsType, InputsTyp
         dq: np.ndarray,
         pa: np.ndarray,
         pb: np.ndarray,
-        qdes: np.ndarray,
-        dqdes: np.ndarray,
+        qdes: RefFuncType,
+        dqdes: RefFuncType,
     ) -> tuple[np.ndarray, np.ndarray]:
-        return self.ctrl.update(t, q, dq, pa, pb, qdes, dqdes)
+        return self.ctrl.update(t, q, dq, pa, pb, qdes(t), dqdes(t))
 
     def update_model(
         self,
@@ -528,10 +529,10 @@ class CtrlAdapter(Generic[DataAdapterParamsType, StatesType, RefsType, InputsTyp
         dq: np.ndarray,
         pa: np.ndarray,
         pb: np.ndarray,
-        qdes: np.ndarray,
-        dqdes: np.ndarray,
+        qdes: RefFuncType,
+        dqdes: RefFuncType,
     ) -> tuple[np.ndarray, np.ndarray]:
-        ca, cb = self.ctrl.update(t, q, dq, pa, pb, qdes, dqdes)
+        ca, cb = self.ctrl.update(t, q, dq, pa, pb, qdes(t), dqdes(t))
         return ca, cb
 
     def update(
@@ -541,8 +542,8 @@ class CtrlAdapter(Generic[DataAdapterParamsType, StatesType, RefsType, InputsTyp
         dq: np.ndarray,
         pa: np.ndarray,
         pb: np.ndarray,
-        qdes: np.ndarray,
-        dqdes: np.ndarray,
+        qdes: RefFuncType,
+        dqdes: RefFuncType,
     ) -> tuple[np.ndarray, np.ndarray]:
         return self._updater(t, q, dq, pa, pb, qdes, dqdes)
 
@@ -562,8 +563,8 @@ class DefaultCtrlAdapter(CtrlAdapter[DataAdapterParamsType, DefaultStates, Defau
         dq: np.ndarray,
         pa: np.ndarray,
         pb: np.ndarray,
-        qdes: np.ndarray,
-        dqdes: np.ndarray,
+        qdes: RefFuncType,
+        dqdes: RefFuncType,
     ) -> tuple[np.ndarray, np.ndarray]:
         ca, cb = self.ctrl.update(t, q, dq, pa, pb, qdes, dqdes)
         x = self.model.adapter.make_model_input(
@@ -605,11 +606,10 @@ def control_position_or_model(
         t = current_time()
         rq, rdq, rpa, rpb = state.get_raw_states()
         q, dq, pa, pb = state.get_states()
-        qdes, dqdes = qdes_func(t), dqdes_func(t)
-        ca, cb = ctrl_adapter.update(t, q, dq, pa, pb, qdes, dqdes)
+        ca, cb = ctrl_adapter.update(t, q, dq, pa, pb, qdes_func, dqdes_func)
         comm.send_commands(ca, cb)
         if logger is not None:
-            logger.store(t, rq, rdq, rpa, rpb, q, dq, pa, pb, ca, cb, qdes, dqdes)
+            logger.store(t, rq, rdq, rpa, rpb, q, dq, pa, pb, ca, cb, qdes_func(t), dqdes_func(t))
         timer.block()
     sys.stdout.write("\n")
     # Return the last commands that have been sent to the valve.
