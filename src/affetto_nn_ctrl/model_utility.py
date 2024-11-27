@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Generic, Protocol, TypeAlias, TypedDict, TypeV
 
 import joblib
 import numpy as np
+import pandas as pd
 from affctrllib import Logger, Timer
 from pyplotutil.datautil import Data
 from sklearn.linear_model import LinearRegression, Ridge
@@ -21,7 +22,6 @@ from affetto_nn_ctrl.control_utility import reset_logger, select_time_updater
 from affetto_nn_ctrl.event_logging import event_logger
 
 if TYPE_CHECKING:
-    import pandas as pd
     from affctrllib import AffPosCtrl
 
     from affetto_nn_ctrl import CONTROLLER_T
@@ -153,23 +153,49 @@ class PreviewRef(DataAdapterBase[PreviewRefParams, DefaultStates, DefaultRefs, D
         super().__init__(params)
 
     def make_feature(self, dataset: Data) -> np.ndarray:
-        states = extract_data(dataset, _get_keys(["q", "dq", "pa", "pb"], self.params.active_joints), -1)
+        joints = self.params.active_joints
+        shift = self.params.ctrl_step + self.params.preview_step
+        states = extract_data(dataset, _get_keys(["q", "dq", "pa", "pb"], joints), end=-shift)
         reference = extract_data(
             dataset,
-            _get_keys(["q"], self.params.active_joints),
-            1,
-            _get_keys(["qdes"], self.params.active_joints),
+            _get_keys(["q"], joints),
+            start=shift,
+            keys_replace=_get_keys(["qdes"], joints),
         )
-        raise NotImplementedError
+        feature_data = pd.concat((states, reference), axis=1)
+        return feature_data.to_numpy()
 
     def make_target(self, dataset: Data) -> np.ndarray:
-        raise NotImplementedError
+        end = -self.params.preview_step if self.params.preview_step > 0 else None
+        ctrl_input = extract_data(
+            dataset,
+            _get_keys(["ca", "cb"], self.params.active_joints),
+            start=self.params.ctrl_step,
+            end=end,
+        )
+        return ctrl_input.to_numpy()
 
     def make_model_input(self, t: float, states: DefaultStates, refs: DefaultRefs) -> np.ndarray:
-        raise NotImplementedError
+        joints = self.params.active_joints
+        preview_time = self.params.preview_step * self.params.dt
+        q = states["q"][joints]
+        dq = states["dq"][joints]
+        pa = states["pa"][joints]
+        pb = states["pb"][joints]
+        qdes = refs["qdes"](t + preview_time)[joints]
+        model_input = np.concatenate((q, dq, pa, pb, qdes))  # concatenate feature vectors horizontally
+        # Make matrix that has 1 row and n_features columns.
+        return np.atleast_2d(model_input)
 
     def make_ctrl_input(self, y: np.ndarray, base_inputs: DefaultInputs) -> tuple[np.ndarray, ...]:
-        raise NotImplementedError
+        # `y` has has 1 row and n_targets columns.
+        joints = self.params.active_joints
+        y = np.ravel(y)
+        ca, cb = base_inputs["ca"], base_inputs["cb"]
+        n = len(joints)
+        ca[joints] = y[:n]
+        cb[joints] = y[n:]
+        return ca, cb
 
     def reset(self) -> None:
         raise NotImplementedError
