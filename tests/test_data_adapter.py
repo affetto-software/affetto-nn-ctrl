@@ -51,7 +51,6 @@ class TestPreviewRef:
     def default_adapter(self) -> PreviewRef:
         return PreviewRef(PreviewRefParams(active_joints=[5], dt=0.033, ctrl_step=1, preview_step=0))
 
-    @pytest.mark.skip
     @pytest.mark.parametrize(
         ("params", "expected"),
         [
@@ -109,7 +108,6 @@ class TestPreviewRef:
         expected_feature = np.loadtxt(StringIO(expected), delimiter=",")
         nt.assert_array_equal(feature, expected_feature)
 
-    @pytest.mark.skip
     @pytest.mark.parametrize(
         ("params", "expected"),
         [
@@ -167,7 +165,6 @@ class TestPreviewRef:
         expected_target = np.loadtxt(StringIO(expected), delimiter=",")
         nt.assert_array_equal(target, expected_target)
 
-    @pytest.mark.skip
     @pytest.mark.parametrize(
         "params",
         [
@@ -192,10 +189,10 @@ class TestPreviewRef:
         adapter = PreviewRef(params)
         x = adapter.make_model_input(t, {"q": q, "dq": dq, "pa": pa, "pb": pb}, {"qdes": qdes})
         i = adapter.params.active_joints[0]
-        expected = np.array([[q[i], dq[i], pa[i], pb[i], qdes(t)[i]]], dtype=float)
+        offset = params.preview_step * params.dt
+        expected = np.array([[q[i], dq[i], pa[i], pb[i], qdes(t + offset)[i]]], dtype=float)
         nt.assert_array_equal(x, expected)
 
-    @pytest.mark.skip
     @pytest.mark.parametrize(
         "params",
         [
@@ -217,9 +214,9 @@ class TestPreviewRef:
 
         i = adapter.params.active_joints[0]
         expected_ca = base_ca.copy()
-        expected_ca[i] = y[0]
+        expected_ca[i] = y[0][0]
         expected_cb = base_cb.copy()
-        expected_cb[i] = y[1]
+        expected_cb[i] = y[0][1]
         nt.assert_array_equal(ca, expected_ca)
         nt.assert_array_equal(cb, expected_cb)
 
