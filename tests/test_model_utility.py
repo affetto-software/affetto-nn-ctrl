@@ -269,18 +269,20 @@ def toy_data() -> Data:
 
 
 @pytest.mark.parametrize(
-    ("keys", "shift", "expected"),
+    ("keys", "start", "end", "expected"),
     [
-        (["a", "c"], 0, "a,c\n1,3\n6,8\n11,13\n16,18\n21,23\n"),
-        (("d",), 0, "d\n4\n9\n14\n19\n24\n"),
-        (("b", "c"), 1, "b,c\n7,8\n12,13\n17,18\n22,23\n"),
-        (["d", "e"], -1, "d,e\n4,5\n9,10\n14,15\n19,20\n"),
-        (["d"], 2, "d\n14\n19\n24\n"),
-        (["b"], -2, "b\n2\n7\n12\n"),
+        (["a", "c"], None, None, "a,c\n1,3\n6,8\n11,13\n16,18\n21,23\n"),
+        (("d",), 0, None, "d\n4\n9\n14\n19\n24\n"),
+        (("b", "c"), 1, None, "b,c\n7,8\n12,13\n17,18\n22,23\n"),
+        (["d", "e"], None, -1, "d,e\n4,5\n9,10\n14,15\n19,20\n"),
+        (["d"], 2, None, "d\n14\n19\n24\n"),
+        (["b"], None, -2, "b\n2\n7\n12\n"),
+        (["a", "b", "c"], 1, -1, "a,b,c\n6,7,8\n11,12,13\n16,17,18\n"),
+        (["d", "b"], 1, -2, "d,b\n9,7\n14,12\n"),
     ],
 )
-def test_extract_data(toy_data: Data, keys: Iterable[str], shift: int, expected: str) -> None:
-    extracted_data = extract_data(toy_data, keys, shift)
+def test_extract_data(toy_data: Data, keys: Iterable[str], start: int | None, end: int | None, expected: str) -> None:
+    extracted_data = extract_data(toy_data, keys, start=start, end=end)
     expected_data = pd.read_csv(StringIO(expected))
     n = len(expected_data)
     pt.assert_index_equal(extracted_data.index, pd.RangeIndex(n))
@@ -288,22 +290,24 @@ def test_extract_data(toy_data: Data, keys: Iterable[str], shift: int, expected:
 
 
 @pytest.mark.parametrize(
-    ("keys", "shift", "keys_replace", "expected"),
+    ("keys", "start", "end", "keys_replace", "expected"),
     [
-        (["a", "c"], 0, ("A", "C"), "A,C\n1,3\n6,8\n11,13\n16,18\n21,23\n"),
-        (("d",), 0, ["D"], "D\n4\n9\n14\n19\n24\n"),
-        (("b", "c"), 1, ("boo", "ciao"), "boo,ciao\n7,8\n12,13\n17,18\n22,23\n"),
-        (["d", "e"], -1, ["done", "echo"], "done,echo\n4,5\n9,10\n14,15\n19,20\n"),
+        (["a", "c"], None, None, ("A", "C"), "A,C\n1,3\n6,8\n11,13\n16,18\n21,23\n"),
+        (("d",), 0, None, ["D"], "D\n4\n9\n14\n19\n24\n"),
+        (("b", "c"), 1, None, ("boo", "ciao"), "boo,ciao\n7,8\n12,13\n17,18\n22,23\n"),
+        (["d", "e"], None, -1, ["done", "echo"], "done,echo\n4,5\n9,10\n14,15\n19,20\n"),
+        (["d", "b"], 1, -2, ("x", "y"), "x,y\n9,7\n14,12\n"),
     ],
 )
 def test_extract_data_replace_keys(
     toy_data: Data,
     keys: Iterable[str],
     keys_replace: Iterable[str],
-    shift: int,
+    start: int | None,
+    end: int | None,
     expected: str,
 ) -> None:
-    extracted_data = extract_data(toy_data, keys, shift, keys_replace)
+    extracted_data = extract_data(toy_data, keys, start=start, end=end, keys_replace=keys_replace)
     expected_data = pd.read_csv(StringIO(expected))
     n = len(expected_data)
     pt.assert_index_equal(extracted_data.index, pd.RangeIndex(n))
@@ -454,13 +458,13 @@ class JointDataAdapter(DataAdapterBase[JointDataAdapterParams, DefaultStates, De
         return keys
 
     def make_feature(self, dataset: Data) -> np.ndarray:
-        states = extract_data(dataset, self.get_keys(["q", "dq", "pa", "pb"]), -1)
-        reference = extract_data(dataset, self.get_keys(["q"]), 1, self.get_keys(["qdes"]))
+        states = extract_data(dataset, self.get_keys(["q", "dq", "pa", "pb"]), end=-1)
+        reference = extract_data(dataset, self.get_keys(["q"]), start=1, keys_replace=self.get_keys(["qdes"]))
         feature_data = pd.concat((states, reference), axis=1)
         return feature_data.to_numpy()
 
     def make_target(self, dataset: Data) -> np.ndarray:
-        ctrl_input = extract_data(dataset, self.get_keys(["ca", "cb"]), 1)
+        ctrl_input = extract_data(dataset, self.get_keys(["ca", "cb"]), start=1)
         return ctrl_input.to_numpy()
 
     def make_model_input(self, t: float, states: DefaultStates, refs: DefaultRefs) -> np.ndarray:

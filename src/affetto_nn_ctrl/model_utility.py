@@ -394,11 +394,17 @@ def load_model(
 def extract_data(
     dataset: Data,
     keys: Iterable[str],
-    shift: int,
+    *,
+    start: int | None = None,
+    end: int | None = None,
     keys_replace: Iterable[str] | None = None,
 ) -> pd.DataFrame:
     subset = dataset.df.loc[:, keys]
-    extracted = subset[:shift] if shift < 0 else subset[shift:]
+    if start is None:
+        start = 0
+    if end is None:
+        end = len(subset)
+    extracted = subset[start:end]
     if keys_replace is not None:
         extracted = extracted.rename(columns=dict(zip(keys, keys_replace, strict=True)))
     return extracted.reset_index(drop=True)
