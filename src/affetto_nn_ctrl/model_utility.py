@@ -144,17 +144,19 @@ def _get_keys(symbols: Iterable[str], active_joints: list[int], *, add_t: bool =
 class PreviewRefParams(DataAdapterParamsBase):
     active_joints: list[int]
     dt: float
-    ctrl_step: int
     preview_step: int
 
 
 class PreviewRef(DataAdapterBase[PreviewRefParams, DefaultStates, DefaultRefs, DefaultInputs]):
     def __init__(self, params: PreviewRefParams) -> None:
         super().__init__(params)
+        if params.preview_step < 1:
+            msg = f"PreviewRefParams.preview_step must be larger than or equal to 1: {params.preview_step}"
+            raise ValueError(msg)
 
     def make_feature(self, dataset: Data) -> np.ndarray:
         joints = self.params.active_joints
-        shift = self.params.ctrl_step + self.params.preview_step
+        shift = self.params.preview_step
         states = extract_data(dataset, _get_keys(["q", "dq", "pa", "pb"], joints), end=-shift)
         reference = extract_data(
             dataset,
@@ -166,13 +168,9 @@ class PreviewRef(DataAdapterBase[PreviewRefParams, DefaultStates, DefaultRefs, D
         return feature_data.to_numpy()
 
     def make_target(self, dataset: Data) -> np.ndarray:
-        end = -self.params.preview_step if self.params.preview_step > 0 else None
-        ctrl_input = extract_data(
-            dataset,
-            _get_keys(["ca", "cb"], self.params.active_joints),
-            start=self.params.ctrl_step,
-            end=end,
-        )
+        joints = self.params.active_joints
+        shift = self.params.preview_step
+        ctrl_input = extract_data(dataset, _get_keys(["ca", "cb"], joints), end=-shift)
         return ctrl_input.to_numpy()
 
     def make_model_input(self, t: float, states: DefaultStates, refs: DefaultRefs) -> np.ndarray:

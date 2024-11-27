@@ -48,13 +48,13 @@ def toy_joint_data() -> Data:
 class TestPreviewRef:
     @pytest.fixture
     def default_adapter(self) -> PreviewRef:
-        return PreviewRef(PreviewRefParams(active_joints=[5], dt=0.033, ctrl_step=1, preview_step=0))
+        return PreviewRef(PreviewRefParams(active_joints=[5], dt=0.033, preview_step=1))
 
     @pytest.mark.parametrize(
         ("params", "expected"),
         [
             (
-                PreviewRefParams([5], 0.033, 1, 0),
+                PreviewRefParams([5], 0.033, 1),
                 """\
 20.80,-25.81,377.55,418.98,20.09
 20.09,-23.02,378.46,418.17,19.42
@@ -68,7 +68,7 @@ class TestPreviewRef:
 """,
             ),
             (
-                PreviewRefParams([5], 0.033, 3, 0),
+                PreviewRefParams([5], 0.033, 3),
                 """\
 20.80,-25.81,377.55,418.98,18.70
 20.09,-23.02,378.46,418.17,18.34
@@ -80,19 +80,7 @@ class TestPreviewRef:
 """,
             ),
             (
-                PreviewRefParams([5], 0.033, 2, 1),
-                """\
-20.80,-25.81,377.55,418.98,18.70
-20.09,-23.02,378.46,418.17,18.34
-19.42,-21.88,379.30,417.06,18.11
-18.70,-15.13,380.30,416.46,17.99
-18.34,-10.35,380.76,415.07,17.99
-18.11, -6.34,381.88,412.69,18.02
-17.99, -1.26,383.14,409.73,18.07
-""",
-            ),
-            (
-                PreviewRefParams([5], 0.033, 2, 5),
+                PreviewRefParams([5], 0.033, 7),
                 """\
 20.80,-25.81,377.55,418.98,17.99
 20.09,-23.02,378.46,418.17,18.02
@@ -111,8 +99,9 @@ class TestPreviewRef:
         ("params", "expected"),
         [
             (
-                PreviewRefParams([5], 0.033, 1, 0),
+                PreviewRefParams([5], 0.033, 1),
                 """\
+166.36,173.64
 169.07,170.93
 172.22,167.78
 175.92,164.08
@@ -121,39 +110,26 @@ class TestPreviewRef:
 187.50,152.50
 191.25,148.75
 194.99,145.01
-198.67,141.33
 """,
             ),
             (
-                PreviewRefParams([5], 0.033, 3, 0),
+                PreviewRefParams([5], 0.033, 3),
                 """\
-175.92,164.08
-179.60,160.40
-183.58,156.42
-187.50,152.50
-191.25,148.75
-194.99,145.01
-198.67,141.33
-""",
-            ),
-            (
-                PreviewRefParams([5], 0.033, 2, 1),
-                """\
+166.36,173.64
+169.07,170.93
 172.22,167.78
 175.92,164.08
 179.60,160.40
 183.58,156.42
 187.50,152.50
-191.25,148.75
-194.99,145.01
 """,
             ),
             (
-                PreviewRefParams([5], 0.033, 2, 5),
+                PreviewRefParams([5], 0.033, 7),
                 """\
+166.36,173.64
+169.07,170.93
 172.22,167.78
-175.92,164.08
-179.60,160.40
 """,
             ),
         ],
@@ -167,10 +143,9 @@ class TestPreviewRef:
     @pytest.mark.parametrize(
         "params",
         [
-            PreviewRefParams([5], 0.033, 1, 0),
-            PreviewRefParams([5], 0.033, 3, 0),
-            PreviewRefParams([5], 0.033, 2, 1),
-            PreviewRefParams([5], 0.033, 2, 5),
+            PreviewRefParams([5], 0.033, 1),
+            PreviewRefParams([5], 0.033, 3),
+            PreviewRefParams([5], 0.033, 7),
         ],
     )
     def test_make_model_input(self, params: PreviewRefParams) -> None:
@@ -195,10 +170,9 @@ class TestPreviewRef:
     @pytest.mark.parametrize(
         "params",
         [
-            PreviewRefParams([5], 0.033, 1, 0),
-            PreviewRefParams([5], 0.033, 3, 0),
-            PreviewRefParams([5], 0.033, 2, 1),
-            PreviewRefParams([5], 0.033, 2, 5),
+            PreviewRefParams([5], 0.033, 1),
+            PreviewRefParams([5], 0.033, 3),
+            PreviewRefParams([5], 0.033, 7),
         ],
     )
     def test_make_ctrl_input(self, params: PreviewRefParams) -> None:
