@@ -48,7 +48,7 @@ def toy_joint_data() -> Data:
 class TestPreviewRef:
     @pytest.fixture
     def default_adapter(self) -> PreviewRef:
-        return PreviewRef(PreviewRefParams(active_joints=[5], dt=0.033, preview_step=1))
+        return PreviewRef(PreviewRefParams(active_joints=[5], dt=0.033, preview_step=1, include_dqdes=False))
 
     @pytest.mark.parametrize(
         ("params", "expected"),

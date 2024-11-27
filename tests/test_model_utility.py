@@ -731,6 +731,7 @@ name = "preview-ref"
 params = "default"
 active_joints = [2, 3, 4, 5]
 dt = 0.033
+include_dqdes = false
 
 [model.adapter.preview-ref.default]
 preview_step = 5
@@ -749,6 +750,7 @@ delay_step = 8
 dt = 0.025
 ctrl_step = 2
 delay_step = 4
+include_dqdes = true
 """
 
 
@@ -772,7 +774,7 @@ def test_load_data_adapter_typical_config(data_adapter_config: dict) -> None:
         (
             "delay-states-all.non-default",
             None,
-            DelayStatesAll(DelayStatesAllParams([2, 3, 4, 5], dt=0.025, ctrl_step=2, delay_step=4)),
+            DelayStatesAll(DelayStatesAllParams([2, 3, 4, 5], dt=0.025, ctrl_step=2, delay_step=4, include_dqdes=True)),
         ),
         (
             "delay-states-all.default",
@@ -798,16 +800,23 @@ def test_load_data_adapter_config_modified_by_user(
     ("config", "expected"),
     [
         (
-            {"name": "preview-ref", "active_joints": [2, 3], "dt": 0.033, "preview_step": 1},
-            PreviewRef(PreviewRefParams([2, 3], 0.033, 1)),
+            {"name": "preview-ref", "active_joints": [2, 3], "dt": 0.033, "preview_step": 1, "include_dqdes": False},
+            PreviewRef(PreviewRefParams([2, 3], 0.033, 1, include_dqdes=False)),
         ),
         (
             {"name": "delay-states", "active_joints": [0, 1, 2], "dt": 0.033, "ctrl_step": 2, "delay_step": 0},
             DelayStates(DelayStatesParams([0, 1, 2], 0.033, 2, 0)),
         ),
         (
-            {"name": "delay-states-all", "active_joints": [5], "dt": 0.025, "ctrl_step": 1, "delay_step": 5},
-            DelayStatesAll(DelayStatesAllParams([5], 0.025, 1, 5)),
+            {
+                "name": "delay-states-all",
+                "active_joints": [5],
+                "dt": 0.025,
+                "ctrl_step": 1,
+                "delay_step": 5,
+                "include_dqdes": True,
+            },
+            DelayStatesAll(DelayStatesAllParams([5], 0.025, 1, 5, include_dqdes=True)),
         ),
         (
             {
@@ -827,16 +836,17 @@ def test_load_data_adapter_config_modified_by_user(
                 "preview-ref": {"default": {"preview_step": 2}},
                 "delay-states": {
                     "default": {"ctrl_step": 3},
-                    "good-params": {"dt": 0.25, "ctrl_step": 2, "delay_step": 10},
+                    "good-params": {"dt": 0.25, "ctrl_step": 2, "delay_step": 10, "include_dqdes": True},
                 },
             },
-            DelayStates(DelayStatesParams([2, 3, 4], 0.25, 2, 10)),
+            DelayStates(DelayStatesParams([2, 3, 4], 0.25, 2, 10, include_dqdes=True)),
         ),
         (
             {
                 "name": "delay-states-all",
                 "params": "good-params",
                 "active_joints": [],
+                "include_dqdes": True,
                 "preview-ref": {"default": {"preview_step": 2}},
                 "delay-states": {"default": {"ctrl_step": 3}, "good-params": {"ctrl_step": 2, "delay_step": 10}},
                 "delay-states-all": {
@@ -844,7 +854,7 @@ def test_load_data_adapter_config_modified_by_user(
                     "good-params": {"active_joints": [5], "dt": 0.01, "ctrl_step": 5, "delay_step": 15},
                 },
             },
-            DelayStatesAll(DelayStatesAllParams([5], 0.01, 5, 15)),
+            DelayStatesAll(DelayStatesAllParams([5], 0.01, 5, 15, include_dqdes=True)),
         ),
     ],
 )
@@ -862,7 +872,7 @@ def test_load_data_adapter(config: dict[str, object], expected: DataAdapterBase)
         (
             "delay-states-all.non-default",
             None,
-            DelayStatesAll(DelayStatesAllParams([2, 3, 4, 5], 0.025, ctrl_step=2, delay_step=4)),
+            DelayStatesAll(DelayStatesAllParams([2, 3, 4, 5], 0.025, ctrl_step=2, delay_step=4, include_dqdes=True)),
         ),
         (
             "delay-states-all.default",
@@ -1420,5 +1430,5 @@ if __name__ == "__main__":
     main()
 
 # Local Variables:
-# jinx-local-words: "Ctrl adam arg cb csv ctrl dataset datasets dq dt init iter maxabs minmax mlp nesterovs noqa params pb pred qdes quantile quntile regressor relu scaler sgd sklearn tanh tol" # noqa: E501
+# jinx-local-words: "Ctrl adam arg cb csv ctrl dataset datasets dq dqdes dt init iter maxabs minmax mlp nesterovs noqa params pb pred qdes quantile quntile regressor relu scaler sgd sklearn tanh tol" # noqa: E501
 # End:

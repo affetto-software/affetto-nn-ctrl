@@ -145,6 +145,7 @@ class PreviewRefParams(DataAdapterParamsBase):
     active_joints: list[int]
     dt: float
     preview_step: int
+    include_dqdes: bool = False
 
 
 class PreviewRef(DataAdapterBase[PreviewRefParams, DefaultStates, DefaultRefs, DefaultInputs]):
@@ -205,6 +206,7 @@ class DelayStatesParams(DataAdapterParamsBase):
     dt: float
     ctrl_step: int
     delay_step: int
+    include_dqdes: bool = False
 
 
 class DelayStates(DataAdapterBase[DelayStatesParams, DefaultStates, DefaultRefs, DefaultInputs]):
@@ -233,6 +235,7 @@ class DelayStatesAllParams(DataAdapterParamsBase):
     dt: float
     ctrl_step: int
     delay_step: int
+    include_dqdes: bool = False
 
 
 class DelayStatesAll(DataAdapterBase[DelayStatesAllParams, DefaultStates, DefaultRefs, DefaultInputs]):
