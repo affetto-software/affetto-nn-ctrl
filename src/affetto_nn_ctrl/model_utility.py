@@ -131,11 +131,21 @@ class DummyDataAdapter(DataAdapterBase[DataAdapterParamsBase, StatesBase, RefsBa
 dummy_data_adapter = DummyDataAdapter(DataAdapterParamsBase())
 
 
+def _get_keys(symbols: Iterable[str], active_joints: list[int], *, add_t: bool = False) -> list[str]:
+    keys: list[str] = []
+    if add_t:
+        keys.append("t")
+    for s in symbols:
+        keys.extend([f"{s}{i}" for i in active_joints])
+    return keys
+
+
 @dataclass
 class PreviewRefParams(DataAdapterParamsBase):
     active_joints: list[int]
-    ctrl_step: int = 1
-    preview_step: int = 0
+    dt: float
+    ctrl_step: int
+    preview_step: int
 
 
 class PreviewRef(DataAdapterBase[PreviewRefParams, DefaultStates, DefaultRefs, DefaultInputs]):
@@ -143,15 +153,22 @@ class PreviewRef(DataAdapterBase[PreviewRefParams, DefaultStates, DefaultRefs, D
         super().__init__(params)
 
     def make_feature(self, dataset: Data) -> np.ndarray:
+        states = extract_data(dataset, _get_keys(["q", "dq", "pa", "pb"], self.params.active_joints), -1)
+        reference = extract_data(
+            dataset,
+            _get_keys(["q"], self.params.active_joints),
+            1,
+            _get_keys(["qdes"], self.params.active_joints),
+        )
         raise NotImplementedError
 
     def make_target(self, dataset: Data) -> np.ndarray:
         raise NotImplementedError
 
-    def make_model_input(self, t: float, states: StatesBase, refs: RefsBase) -> np.ndarray:
+    def make_model_input(self, t: float, states: DefaultStates, refs: DefaultRefs) -> np.ndarray:
         raise NotImplementedError
 
-    def make_ctrl_input(self, y: np.ndarray, base_inputs: InputsBase) -> tuple[np.ndarray, ...]:
+    def make_ctrl_input(self, y: np.ndarray, base_inputs: DefaultInputs) -> tuple[np.ndarray, ...]:
         raise NotImplementedError
 
     def reset(self) -> None:
@@ -161,8 +178,9 @@ class PreviewRef(DataAdapterBase[PreviewRefParams, DefaultStates, DefaultRefs, D
 @dataclass
 class DelayStatesParams(DataAdapterParamsBase):
     active_joints: list[int]
-    ctrl_step: int = 1
-    delay_step: int = 0
+    dt: float
+    ctrl_step: int
+    delay_step: int
 
 
 class DelayStates(DataAdapterBase[DelayStatesParams, DefaultStates, DefaultRefs, DefaultInputs]):
@@ -175,10 +193,10 @@ class DelayStates(DataAdapterBase[DelayStatesParams, DefaultStates, DefaultRefs,
     def make_target(self, dataset: Data) -> np.ndarray:
         raise NotImplementedError
 
-    def make_model_input(self, t: float, states: StatesBase, refs: RefsBase) -> np.ndarray:
+    def make_model_input(self, t: float, states: DefaultStates, refs: DefaultRefs) -> np.ndarray:
         raise NotImplementedError
 
-    def make_ctrl_input(self, y: np.ndarray, base_inputs: InputsBase) -> tuple[np.ndarray, ...]:
+    def make_ctrl_input(self, y: np.ndarray, base_inputs: DefaultInputs) -> tuple[np.ndarray, ...]:
         raise NotImplementedError
 
     def reset(self) -> None:
@@ -188,8 +206,9 @@ class DelayStates(DataAdapterBase[DelayStatesParams, DefaultStates, DefaultRefs,
 @dataclass
 class DelayStatesAllParams(DataAdapterParamsBase):
     active_joints: list[int]
-    ctrl_step: int = 1
-    delay_step: int = 0
+    dt: float
+    ctrl_step: int
+    delay_step: int
 
 
 class DelayStatesAll(DataAdapterBase[DelayStatesAllParams, DefaultStates, DefaultRefs, DefaultInputs]):
@@ -202,10 +221,10 @@ class DelayStatesAll(DataAdapterBase[DelayStatesAllParams, DefaultStates, Defaul
     def make_target(self, dataset: Data) -> np.ndarray:
         raise NotImplementedError
 
-    def make_model_input(self, t: float, states: StatesBase, refs: RefsBase) -> np.ndarray:
+    def make_model_input(self, t: float, states: DefaultStates, refs: DefaultRefs) -> np.ndarray:
         raise NotImplementedError
 
-    def make_ctrl_input(self, y: np.ndarray, base_inputs: InputsBase) -> tuple[np.ndarray, ...]:
+    def make_ctrl_input(self, y: np.ndarray, base_inputs: DefaultInputs) -> tuple[np.ndarray, ...]:
         raise NotImplementedError
 
     def reset(self) -> None:
