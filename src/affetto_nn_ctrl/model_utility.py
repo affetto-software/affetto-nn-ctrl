@@ -69,7 +69,7 @@ class DefaultStates(StatesBase):
 
 class DefaultRefs(RefsBase):
     qdes: RefFuncType
-    dqdes: NotRequired[RefFuncType]
+    dqdes: RefFuncType
 
 
 class DefaultInputs(InputsBase):
@@ -159,11 +159,14 @@ class PreviewRef(DataAdapterBase[PreviewRefParams, DefaultStates, DefaultRefs, D
         joints = self.params.active_joints
         shift = self.params.preview_step
         states = extract_data(dataset, _get_keys(["q", "dq", "pa", "pb"], joints), end=-shift)
+        ref_keys: list[str] = ["q"]
+        if self.params.include_dqdes:
+            ref_keys.append("dq")
         reference = extract_data(
             dataset,
-            _get_keys(["q"], joints),
+            _get_keys(ref_keys, joints),
             start=shift,
-            keys_replace=_get_keys(["qdes"], joints),
+            keys_replace=_get_keys([f"{x}des" for x in ref_keys], joints),
         )
         feature_data = pd.concat((states, reference), axis=1)
         return feature_data.to_numpy()
@@ -182,7 +185,11 @@ class PreviewRef(DataAdapterBase[PreviewRefParams, DefaultStates, DefaultRefs, D
         pa = states["pa"][joints]
         pb = states["pb"][joints]
         qdes = refs["qdes"](t + preview_time)[joints]
-        model_input = np.concatenate((q, dq, pa, pb, qdes))  # concatenate feature vectors horizontally
+        if self.params.include_dqdes:
+            dqdes = refs["dqdes"](t + preview_time)[joints]
+            model_input = np.concatenate((q, dq, pa, pb, qdes, dqdes))
+        else:
+            model_input = np.concatenate((q, dq, pa, pb, qdes))  # concatenate feature vectors horizontally
         # Make matrix that has 1 row and n_features columns.
         return np.atleast_2d(model_input)
 
@@ -669,5 +676,5 @@ def control_position_or_model(
 
 
 # Local Variables:
-# jinx-local-words: "MLPRegressor Params arg cb csv dataset dq dqdes maxabs minmax mlp noqa npqa params pb qdes quantile rb regressor scaler" # noqa: E501
+# jinx-local-words: "MLPRegressor Params apdater arg cb csv dataset datasets des dq dqdes maxabs minmax mlp noqa npqa params pb qdes quantile rb regressor scaler" # noqa: E501
 # End:

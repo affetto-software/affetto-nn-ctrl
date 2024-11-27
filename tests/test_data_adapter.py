@@ -40,6 +40,22 @@ ALIGNED_TOY_JOINT_DATA_TXT = """\
 """
 
 
+ALIGNED_TOY_JOINT_DATA_TXT_5 = """\
+   t,   q5,   dq5,   pa5,   pb5,   ca5,   cb5
+4.00,20.80,-25.81,377.55,418.98,166.36,173.64
+4.03,20.09,-23.02,378.46,418.17,169.07,170.93
+4.07,19.42,-21.88,379.30,417.06,172.22,167.78
+4.10,18.70,-15.13,380.30,416.46,175.92,164.08
+4.13,18.34,-10.35,380.76,415.07,179.60,160.40
+4.17,18.11, -6.34,381.88,412.69,183.58,156.42
+4.20,17.99, -1.26,383.14,409.73,187.50,152.50
+4.23,17.99,  0.57,386.51,407.22,191.25,148.75
+4.27,18.02,  0.76,395.33,403.54,194.99,145.01
+4.30,18.07,  1.78,408.76,394.00,198.67,141.33
+
+"""
+
+
 @pytest.fixture(scope="session")
 def toy_joint_data() -> Data:
     return Data(StringIO(TOY_JOINT_DATA_TXT))
@@ -87,6 +103,19 @@ class TestPreviewRef:
 19.42,-21.88,379.30,417.06,18.07
 """,
             ),
+            (
+                PreviewRefParams([5], 0.033, 2, include_dqdes=True),
+                """\
+20.80,-25.81,377.55,418.98,19.42,-21.88
+20.09,-23.02,378.46,418.17,18.70,-15.13
+19.42,-21.88,379.30,417.06,18.34,-10.35
+18.70,-15.13,380.30,416.46,18.11, -6.34
+18.34,-10.35,380.76,415.07,17.99, -1.26
+18.11, -6.34,381.88,412.69,17.99,  0.57
+17.99, -1.26,383.14,409.73,18.02,  0.76
+17.99,  0.57,386.51,407.22,18.07,  1.78
+""",
+            ),
         ],
     )
     def test_make_feature(self, toy_joint_data: Data, params: PreviewRefParams, expected: str) -> None:
@@ -132,6 +161,19 @@ class TestPreviewRef:
 172.22,167.78
 """,
             ),
+            (
+                PreviewRefParams([5], 0.033, 2, include_dqdes=True),
+                """\
+166.36,173.64
+169.07,170.93
+172.22,167.78
+175.92,164.08
+179.60,160.40
+183.58,156.42
+187.50,152.50
+191.25,148.75
+""",
+            ),
         ],
     )
     def test_make_target(self, toy_joint_data: Data, params: PreviewRefParams, expected: str) -> None:
@@ -146,6 +188,7 @@ class TestPreviewRef:
             PreviewRefParams([5], 0.033, 1),
             PreviewRefParams([5], 0.033, 3),
             PreviewRefParams([5], 0.033, 7),
+            PreviewRefParams([5], 0.033, 2, include_dqdes=True),
         ],
     )
     def test_make_model_input(self, params: PreviewRefParams) -> None:
@@ -159,12 +202,18 @@ class TestPreviewRef:
         def qdes(t: float) -> np.ndarray:
             return q - t
 
+        def dqdes(t: float) -> np.ndarray:
+            return dq - t
+
         t = rng.uniform(4, 6)
         adapter = PreviewRef(params)
-        x = adapter.make_model_input(t, {"q": q, "dq": dq, "pa": pa, "pb": pb}, {"qdes": qdes})
+        x = adapter.make_model_input(t, {"q": q, "dq": dq, "pa": pa, "pb": pb}, {"qdes": qdes, "dqdes": dqdes})
         i = adapter.params.active_joints[0]
         offset = params.preview_step * params.dt
-        expected = np.array([[q[i], dq[i], pa[i], pb[i], qdes(t + offset)[i]]], dtype=float)
+        if params.include_dqdes:
+            expected = np.array([[q[i], dq[i], pa[i], pb[i], qdes(t + offset)[i], dqdes(t + offset)[i]]], dtype=float)
+        else:
+            expected = np.array([[q[i], dq[i], pa[i], pb[i], qdes(t + offset)[i]]], dtype=float)
         nt.assert_array_equal(x, expected)
 
     @pytest.mark.parametrize(
@@ -195,5 +244,5 @@ class TestPreviewRef:
 
 
 # Local Variables:
-# jinx-local-words: "cb ctrl dq params pb qdes"
+# jinx-local-words: "cb ctrl dq dqdes params pb qdes"
 # End:

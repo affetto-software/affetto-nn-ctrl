@@ -587,8 +587,11 @@ class TestJointDataAdapter:
         def qdes(t: float) -> np.ndarray:
             return q + t
 
+        def dqdes(t: float) -> np.ndarray:
+            return dq + t
+
         t = 4.0
-        x = adapter.make_model_input(t, {"q": q, "dq": dq, "pa": pa, "pb": pb}, {"qdes": qdes})
+        x = adapter.make_model_input(t, {"q": q, "dq": dq, "pa": pa, "pb": pb}, {"qdes": qdes, "dqdes": dqdes})
         expected = np.array([[5, 0.05, 305, 15, 9]], dtype=float)
         nt.assert_array_equal(x, expected)
 
