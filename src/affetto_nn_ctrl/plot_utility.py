@@ -57,7 +57,7 @@ def savefig(
             figpath = figpath.parent / e[1:] / figpath.name
             figpath.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(figpath, dpi=dpi, bbox_inches="tight")
-        msg = f"Figure saved: {figpath}\n"
+        msg = f"Figure saved: {figpath}"
         event_logger().info(msg)
 
 
