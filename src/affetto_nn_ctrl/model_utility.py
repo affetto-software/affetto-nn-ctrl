@@ -670,11 +670,14 @@ class CtrlAdapter(Generic[DataAdapterParamsType, StatesType, RefsType, InputsTyp
     ctrl: AffPosCtrl
     model: TrainedModel[DataAdapterParamsType, StatesType, RefsType, InputsType]
     _updater: CtrlAdapterUpdater
+    warmup_steps: int
+    _n_steps: int
 
     def __init__(
         self,
         ctrl: AffPosCtrl,
         model: TrainedModel[DataAdapterParamsType, StatesType, RefsType, InputsType] | None,
+        warmup_steps: int,
     ) -> None:
         self.ctrl = ctrl
         if model is None:
@@ -682,6 +685,8 @@ class CtrlAdapter(Generic[DataAdapterParamsType, StatesType, RefsType, InputsTyp
         else:
             self.model = model
             self._updater = self.update_model
+        self.warmup_steps = warmup_steps
+        self._n_steps = 0
 
     def update_ctrl(
         self,
@@ -718,7 +723,12 @@ class CtrlAdapter(Generic[DataAdapterParamsType, StatesType, RefsType, InputsTyp
         qdes: RefFuncType,
         dqdes: RefFuncType,
     ) -> tuple[np.ndarray, np.ndarray]:
-        return self._updater(t, q, dq, pa, pb, qdes, dqdes)
+        if self._n_steps < self.warmup_steps:
+            ca, cb = self.ctrl.update(t, q, dq, pa, pb, qdes(t), dqdes(t))
+        else:
+            ca, cb = self._updater(t, q, dq, pa, pb, qdes, dqdes)
+        self._n_steps += 1
+        return ca, cb
 
 
 class DefaultCtrlAdapter(CtrlAdapter[DataAdapterParamsType, DefaultStates, DefaultRefs, DefaultInputs]):
@@ -726,8 +736,9 @@ class DefaultCtrlAdapter(CtrlAdapter[DataAdapterParamsType, DefaultStates, Defau
         self,
         ctrl: AffPosCtrl,
         model: TrainedModel[DataAdapterParamsType, DefaultStates, DefaultRefs, DefaultInputs] | None,
+        warmup_steps: int,
     ) -> None:
-        super().__init__(ctrl, model)
+        super().__init__(ctrl, model, warmup_steps)
 
     def update_model(
         self,
@@ -762,12 +773,13 @@ def control_position_or_model(
     duration: float,
     logger: Logger | None = None,
     log_filename: str | Path | None = None,
-    time_updater: str = "elapsed",
+    time_updater: str = "accumulated",
     header_text: str = "",
+    warmup_steps: int = 0,
 ) -> tuple[np.ndarray, np.ndarray]:
     reset_logger(logger, log_filename)
     comm, ctrl, state = controller
-    ctrl_adapter = DefaultCtrlAdapter(ctrl, model)
+    ctrl_adapter = DefaultCtrlAdapter(ctrl, model, warmup_steps)
     ca, cb = np.zeros(ctrl.dof, dtype=float), np.zeros(ctrl.dof, dtype=float)
     timer = Timer(rate=ctrl.freq)
     current_time = select_time_updater(timer, time_updater)
