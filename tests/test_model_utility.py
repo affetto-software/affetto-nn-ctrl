@@ -737,6 +737,7 @@ dt = 0.033
 include_dqdes = false
 
 [model.adapter.preview-ref.default]
+ctrl_step = 1
 preview_step = 5
 
 [model.adapter.delay-states.default]
@@ -765,7 +766,7 @@ def data_adapter_config() -> dict:
 def test_load_data_adapter_typical_config(data_adapter_config: dict) -> None:
     config = data_adapter_config["model"]["adapter"]
     actual = load_data_adapter(config)
-    expected = PreviewRef(PreviewRefParams([2, 3, 4, 5], dt=0.033, preview_step=5))
+    expected = PreviewRef(PreviewRefParams([2, 3, 4, 5], dt=0.033, ctrl_step=1, preview_step=5))
     assert type(actual) is type(expected)
     assert actual.params == expected.params
 
@@ -803,8 +804,15 @@ def test_load_data_adapter_config_modified_by_user(
     ("config", "expected"),
     [
         (
-            {"name": "preview-ref", "active_joints": [2, 3], "dt": 0.033, "preview_step": 1, "include_dqdes": False},
-            PreviewRef(PreviewRefParams([2, 3], 0.033, 1, include_dqdes=False)),
+            {
+                "name": "preview-ref",
+                "active_joints": [2, 3],
+                "dt": 0.033,
+                "ctrl_step": 1,
+                "preview_step": 1,
+                "include_dqdes": False,
+            },
+            PreviewRef(PreviewRefParams([2, 3], 0.033, 1, 1, include_dqdes=False)),
         ),
         (
             {"name": "delay-states", "active_joints": [0, 1, 2], "dt": 0.033, "ctrl_step": 2, "delay_step": 0},
@@ -827,16 +835,16 @@ def test_load_data_adapter_config_modified_by_user(
                 "params": "default",
                 "active_joints": [1, 3],
                 "dt": 0.02,
-                "preview-ref": {"default": {"preview_step": 3}},
+                "preview-ref": {"default": {"ctrl_step": 1, "preview_step": 3}},
             },
-            PreviewRef(PreviewRefParams([1, 3], 0.02, 3)),
+            PreviewRef(PreviewRefParams([1, 3], 0.02, 1, 3)),
         ),
         (
             {
                 "name": "delay-states",
                 "params": "good-params",
                 "active_joints": [2, 3, 4],
-                "preview-ref": {"default": {"preview_step": 2}},
+                "preview-ref": {"default": {"ctrl_step": 1, "preview_step": 2}},
                 "delay-states": {
                     "default": {"ctrl_step": 3},
                     "good-params": {"dt": 0.25, "ctrl_step": 2, "delay_step": 10, "include_dqdes": True},
@@ -850,7 +858,7 @@ def test_load_data_adapter_config_modified_by_user(
                 "params": "good-params",
                 "active_joints": [],
                 "include_dqdes": True,
-                "preview-ref": {"default": {"preview_step": 2}},
+                "preview-ref": {"default": {"ctrl_step": 1, "preview_step": 2}},
                 "delay-states": {"default": {"ctrl_step": 3}, "good-params": {"ctrl_step": 2, "delay_step": 10}},
                 "delay-states-all": {
                     "default": {"ctrl_step": 4},
@@ -904,7 +912,7 @@ def test_load_data_adapter_with_selector(
             "name": "unknown_adapter",
             "params": "default",
             "active_joints": [1, 3],
-            "preview-ref": {"default": {"preview_step": 3}},
+            "preview-ref": {"default": {"ctrl_step": 1, "preview_step": 3}},
         },
     ],
 )
@@ -921,7 +929,7 @@ def test_load_data_adapter_error_unknown_name(config: dict[str, object]) -> None
             "name": "delay-states",
             "params": "unknown-params",
             "active_joints": [2, 3, 4],
-            "preview-ref": {"default": {"preview_step": 2}},
+            "preview-ref": {"default": {"ctrl_step": 1, "preview_step": 2}},
             "delay-states": {"default": {"ctrl_step": 3}, "good-params": {"ctrl_step": 2, "delay_step": 10}},
         },
     ],
@@ -939,7 +947,7 @@ def test_load_data_adapter_error_unknown_params_set(config: dict[str, object]) -
         {
             "params": "default",
             "active_joints": [1, 3],
-            "preview-ref": {"default": {"preview_step": 3}},
+            "preview-ref": {"default": {"ctrl_step": 1, "preview_step": 3}},
         },
     ],
 )

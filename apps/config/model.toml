@@ -5,26 +5,23 @@ name = "preview-ref"
 params = "default"
 active_joints = [2, 3, 4, 5]
 dt = 0.03333333333
+include_dqdes = false
 
 [model.adapter.preview-ref.default]
-[model.adapter.delay-states.default]
-[model.adapter.delay-states-all.default]
-
-[model.adapter.preview-ref.option-list]
 ctrl_step = 1
 preview_step = 5
+
+[model.adapter.delay-states.default]
+ctrl_step = 1
+delay_step = 5
+
+[model.adapter.delay-states-all.default]
+ctrl_step = 1
+delay_step = 5
 
 [model.adapter.preview-ref.testing]
 ctrl_step = 1
 preview_step = 0
-
-[model.adapter.delay-states.option-list]
-ctrl_step = 1
-delay_step = 5
-
-[model.adapter.delay-states-all.option-list]
-ctrl_step = 1
-delay_step = 5
 
 [model.scaler]
 name = "std"
@@ -100,6 +97,6 @@ n_iter_no_change = 10
 
 
 # Local Variables:
-# jinx-local-words: "adam cholesky ctrl dt init invscaling iter lbfgs lsqr maxabs minmax mlp nesterovs params preprocessing quantile regressor relu scaler sgd svd tanh tol"
+# jinx-local-words: "adam cholesky ctrl dqdes dt init invscaling iter lbfgs lsqr maxabs minmax mlp nesterovs params preprocessing quantile regressor relu scaler sgd svd tanh tol"
 # fill-column: 120
 # End:

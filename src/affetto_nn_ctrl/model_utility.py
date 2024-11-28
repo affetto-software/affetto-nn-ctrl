@@ -145,6 +145,7 @@ def _get_keys(symbols: Iterable[str], active_joints: list[int], *, add_t: bool =
 class PreviewRefParams(DataAdapterParamsBase):
     active_joints: list[int]
     dt: float
+    ctrl_step: int
     preview_step: int
     include_dqdes: bool = False
 
@@ -152,13 +153,19 @@ class PreviewRefParams(DataAdapterParamsBase):
 class PreviewRef(DataAdapterBase[PreviewRefParams, DefaultStates, DefaultRefs, DefaultInputs]):
     def __init__(self, params: PreviewRefParams) -> None:
         super().__init__(params)
-        if params.preview_step < 1:
-            msg = f"PreviewRefParams.preview_step must be larger than or equal to 1: {params.preview_step}"
+        if params.ctrl_step < 1:
+            msg = f"DelayStatesParams.ctrl_step must be larger than or equal to 1: {params.ctrl_step}"
             raise ValueError(msg)
+        if params.preview_step < 0:
+            msg = f"DelayStatesParams.delay_step must be larger than or equal to 0: {params.preview_step}"
+            raise ValueError(msg)
+        self.reset()
 
     def make_feature(self, dataset: Data) -> np.ndarray:
         joints = self.params.active_joints
-        shift = self.params.preview_step
+        ctrl_step = self.params.ctrl_step
+        preview_step = self.params.preview_step
+        shift = ctrl_step + preview_step
         states = extract_data(dataset, _get_keys(["q", "dq", "pa", "pb"], joints), end=-shift)
         ref_keys: list[str] = ["q"]
         if self.params.include_dqdes:
@@ -174,7 +181,9 @@ class PreviewRef(DataAdapterBase[PreviewRefParams, DefaultStates, DefaultRefs, D
 
     def make_target(self, dataset: Data) -> np.ndarray:
         joints = self.params.active_joints
-        shift = self.params.preview_step
+        ctrl_step = self.params.ctrl_step
+        preview_step = self.params.preview_step
+        shift = ctrl_step + preview_step
         ctrl_input = extract_data(dataset, _get_keys(["ca", "cb"], joints), end=-shift)
         return ctrl_input.to_numpy()
 
