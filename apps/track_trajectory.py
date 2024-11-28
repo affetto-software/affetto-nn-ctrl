@@ -130,6 +130,9 @@ def run(
     model: DefaultTrainedModelType | None = None
     if model_filepath is not None:
         model = load_trained_model(model_filepath)
+        event_logger().info("Trained model is loaded: %s", model_filepath)
+    else:
+        event_logger().info("No model is loaded, PID control is used.")
 
     # Perform trajectory tracking.
     for i in range(n_repeat):
