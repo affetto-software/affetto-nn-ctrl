@@ -310,22 +310,73 @@ class DelayStatesAll(DataAdapterBase[DelayStatesAllParams, DefaultStates, Defaul
             msg = f"DelayStatesParams.delay_step must be larger than or equal to 0: {params.delay_step}"
             raise ValueError(msg)
         n_states = len(params.active_joints) * len(["q", "dq", "pa", "pb"])
-        self.states_queue = deque([np.zeros(shape=n_states, dtype=float)] * params.delay_step)
+        self.states_queue = [np.zeros(shape=n_states, dtype=float)] * params.delay_step
 
     def make_feature(self, dataset: Data) -> np.ndarray:
-        raise NotImplementedError
+        joints = self.params.active_joints
+        ctrl_step = self.params.ctrl_step
+        delay_step = self.params.delay_step
+        shift = ctrl_step + delay_step
+
+        states_keys = _get_keys(["q", "dq", "pa", "pb"], joints)
+        refs: list[str] = ["q"]
+        if self.params.include_dqdes:
+            refs.append("dq")
+        ref_keys = _get_keys(refs, joints)
+
+        states = extract_data(dataset, states_keys, start=delay_step, end=-ctrl_step)
+        for i in range(1, delay_step + 1):
+            start = delay_step - i
+            end = ctrl_step + i
+            delayed_states = extract_data(dataset, states_keys, start=start, end=-end)
+            states = pd.concat((delayed_states, states), axis=1)
+        reference = extract_data(
+            dataset,
+            ref_keys,
+            start=shift,
+            keys_replace=_get_keys([f"{x}des" for x in refs], joints),
+        )
+        feature_data = pd.concat((states, reference), axis=1)
+        return feature_data.to_numpy()
 
     def make_target(self, dataset: Data) -> np.ndarray:
-        raise NotImplementedError
+        joints = self.params.active_joints
+        ctrl_step = self.params.ctrl_step
+        delay_step = self.params.delay_step
+        ctrl_input = extract_data(dataset, _get_keys(["ca", "cb"], joints), start=delay_step, end=-ctrl_step)
+        return ctrl_input.to_numpy()
 
     def make_model_input(self, t: float, states: DefaultStates, refs: DefaultRefs) -> np.ndarray:
-        raise NotImplementedError
+        joints = self.params.active_joints
+        q = states["q"][joints]
+        dq = states["dq"][joints]
+        pa = states["pa"][joints]
+        pb = states["pb"][joints]
+        current_states = np.concatenate((q, dq, pa, pb))
+        self.states_queue.append(current_states)
+        concat_states = np.ravel(self.states_queue)
+        self.states_queue.pop(0)
+
+        qdes = refs["qdes"](t)[joints]
+        if self.params.include_dqdes:
+            dqdes = refs["dqdes"](t)[joints]
+            model_input = np.concatenate((concat_states, qdes, dqdes))
+        else:
+            model_input = np.concatenate((concat_states, qdes))
+        return np.atleast_2d(model_input)
 
     def make_ctrl_input(self, y: np.ndarray, base_inputs: DefaultInputs) -> tuple[np.ndarray, ...]:
-        raise NotImplementedError
+        # `y` has has 1 row and n_targets columns.
+        joints = self.params.active_joints
+        y = np.ravel(y)
+        ca, cb = base_inputs["ca"], base_inputs["cb"]
+        n = len(joints)
+        ca[joints] = y[:n]
+        cb[joints] = y[n:]
+        return ca, cb
 
     def reset(self) -> None:
-        raise NotImplementedError
+        pass
 
 
 class Scaler(Protocol):
