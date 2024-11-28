@@ -226,8 +226,7 @@ class DelayStates(DataAdapterBase[DelayStatesParams, DefaultStates, DefaultRefs,
         if params.delay_step < 0:
             msg = f"DelayStatesParams.delay_step must be larger than or equal to 0: {params.delay_step}"
             raise ValueError(msg)
-        n_states = len(params.active_joints) * len(["q", "dq", "pa", "pb"])
-        self.states_queue = deque([np.zeros(shape=n_states, dtype=float)] * params.delay_step)
+        self.reset()
 
     def make_feature(self, dataset: Data) -> np.ndarray:
         joints = self.params.active_joints
@@ -288,7 +287,8 @@ class DelayStates(DataAdapterBase[DelayStatesParams, DefaultStates, DefaultRefs,
         return ca, cb
 
     def reset(self) -> None:
-        pass
+        n_states = len(self.params.active_joints) * len(["q", "dq", "pa", "pb"])
+        self.states_queue = deque([np.zeros(shape=n_states, dtype=float)] * self.params.delay_step)
 
 
 @dataclass
@@ -309,8 +309,7 @@ class DelayStatesAll(DataAdapterBase[DelayStatesAllParams, DefaultStates, Defaul
         if params.delay_step < 0:
             msg = f"DelayStatesParams.delay_step must be larger than or equal to 0: {params.delay_step}"
             raise ValueError(msg)
-        n_states = len(params.active_joints) * len(["q", "dq", "pa", "pb"])
-        self.states_queue = [np.zeros(shape=n_states, dtype=float)] * params.delay_step
+        self.reset()
 
     def make_feature(self, dataset: Data) -> np.ndarray:
         joints = self.params.active_joints
@@ -376,7 +375,8 @@ class DelayStatesAll(DataAdapterBase[DelayStatesAllParams, DefaultStates, Defaul
         return ca, cb
 
     def reset(self) -> None:
-        pass
+        n_states = len(self.params.active_joints) * len(["q", "dq", "pa", "pb"])
+        self.states_queue = [np.zeros(shape=n_states, dtype=float)] * self.params.delay_step
 
 
 class Scaler(Protocol):
