@@ -54,7 +54,7 @@ def run(
     config_dict = load_model_config_file(model_config)
     event_logger().debug("Model config file loaded: %s", model_config)
 
-    # Create a data apdater.
+    # Create a data adapter.
     event_logger().debug("Loading datasets with following condition:")
     event_logger().debug("     Path list: %s", dataset_paths)
     event_logger().debug("  glob pattern: %s", glob_pattern)
@@ -107,8 +107,7 @@ def parse() -> argparse.Namespace:
     parser.add_argument(
         "datasets",
         nargs="+",
-        help="Path to file or directory in which trained model is encoded. "
-        "If no model is provided, PID controller is used.",
+        help="Path to files or directories which contain data sets used for training the model.",
     )
     parser.add_argument(
         "-g",
@@ -148,18 +147,18 @@ def parse() -> argparse.Namespace:
     parser.add_argument(
         "-o",
         "--output",
-        help="Output directory where performed tracking data files are stored.",
+        help="Output directory where the trained model is stored.",
     )
     parser.add_argument(
         "--output-prefix",
         default="trained_model",
-        help="Filename prefix that will be added to trained model.",
+        help="Filename prefix that will be added to the trained model.",
     )
     parser.add_argument(
         "--overwrite",
         action=argparse.BooleanOptionalAction,
         default=False,
-        help="Boolean. If True, restart counter of generated data files and overwrite existing data files.",
+        help="Boolean. If True, restart counter of generated data files and overwrite existing files.",
     )
     parser.add_argument(
         "--label",
@@ -245,5 +244,5 @@ if __name__ == "__main__":
     main()
 
 # Local Variables:
-# jinx-local-words: "apdater csv dataset datasets dir env joblib regressor scaler sublabel symlink usr vv"
+# jinx-local-words: "csv dataset datasets dir env joblib regressor scaler sublabel symlink usr vv"
 # End:
