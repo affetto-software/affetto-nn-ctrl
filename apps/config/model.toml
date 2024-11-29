@@ -7,6 +7,10 @@ active_joints = [2, 3, 4, 5]
 dt = 0.03333333333
 include_dqdes = false
 
+[model.adapter.preview-ref.testing]
+ctrl_step = 1
+preview_step = 10
+
 [model.adapter.preview-ref.default]
 ctrl_step = 1
 preview_step = 5
@@ -18,10 +22,6 @@ delay_step = 5
 [model.adapter.delay-states-all.default]
 ctrl_step = 1
 delay_step = 5
-
-[model.adapter.preview-ref.testing]
-ctrl_step = 1
-preview_step = 0
 
 [model.scaler]
 name = "std"
