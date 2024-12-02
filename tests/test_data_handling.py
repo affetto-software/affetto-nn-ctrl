@@ -763,6 +763,27 @@ def test_build_data_file_path_when_ext_is_zero_make_directory(output_dir_path: P
                 [],
             ),
         ),
+        (
+            "dummy_datasets_01",
+            None,
+            1.0,
+            "*.csv",
+            (
+                [
+                    "dummy_data_007.csv",
+                    "dummy_data_004.csv",
+                    "dummy_data_000.csv",
+                    "dummy_data_002.csv",
+                    "dummy_data_001.csv",
+                    "dummy_data_005.csv",
+                    "dummy_data_006.csv",
+                    "dummy_data_008.csv",
+                    "dummy_data_003.csv",
+                    "dummy_data_009.csv",
+                ],
+                [],
+            ),
+        ),
     ],
 )
 def test_train_test_split_files_ratio(
@@ -909,6 +930,28 @@ def test_train_test_split_files_ratio(
                     "dummy_data_009.csv",
                 ],
                 [],
+            ),
+        ),
+        (
+            "dummy_datasets_01",
+            None,
+            1,
+            "*.csv",
+            (
+                [
+                    "dummy_data_009.csv",
+                ],
+                [
+                    "dummy_data_007.csv",
+                    "dummy_data_004.csv",
+                    "dummy_data_000.csv",
+                    "dummy_data_002.csv",
+                    "dummy_data_001.csv",
+                    "dummy_data_005.csv",
+                    "dummy_data_006.csv",
+                    "dummy_data_008.csv",
+                    "dummy_data_003.csv",
+                ],
             ),
         ),
     ],
@@ -1268,6 +1311,71 @@ def test_train_test_split_files_shuffle(
     )
     assert train == [Path(TESTS_DATA_DIR_PATH / x) for x in expected[0]]
     assert test == [Path(TESTS_DATA_DIR_PATH / x) for x in expected[1]]
+
+
+@pytest.mark.parametrize(
+    ("dataset_paths", "sizes", "glob_pattern", "seed", "split_in_each_directory", "shuffle"),
+    [
+        (
+            ["dummy_datasets_01", "dummy_datasets_02"],
+            [(0.3, None), (None, 0.7), (0.3, 0.7)],
+            "*.csv",
+            123,
+            False,
+            True,
+        ),
+        (
+            ["dummy_datasets_01", "dummy_datasets_02"],
+            [(0.3, None), (None, 0.7), (0.3, 0.7)],
+            "*.csv",
+            42,
+            True,
+            True,
+        ),
+        (
+            ["dummy_datasets_01", "dummy_datasets_02"],
+            [(0.3, None), (None, 0.7), (0.3, 0.7)],
+            "*.csv",
+            12345,
+            True,
+            False,
+        ),
+        (
+            ["dummy_datasets_01", "dummy_datasets_02"],
+            [(0.3, None), (None, 0.7), (0.3, 0.7)],
+            "*.csv",
+            123456,
+            False,
+            False,
+        ),
+    ],
+)
+def test_train_test_split_files_consistent(
+    dataset_paths: list[str],
+    sizes: list[tuple[float | None, float | None]],
+    glob_pattern: str,
+    seed: int,
+    *,
+    split_in_each_directory: bool,
+    shuffle: bool,
+) -> None:
+    dirpaths = [TESTS_DATA_DIR_PATH / x for x in dataset_paths]
+    train, test = None, None
+    for test_size, train_size in sizes:
+        _train, _test = train_test_split_files(
+            dirpaths,
+            test_size,
+            train_size,
+            glob_pattern,
+            seed,
+            shuffle=shuffle,
+            split_in_each_directory=split_in_each_directory,
+        )
+        if train is not None and test is not None:
+            assert _train == train
+            assert _test == test
+        train = _train
+        test = _test
 
 
 # Local Variables:
