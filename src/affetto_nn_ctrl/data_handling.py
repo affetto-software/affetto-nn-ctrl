@@ -11,10 +11,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from affetto_nn_ctrl import APPS_DIR_PATH, DEFAULT_BASE_DIR_PATH
+from affetto_nn_ctrl._typing import NoDefault, no_default
 from affetto_nn_ctrl.event_logging import event_logger
+from affetto_nn_ctrl.random_utility import get_rng
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterable, Iterator
+
+    from numpy.random import Generator
 
 
 def get_default_base_dir(base_dir_config: Path | None = None) -> Path:
@@ -210,6 +214,118 @@ def build_data_file_path(
     return built_path
 
 
+def _collect_dataset_files(
+    dataset_paths: str | Path | Iterable[str | Path],
+    glob_pattern: str,
+    *,
+    split_in_each_directory: bool = True,
+) -> list[list[Path]]:
+    if isinstance(dataset_paths, str | Path):
+        dataset_paths = [dataset_paths]
+
+    collection: list[list[Path]] = []
+    if split_in_each_directory:
+        for data_file_or_directory in dataset_paths:
+            path = Path(data_file_or_directory)
+            if not path.exists():
+                raise FileNotFoundError(path)
+            if path.is_dir():
+                collection.append(sorted(path.glob(glob_pattern)))
+            else:
+                msg = "`split_in_each_directory` must be False when a file is contained"
+                raise ValueError(msg)
+    else:
+        _collection: list[Path] = []
+        for data_file_or_directory in dataset_paths:
+            path = Path(data_file_or_directory)
+            if not path.exists():
+                raise FileNotFoundError(path)
+            if path.is_dir():
+                _collection.extend(sorted(path.glob(glob_pattern)))
+            else:
+                _collection.append(path)
+        collection.append(_collection)
+    return collection
+
+
+def _train_test_size(test_size: float | None, train_size: float | None, n_total: int) -> tuple[int, int]:
+    if test_size is None:
+        if train_size is None:
+            n_test = int(n_total * 0.25)
+        elif isinstance(train_size, int):
+            n_test = n_total - train_size
+        else:
+            n_test = n_total - int(n_total * train_size)
+    elif isinstance(test_size, int):
+        n_test = test_size
+    else:
+        n_test = int(n_total * test_size)
+
+    if train_size is None:
+        n_train = n_total - n_test
+    elif isinstance(train_size, int):
+        n_train = train_size
+    else:
+        n_train = int(n_total * train_size)
+
+    if n_test < 0 or n_train < 0 or n_test + n_train > n_total:
+        msg = "Train-test split cannot be done because test/train size exceeds total: "
+        msg += f"{test_size}:{train_size}"
+        raise ValueError(msg)
+    return n_test, n_train
+
+
+def _train_test_split_files(
+    dataset_files: list[Path],
+    test_size: float | None,
+    train_size: float | None,
+    rng: Generator,
+    *,
+    shuffle: bool,
+) -> tuple[list[Path], list[Path]]:
+    n_total = len(dataset_files)
+    n_test, n_train = _train_test_size(test_size, train_size, n_total)
+    permutated_indices = rng.permutation(n_total)
+    test_indices = list(permutated_indices[:n_test])
+    train_indices = list(permutated_indices[n_test : n_test + n_train])
+    if not shuffle:
+        test_indices = sorted(test_indices)
+        train_indices = sorted(train_indices)
+    return [dataset_files[x] for x in test_indices], [dataset_files[x] for x in train_indices]
+
+
+def train_test_split_files(
+    dataset_paths: str | Path | Iterable[str | Path],
+    test_size: float | None = None,
+    train_size: float | None = None,
+    glob_pattern: str = "**/*.csv",
+    seed: int | Generator | NoDefault | None = no_default,
+    *,
+    shuffle: bool = True,
+    split_in_each_directory: bool = False,
+) -> tuple[list[Path], list[Path]]:
+    rng = get_rng(seed)
+
+    collected_dataset_files = _collect_dataset_files(
+        dataset_paths,
+        glob_pattern,
+        split_in_each_directory=split_in_each_directory,
+    )
+    test_dataset_files: list[Path] = []
+    train_dataset_files: list[Path] = []
+    for dataset_files in collected_dataset_files:
+        _test_dataset_files, _train_dataset_files = _train_test_split_files(
+            dataset_files,
+            test_size,
+            train_size,
+            rng,
+            shuffle=shuffle,
+        )
+        test_dataset_files.extend(_test_dataset_files)
+        train_dataset_files.extend(_train_dataset_files)
+    return train_dataset_files, test_dataset_files
+
+
 # Local Variables:
-# jinx-local-words: "dT dir noqa sublabel symlink"
+# jinx-local-words: "csv dT dir noqa sublabel symlink"
 # End:

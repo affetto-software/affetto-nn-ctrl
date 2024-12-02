@@ -19,7 +19,9 @@ from affetto_nn_ctrl.data_handling import (
     get_default_counter,
     prepare_data_dir_path,
     split_data_dir_path_by_date,
+    train_test_split_files,
 )
+from tests import TESTS_DATA_DIR_PATH
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -629,6 +631,645 @@ def test_build_data_file_path_when_ext_is_zero_make_directory(output_dir_path: P
     assert path == expected
 
 
+@pytest.mark.parametrize(
+    ("dataset_path", "test_size", "train_size", "glob_pattern", "expected"),
+    [
+        (
+            "dummy_datasets_01",
+            None,
+            None,
+            "*.csv",
+            (
+                [
+                    "dummy_data_000.csv",
+                    "dummy_data_002.csv",
+                    "dummy_data_001.csv",
+                    "dummy_data_005.csv",
+                    "dummy_data_006.csv",
+                    "dummy_data_008.csv",
+                    "dummy_data_003.csv",
+                    "dummy_data_009.csv",
+                ],
+                [
+                    "dummy_data_007.csv",
+                    "dummy_data_004.csv",
+                ],
+            ),
+        ),
+        (
+            "dummy_datasets_01",
+            0.33,
+            None,
+            "*.csv",
+            (
+                [
+                    "dummy_data_002.csv",
+                    "dummy_data_001.csv",
+                    "dummy_data_005.csv",
+                    "dummy_data_006.csv",
+                    "dummy_data_008.csv",
+                    "dummy_data_003.csv",
+                    "dummy_data_009.csv",
+                ],
+                [
+                    "dummy_data_007.csv",
+                    "dummy_data_004.csv",
+                    "dummy_data_000.csv",
+                ],
+            ),
+        ),
+        (
+            "dummy_datasets_01",
+            None,
+            0.9,
+            "*.csv",
+            (
+                [
+                    "dummy_data_004.csv",
+                    "dummy_data_000.csv",
+                    "dummy_data_002.csv",
+                    "dummy_data_001.csv",
+                    "dummy_data_005.csv",
+                    "dummy_data_006.csv",
+                    "dummy_data_008.csv",
+                    "dummy_data_003.csv",
+                    "dummy_data_009.csv",
+                ],
+                [
+                    "dummy_data_007.csv",
+                ],
+            ),
+        ),
+        (
+            "dummy_datasets_01",
+            0.4,
+            0.6,
+            "*.csv",
+            (
+                [
+                    "dummy_data_001.csv",
+                    "dummy_data_005.csv",
+                    "dummy_data_006.csv",
+                    "dummy_data_008.csv",
+                    "dummy_data_003.csv",
+                    "dummy_data_009.csv",
+                ],
+                [
+                    "dummy_data_007.csv",
+                    "dummy_data_004.csv",
+                    "dummy_data_000.csv",
+                    "dummy_data_002.csv",
+                ],
+            ),
+        ),
+        (
+            "dummy_datasets_01",
+            0.3,
+            0.5,
+            "*.csv",
+            (
+                [
+                    "dummy_data_002.csv",
+                    "dummy_data_001.csv",
+                    "dummy_data_005.csv",
+                    "dummy_data_006.csv",
+                    "dummy_data_008.csv",
+                ],
+                [
+                    "dummy_data_007.csv",
+                    "dummy_data_004.csv",
+                    "dummy_data_000.csv",
+                ],
+            ),
+        ),
+        (
+            "dummy_datasets_01",
+            0.0,
+            None,
+            "*.csv",
+            (
+                [
+                    "dummy_data_007.csv",
+                    "dummy_data_004.csv",
+                    "dummy_data_000.csv",
+                    "dummy_data_002.csv",
+                    "dummy_data_001.csv",
+                    "dummy_data_005.csv",
+                    "dummy_data_006.csv",
+                    "dummy_data_008.csv",
+                    "dummy_data_003.csv",
+                    "dummy_data_009.csv",
+                ],
+                [],
+            ),
+        ),
+    ],
+)
+def test_train_test_split_files_ratio(
+    dataset_path: str,
+    test_size: float | None,
+    train_size: float | None,
+    glob_pattern: str,
+    expected: tuple[list[str], list[str]],
+) -> None:
+    seed = 123
+    dirpath = TESTS_DATA_DIR_PATH / dataset_path
+    train, test = train_test_split_files(dirpath, test_size, train_size, glob_pattern, seed)
+    assert train == [Path(dirpath / x) for x in expected[0]]
+    assert test == [Path(dirpath / x) for x in expected[1]]
+
+
+@pytest.mark.parametrize(
+    ("dataset_path", "test_size", "train_size", "glob_pattern", "expected"),
+    [
+        (
+            "dummy_datasets_01",
+            None,
+            None,
+            "*.csv",
+            (
+                [
+                    "dummy_data_000.csv",
+                    "dummy_data_002.csv",
+                    "dummy_data_001.csv",
+                    "dummy_data_005.csv",
+                    "dummy_data_006.csv",
+                    "dummy_data_008.csv",
+                    "dummy_data_003.csv",
+                    "dummy_data_009.csv",
+                ],
+                [
+                    "dummy_data_007.csv",
+                    "dummy_data_004.csv",
+                ],
+            ),
+        ),
+        (
+            "dummy_datasets_01",
+            3,
+            None,
+            "*.csv",
+            (
+                [
+                    "dummy_data_002.csv",
+                    "dummy_data_001.csv",
+                    "dummy_data_005.csv",
+                    "dummy_data_006.csv",
+                    "dummy_data_008.csv",
+                    "dummy_data_003.csv",
+                    "dummy_data_009.csv",
+                ],
+                [
+                    "dummy_data_007.csv",
+                    "dummy_data_004.csv",
+                    "dummy_data_000.csv",
+                ],
+            ),
+        ),
+        (
+            "dummy_datasets_01",
+            None,
+            9,
+            "*.csv",
+            (
+                [
+                    "dummy_data_004.csv",
+                    "dummy_data_000.csv",
+                    "dummy_data_002.csv",
+                    "dummy_data_001.csv",
+                    "dummy_data_005.csv",
+                    "dummy_data_006.csv",
+                    "dummy_data_008.csv",
+                    "dummy_data_003.csv",
+                    "dummy_data_009.csv",
+                ],
+                [
+                    "dummy_data_007.csv",
+                ],
+            ),
+        ),
+        (
+            "dummy_datasets_01",
+            4,
+            6,
+            "*.csv",
+            (
+                [
+                    "dummy_data_001.csv",
+                    "dummy_data_005.csv",
+                    "dummy_data_006.csv",
+                    "dummy_data_008.csv",
+                    "dummy_data_003.csv",
+                    "dummy_data_009.csv",
+                ],
+                [
+                    "dummy_data_007.csv",
+                    "dummy_data_004.csv",
+                    "dummy_data_000.csv",
+                    "dummy_data_002.csv",
+                ],
+            ),
+        ),
+        (
+            "dummy_datasets_01",
+            3,
+            5,
+            "*.csv",
+            (
+                [
+                    "dummy_data_002.csv",
+                    "dummy_data_001.csv",
+                    "dummy_data_005.csv",
+                    "dummy_data_006.csv",
+                    "dummy_data_008.csv",
+                ],
+                [
+                    "dummy_data_007.csv",
+                    "dummy_data_004.csv",
+                    "dummy_data_000.csv",
+                ],
+            ),
+        ),
+        (
+            "dummy_datasets_01",
+            0,
+            None,
+            "*.csv",
+            (
+                [
+                    "dummy_data_007.csv",
+                    "dummy_data_004.csv",
+                    "dummy_data_000.csv",
+                    "dummy_data_002.csv",
+                    "dummy_data_001.csv",
+                    "dummy_data_005.csv",
+                    "dummy_data_006.csv",
+                    "dummy_data_008.csv",
+                    "dummy_data_003.csv",
+                    "dummy_data_009.csv",
+                ],
+                [],
+            ),
+        ),
+    ],
+)
+def test_train_test_split_files_num(
+    dataset_path: str,
+    test_size: float | None,
+    train_size: float | None,
+    glob_pattern: str,
+    expected: tuple[list[str], list[str]],
+) -> None:
+    seed = 123
+    dirpath = TESTS_DATA_DIR_PATH / dataset_path
+    train, test = train_test_split_files(dirpath, test_size, train_size, glob_pattern, seed)
+    assert train == [Path(dirpath / x) for x in expected[0]]
+    assert test == [Path(dirpath / x) for x in expected[1]]
+
+
+@pytest.mark.parametrize(
+    ("dataset_path", "test_size", "train_size", "glob_pattern"),
+    [
+        ("dummy_datasets_01", 0.4, 0.7, "*.csv"),
+        ("dummy_datasets_01", 2, 9, "*.csv"),
+        ("dummy_datasets_01", None, 1.1, "*.csv"),
+        ("dummy_datasets_01", 12, None, "*.csv"),
+        ("dummy_datasets_01", 2, 1.2, "*.csv"),
+        ("dummy_datasets_01", 12, 0.1, "*.csv"),
+    ],
+)
+def test_train_test_split_files_error(
+    dataset_path: str,
+    test_size: float | None,
+    train_size: float | None,
+    glob_pattern: str,
+) -> None:
+    seed = 123
+    dirpath = TESTS_DATA_DIR_PATH / dataset_path
+    msg = "Train-test split cannot be done because test/train size exceeds total: "
+    with pytest.raises(ValueError, match=msg):
+        train_test_split_files(dirpath, test_size, train_size, glob_pattern, seed)
+
+
+@pytest.mark.parametrize(
+    ("dataset_paths", "test_size", "train_size", "glob_pattern", "expected"),
+    [
+        (
+            ["dummy_datasets_01", "dummy_datasets_02"],
+            None,
+            None,
+            "*.csv",
+            (
+                [
+                    "dummy_datasets_02/dummy_data_014.csv",
+                    "dummy_datasets_02/dummy_data_000.csv",
+                    "dummy_datasets_01/dummy_data_006.csv",
+                    "dummy_datasets_02/dummy_data_018.csv",
+                    "dummy_datasets_01/dummy_data_001.csv",
+                    "dummy_datasets_02/dummy_data_005.csv",
+                    "dummy_datasets_01/dummy_data_000.csv",
+                    "dummy_datasets_01/dummy_data_008.csv",
+                    "dummy_datasets_02/dummy_data_011.csv",
+                    "dummy_datasets_02/dummy_data_013.csv",
+                    "dummy_datasets_02/dummy_data_010.csv",
+                    "dummy_datasets_02/dummy_data_006.csv",
+                    "dummy_datasets_02/dummy_data_009.csv",
+                    "dummy_datasets_01/dummy_data_009.csv",
+                    "dummy_datasets_02/dummy_data_002.csv",
+                    "dummy_datasets_02/dummy_data_016.csv",
+                    "dummy_datasets_02/dummy_data_007.csv",
+                    "dummy_datasets_01/dummy_data_005.csv",
+                    "dummy_datasets_02/dummy_data_004.csv",
+                    "dummy_datasets_02/dummy_data_012.csv",
+                    "dummy_datasets_01/dummy_data_003.csv",
+                    "dummy_datasets_02/dummy_data_015.csv",
+                    "dummy_datasets_02/dummy_data_003.csv",
+                ],
+                [
+                    "dummy_datasets_01/dummy_data_002.csv",
+                    "dummy_datasets_02/dummy_data_019.csv",
+                    "dummy_datasets_02/dummy_data_008.csv",
+                    "dummy_datasets_01/dummy_data_007.csv",
+                    "dummy_datasets_02/dummy_data_017.csv",
+                    "dummy_datasets_02/dummy_data_001.csv",
+                    "dummy_datasets_01/dummy_data_004.csv",
+                ],
+            ),
+        ),
+    ],
+)
+def test_train_test_split_files_multi_directory(
+    dataset_paths: list[str],
+    test_size: float | None,
+    train_size: float | None,
+    glob_pattern: str,
+    expected: tuple[list[str], list[str]],
+) -> None:
+    seed = 123
+    dirpaths = [TESTS_DATA_DIR_PATH / x for x in dataset_paths]
+    train, test = train_test_split_files(dirpaths, test_size, train_size, glob_pattern, seed)
+    assert train == [Path(TESTS_DATA_DIR_PATH / x) for x in expected[0]]
+    assert test == [Path(TESTS_DATA_DIR_PATH / x) for x in expected[1]]
+
+
+@pytest.mark.parametrize(
+    ("dataset_paths", "test_size", "train_size", "glob_pattern"),
+    [
+        (["dummy_datasets_01", "dummy_datasets_02"], None, None, "*.csv"),
+    ],
+)
+def test_train_test_split_files_seed(
+    dataset_paths: list[str],
+    test_size: float | None,
+    train_size: float | None,
+    glob_pattern: str,
+) -> None:
+    seed = 123
+    dirpaths = [TESTS_DATA_DIR_PATH / x for x in dataset_paths]
+    train01, test01 = train_test_split_files(dirpaths, test_size, train_size, glob_pattern, seed)
+    dirpaths = [TESTS_DATA_DIR_PATH / x for x in dataset_paths]
+    train02, test02 = train_test_split_files(dirpaths, test_size, train_size, glob_pattern, seed)
+    assert train01 == train02
+    assert test01 == test02
+    seed = 42
+    dirpaths = [TESTS_DATA_DIR_PATH / x for x in dataset_paths]
+    train03, test03 = train_test_split_files(dirpaths, test_size, train_size, glob_pattern, seed)
+    assert train01 != train03
+    assert test01 != test03
+
+
+@pytest.mark.parametrize(
+    ("dataset_paths", "test_size", "train_size", "glob_pattern", "split_in_each_directory", "expected"),
+    [
+        (
+            ["dummy_datasets_01", "dummy_datasets_02"],
+            None,
+            None,
+            "*.csv",
+            False,
+            (
+                [
+                    "dummy_datasets_02/dummy_data_014.csv",
+                    "dummy_datasets_02/dummy_data_000.csv",
+                    "dummy_datasets_01/dummy_data_006.csv",
+                    "dummy_datasets_02/dummy_data_018.csv",
+                    "dummy_datasets_01/dummy_data_001.csv",
+                    "dummy_datasets_02/dummy_data_005.csv",
+                    "dummy_datasets_01/dummy_data_000.csv",
+                    "dummy_datasets_01/dummy_data_008.csv",
+                    "dummy_datasets_02/dummy_data_011.csv",
+                    "dummy_datasets_02/dummy_data_013.csv",
+                    "dummy_datasets_02/dummy_data_010.csv",
+                    "dummy_datasets_02/dummy_data_006.csv",
+                    "dummy_datasets_02/dummy_data_009.csv",
+                    "dummy_datasets_01/dummy_data_009.csv",
+                    "dummy_datasets_02/dummy_data_002.csv",
+                    "dummy_datasets_02/dummy_data_016.csv",
+                    "dummy_datasets_02/dummy_data_007.csv",
+                    "dummy_datasets_01/dummy_data_005.csv",
+                    "dummy_datasets_02/dummy_data_004.csv",
+                    "dummy_datasets_02/dummy_data_012.csv",
+                    "dummy_datasets_01/dummy_data_003.csv",
+                    "dummy_datasets_02/dummy_data_015.csv",
+                    "dummy_datasets_02/dummy_data_003.csv",
+                ],
+                [
+                    "dummy_datasets_01/dummy_data_002.csv",
+                    "dummy_datasets_02/dummy_data_019.csv",
+                    "dummy_datasets_02/dummy_data_008.csv",
+                    "dummy_datasets_01/dummy_data_007.csv",
+                    "dummy_datasets_02/dummy_data_017.csv",
+                    "dummy_datasets_02/dummy_data_001.csv",
+                    "dummy_datasets_01/dummy_data_004.csv",
+                ],
+            ),
+        ),
+        (
+            ["dummy_datasets_01", "dummy_datasets_02"],
+            None,
+            None,
+            "*.csv",
+            True,
+            (
+                [
+                    "dummy_datasets_01/dummy_data_000.csv",
+                    "dummy_datasets_01/dummy_data_002.csv",
+                    "dummy_datasets_01/dummy_data_001.csv",
+                    "dummy_datasets_01/dummy_data_005.csv",
+                    "dummy_datasets_01/dummy_data_006.csv",
+                    "dummy_datasets_01/dummy_data_008.csv",
+                    "dummy_datasets_01/dummy_data_003.csv",
+                    "dummy_datasets_01/dummy_data_009.csv",
+                    "dummy_datasets_02/dummy_data_011.csv",
+                    "dummy_datasets_02/dummy_data_004.csv",
+                    "dummy_datasets_02/dummy_data_005.csv",
+                    "dummy_datasets_02/dummy_data_010.csv",
+                    "dummy_datasets_02/dummy_data_006.csv",
+                    "dummy_datasets_02/dummy_data_014.csv",
+                    "dummy_datasets_02/dummy_data_001.csv",
+                    "dummy_datasets_02/dummy_data_015.csv",
+                    "dummy_datasets_02/dummy_data_000.csv",
+                    "dummy_datasets_02/dummy_data_008.csv",
+                    "dummy_datasets_02/dummy_data_012.csv",
+                    "dummy_datasets_02/dummy_data_017.csv",
+                    "dummy_datasets_02/dummy_data_009.csv",
+                    "dummy_datasets_02/dummy_data_016.csv",
+                    "dummy_datasets_02/dummy_data_019.csv",
+                ],
+                [
+                    "dummy_datasets_01/dummy_data_007.csv",
+                    "dummy_datasets_01/dummy_data_004.csv",
+                    "dummy_datasets_02/dummy_data_002.csv",
+                    "dummy_datasets_02/dummy_data_013.csv",
+                    "dummy_datasets_02/dummy_data_018.csv",
+                    "dummy_datasets_02/dummy_data_007.csv",
+                    "dummy_datasets_02/dummy_data_003.csv",
+                ],
+            ),
+        ),
+    ],
+)
+def test_train_test_split_files_split_in_each_directory(
+    dataset_paths: list[str],
+    test_size: float | None,
+    train_size: float | None,
+    glob_pattern: str,
+    *,
+    split_in_each_directory: bool,
+    expected: tuple[list[str], list[str]],
+) -> None:
+    seed = 123
+    dirpaths = [TESTS_DATA_DIR_PATH / x for x in dataset_paths]
+    train, test = train_test_split_files(
+        dirpaths,
+        test_size,
+        train_size,
+        glob_pattern,
+        seed,
+        split_in_each_directory=split_in_each_directory,
+    )
+    assert train == [Path(TESTS_DATA_DIR_PATH / x) for x in expected[0]]
+    assert test == [Path(TESTS_DATA_DIR_PATH / x) for x in expected[1]]
+
+
+@pytest.mark.parametrize(
+    ("dataset_paths", "test_size", "train_size", "glob_pattern", "split_in_each_directory", "shuffle", "expected"),
+    [
+        (
+            ["dummy_datasets_01", "dummy_datasets_02"],
+            None,
+            None,
+            "*.csv",
+            False,
+            False,
+            (
+                [
+                    "dummy_datasets_01/dummy_data_000.csv",
+                    "dummy_datasets_01/dummy_data_001.csv",
+                    "dummy_datasets_01/dummy_data_003.csv",
+                    "dummy_datasets_01/dummy_data_005.csv",
+                    "dummy_datasets_01/dummy_data_006.csv",
+                    "dummy_datasets_01/dummy_data_008.csv",
+                    "dummy_datasets_01/dummy_data_009.csv",
+                    "dummy_datasets_02/dummy_data_000.csv",
+                    "dummy_datasets_02/dummy_data_002.csv",
+                    "dummy_datasets_02/dummy_data_003.csv",
+                    "dummy_datasets_02/dummy_data_004.csv",
+                    "dummy_datasets_02/dummy_data_005.csv",
+                    "dummy_datasets_02/dummy_data_006.csv",
+                    "dummy_datasets_02/dummy_data_007.csv",
+                    "dummy_datasets_02/dummy_data_009.csv",
+                    "dummy_datasets_02/dummy_data_010.csv",
+                    "dummy_datasets_02/dummy_data_011.csv",
+                    "dummy_datasets_02/dummy_data_012.csv",
+                    "dummy_datasets_02/dummy_data_013.csv",
+                    "dummy_datasets_02/dummy_data_014.csv",
+                    "dummy_datasets_02/dummy_data_015.csv",
+                    "dummy_datasets_02/dummy_data_016.csv",
+                    "dummy_datasets_02/dummy_data_018.csv",
+                ],
+                [
+                    "dummy_datasets_01/dummy_data_002.csv",
+                    "dummy_datasets_01/dummy_data_004.csv",
+                    "dummy_datasets_01/dummy_data_007.csv",
+                    "dummy_datasets_02/dummy_data_001.csv",
+                    "dummy_datasets_02/dummy_data_008.csv",
+                    "dummy_datasets_02/dummy_data_017.csv",
+                    "dummy_datasets_02/dummy_data_019.csv",
+                ],
+            ),
+        ),
+        (
+            ["dummy_datasets_02", "dummy_datasets_01"],
+            None,
+            None,
+            "*.csv",
+            True,
+            False,
+            (
+                [
+                    "dummy_datasets_02/dummy_data_000.csv",
+                    "dummy_datasets_02/dummy_data_001.csv",
+                    "dummy_datasets_02/dummy_data_003.csv",
+                    "dummy_datasets_02/dummy_data_004.csv",
+                    "dummy_datasets_02/dummy_data_005.csv",
+                    "dummy_datasets_02/dummy_data_006.csv",
+                    "dummy_datasets_02/dummy_data_008.csv",
+                    "dummy_datasets_02/dummy_data_009.csv",
+                    "dummy_datasets_02/dummy_data_010.csv",
+                    "dummy_datasets_02/dummy_data_012.csv",
+                    "dummy_datasets_02/dummy_data_013.csv",
+                    "dummy_datasets_02/dummy_data_014.csv",
+                    "dummy_datasets_02/dummy_data_016.csv",
+                    "dummy_datasets_02/dummy_data_018.csv",
+                    "dummy_datasets_02/dummy_data_019.csv",
+                    "dummy_datasets_01/dummy_data_001.csv",
+                    "dummy_datasets_01/dummy_data_003.csv",
+                    "dummy_datasets_01/dummy_data_004.csv",
+                    "dummy_datasets_01/dummy_data_005.csv",
+                    "dummy_datasets_01/dummy_data_006.csv",
+                    "dummy_datasets_01/dummy_data_007.csv",
+                    "dummy_datasets_01/dummy_data_008.csv",
+                    "dummy_datasets_01/dummy_data_009.csv",
+                ],
+                [
+                    "dummy_datasets_02/dummy_data_002.csv",
+                    "dummy_datasets_02/dummy_data_007.csv",
+                    "dummy_datasets_02/dummy_data_011.csv",
+                    "dummy_datasets_02/dummy_data_015.csv",
+                    "dummy_datasets_02/dummy_data_017.csv",
+                    "dummy_datasets_01/dummy_data_000.csv",
+                    "dummy_datasets_01/dummy_data_002.csv",
+                ],
+            ),
+        ),
+    ],
+)
+def test_train_test_split_files_shuffle(
+    dataset_paths: list[str],
+    test_size: float | None,
+    train_size: float | None,
+    glob_pattern: str,
+    *,
+    split_in_each_directory: bool,
+    shuffle: bool,
+    expected: tuple[list[str], list[str]],
+) -> None:
+    seed = 123
+    dirpaths = [TESTS_DATA_DIR_PATH / x for x in dataset_paths]
+    train, test = train_test_split_files(
+        dirpaths,
+        test_size,
+        train_size,
+        glob_pattern,
+        seed,
+        shuffle=shuffle,
+        split_in_each_directory=split_in_each_directory,
+    )
+    assert train == [Path(TESTS_DATA_DIR_PATH / x) for x in expected[0]]
+    assert test == [Path(TESTS_DATA_DIR_PATH / x) for x in expected[1]]
+
+
 # Local Variables:
-# jinx-local-words: "csv ctrl dataset dir nn noqa png sublabel symlink"
+# jinx-local-words: "csv ctrl dataset datasets dir nn noqa png sublabel symlink"
 # End:
