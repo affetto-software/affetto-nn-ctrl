@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from typing import TYPE_CHECKING
 
+from affetto_nn_ctrl import DEFAULT_SEED
 from affetto_nn_ctrl.control_utility import (
     resolve_joints_str,
 )
@@ -14,6 +15,7 @@ from affetto_nn_ctrl.data_handling import (
     get_default_base_dir,
     get_output_dir_path,
     prepare_data_dir_path,
+    train_test_split_files,
 )
 from affetto_nn_ctrl.event_logging import event_logger, start_logging
 from affetto_nn_ctrl.model_utility import (
@@ -36,7 +38,9 @@ def run(
     joints_str: list[str] | None,
     dataset_paths: list[str],  # required
     glob_pattern: str,  # default: **/*.csv
-    n_pickup: int | None,
+    train_size: float | None,
+    test_size: float | None,
+    seed: int | None,
     model_config: str,  # required
     adapter_selector: str | None,
     scaler_selector: str | None,
@@ -44,6 +48,8 @@ def run(
     output_dir_path: Path,
     output_prefix: str,
     *,
+    shuffle: bool,
+    split_in_each_directory: bool,
     overwrite: bool,
 ) -> None:
     # Resolve active joints.
@@ -58,15 +64,22 @@ def run(
     event_logger().debug("Loading datasets with following condition:")
     event_logger().debug("     Path list: %s", dataset_paths)
     event_logger().debug("  glob pattern: %s", glob_pattern)
-    event_logger().debug("        pickup: %s", n_pickup)
-    datasets = load_datasets(dataset_paths, glob_pattern, n_pickup)
-    event_logger().info("%s dataset files in total have been loaded", len(datasets))
+    train_dataset_files, test_dataset_files = train_test_split_files(
+        dataset_paths,
+        test_size,
+        train_size,
+        glob_pattern,
+        seed,
+        shuffle=shuffle,
+        split_in_each_directory=split_in_each_directory,
+    )
+    train_datasets = load_datasets(train_dataset_files)
     adapter = load_data_adapter(config_dict["model"]["adapter"], active_joints, adapter_selector)
 
     # Create a model and train it.
     model = load_model(config_dict["model"], scaler_selector, regressor_selector)
     event_logger().info("Training model...")
-    trained_model = train_model(model, datasets, adapter)
+    trained_model = train_model(model, train_datasets, adapter)
     event_logger().debug("Training has done")
 
     # Save the trained model.
@@ -116,10 +129,32 @@ def parse() -> argparse.Namespace:
         help="Glob pattern to filter file to be loaded which is applied to each specified directory.",
     )
     parser.add_argument(
-        "-n",
-        "--n-pickup",
+        "--train-size",
+        type=float,
+        help="Ratio or number of files to use for training.",
+    )
+    parser.add_argument(
+        "--test-size",
+        type=float,
+        help="Ratio or number of files to use for testing.",
+    )
+    parser.add_argument(
+        "--seed",
+        default=DEFAULT_SEED,
         type=int,
-        help="Number of files to be loaded in each specified directory.",
+        help="Seed value given to random number generator.",
+    )
+    parser.add_argument(
+        "--shuffle",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Boolean. If True, shuffle files in dataset directory. (default: True)",
+    )
+    parser.add_argument(
+        "--split-in-each-directory",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Boolean. If True, splitting is done in each dataset directory. (default: False)",
     )
     # Parameters
     parser.add_argument(
@@ -202,6 +237,10 @@ def main() -> None:
     import sys
 
     args = parse()
+    if args.train_size is not None and args.train_size > 1:
+        args.train_size = int(args.train_size)
+    if args.test_size is not None and args.test_size > 1:
+        args.test_size = int(args.test_size)
 
     # Prepare input/output
     output_dir = get_output_dir_path(
@@ -226,7 +265,9 @@ def main() -> None:
         # input
         args.datasets,
         args.glob_pattern,
-        args.n_pickup,
+        args.train_size,
+        args.test_size,
+        args.seed,
         # parameters
         args.model_config,
         args.adapter,
@@ -236,6 +277,8 @@ def main() -> None:
         output_dir,
         args.output_prefix,
         # boolean arguments
+        shuffle=args.shuffle,
+        split_in_each_directory=args.split_in_each_directory,
         overwrite=args.overwrite,
     )
 

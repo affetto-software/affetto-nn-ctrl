@@ -8,8 +8,10 @@ from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 
+from affetto_nn_ctrl import DEFAULT_SEED
 from affetto_nn_ctrl.data_handling import (
     prepare_data_dir_path,
+    train_test_split_files,
 )
 from affetto_nn_ctrl.event_logging import event_logger, start_logging
 from affetto_nn_ctrl.model_utility import (
@@ -71,12 +73,16 @@ def run(
     model_filepath: str,  # required
     dataset_paths: list[str],  # required
     glob_pattern: str,  # default: **/*.csv
-    n_pickup: int | None,
+    train_size: float | None,
+    test_size: float | None,
+    seed: int | None,
     output_dir_path: Path,
     output_prefix: str,
     plot_prefix: str,
     plot_ext: list[str],
     *,
+    shuffle: bool,
+    split_in_each_directory: bool,
     dpi: str | float,
     show_legend: bool,
     show_screen: bool,
@@ -89,12 +95,19 @@ def run(
     event_logger().debug("Loading datasets with following condition:")
     event_logger().debug("     Path list: %s", dataset_paths)
     event_logger().debug("  glob pattern: %s", glob_pattern)
-    event_logger().debug("        pickup: %s", n_pickup)
-    datasets = load_datasets(dataset_paths, glob_pattern, n_pickup)
-    event_logger().info("%s dataset files in total have been loaded", len(datasets))
+    train_dataset_files, test_dataset_files = train_test_split_files(
+        dataset_paths,
+        test_size,
+        train_size,
+        glob_pattern,
+        seed,
+        shuffle=shuffle,
+        split_in_each_directory=split_in_each_directory,
+    )
+    test_datasets = load_datasets(test_dataset_files)
 
     # Calculate prediction and score of the trained model based on test datasets.
-    x_test, y_true = load_train_datasets(datasets, model.adapter)
+    x_test, y_true = load_train_datasets(test_datasets, model.adapter)
     y_pred = model.predict(x_test)
     score = model.score(x_test, y_true)
     event_logger().info("Calculated score: %s", score)
@@ -132,10 +145,32 @@ def parse() -> argparse.Namespace:
         help="Glob pattern to filter file to be loaded which is applied to each specified directory.",
     )
     parser.add_argument(
-        "-n",
-        "--n-pickup",
+        "--train-size",
+        type=float,
+        help="Ratio or number of files to use for training.",
+    )
+    parser.add_argument(
+        "--test-size",
+        type=float,
+        help="Ratio or number of files to use for testing.",
+    )
+    parser.add_argument(
+        "--seed",
+        default=DEFAULT_SEED,
         type=int,
-        help="Number of files to be loaded in each specified directory.",
+        help="Seed value given to random number generator.",
+    )
+    parser.add_argument(
+        "--shuffle",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Boolean. If True, shuffle files in dataset directory. (default: True)",
+    )
+    parser.add_argument(
+        "--split-in-each-directory",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Boolean. If True, splitting is done in each dataset directory. (default: False)",
     )
     # Parameters
     # Output
@@ -188,6 +223,10 @@ def main() -> None:
     import sys
 
     args = parse()
+    if args.train_size is not None and args.train_size > 1:
+        args.train_size = int(args.train_size)
+    if args.test_size is not None and args.test_size > 1:
+        args.test_size = int(args.test_size)
 
     # Prepare input/output
     if args.output is not None:
@@ -207,7 +246,9 @@ def main() -> None:
         args.model,
         args.datasets,
         args.glob_pattern,
-        args.n_pickup,
+        args.train_size,
+        args.test_size,
+        args.seed,
         # parameters
         # output
         output_dir,
@@ -215,6 +256,8 @@ def main() -> None:
         args.plot_prefix,
         args.plot_ext,
         # boolean arguments
+        shuffle=args.shuffle,
+        split_in_each_directory=args.split_in_each_directory,
         dpi=dpi,
         show_legend=args.show_legend,
         show_screen=args.show_screen,
