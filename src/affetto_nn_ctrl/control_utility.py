@@ -10,11 +10,12 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 from affctrllib import PTP, AffComm, AffPosCtrl, AffStateThread, Logger, Timer
-from numpy.random import Generator, default_rng
 from pyplotutil.datautil import Data
 from scipy import interpolate
 
+from affetto_nn_ctrl._typing import NoDefault, no_default
 from affetto_nn_ctrl.event_logging import event_logger
+from affetto_nn_ctrl.random_utility import get_rng
 
 if sys.version_info < (3, 11):
     import tomli as tomllib
@@ -24,45 +25,9 @@ else:
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Sequence
 
+    from numpy.random import Generator
+
     from affetto_nn_ctrl import CONTROLLER_T, RefFuncType
-
-
-__SEED: int | None = None
-__GLOBAL_RNG: Generator = default_rng()
-
-
-class GetGlobalRngT:
-    pass
-
-
-GET_GLOBAL_RNG = GetGlobalRngT()
-
-
-def set_seed(seed: int | None) -> None:
-    global __SEED  # noqa: PLW0603
-    global __GLOBAL_RNG  # noqa: PLW0603
-    if isinstance(seed, int | None):
-        __SEED = seed
-        __GLOBAL_RNG = default_rng(__SEED)
-        np.random.seed(__SEED)  # noqa: NPY002
-    else:
-        msg = f"`seed` is expected to be an `int` or `None`, not {type(seed)}"
-        raise TypeError(msg)
-
-
-def get_seed() -> int | None:
-    return __SEED
-
-
-def get_rng(seed: int | Generator | GetGlobalRngT | None = GET_GLOBAL_RNG) -> Generator:
-    if isinstance(seed, GetGlobalRngT):
-        return __GLOBAL_RNG
-    if isinstance(seed, Generator):
-        return seed
-    if isinstance(seed, int | None):
-        return default_rng(seed)
-    msg = f"`seed` is expected to be an `int` or `None`, not {type(seed)}"
-    raise TypeError(msg)
 
 
 MIN_UPDATE_Q_DELTA = 1e-4
@@ -608,7 +573,7 @@ class RandomTrajectory:
         update_q_range: tuple[float, float] | list[tuple[float, float]],
         update_q_limit: tuple[float, float] | list[tuple[float, float]],
         update_profile: str = "trapezoidal",
-        seed: int | GetGlobalRngT | None = GET_GLOBAL_RNG,
+        seed: int | NoDefault | None = no_default,
         *,
         async_update: bool = False,
     ) -> None:
@@ -901,5 +866,5 @@ class Spline:
 
 
 # Local Variables:
-# jinx-local-words: "cb const dT dof dq dqdes init noqa pb pos qdes rb rdq rpa rpb rq"
+# jinx-local-words: "cb const dT dof dq dqdes init pb pos qdes rb rdq rpa rpb rq"
 # End:
