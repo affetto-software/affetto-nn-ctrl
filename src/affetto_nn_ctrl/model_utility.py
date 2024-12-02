@@ -574,14 +574,17 @@ def _load_datasets(
 ) -> list[Data]:
     collection: list[Data] = []
     path = Path(data_file_or_directory)
+    cnt = 0
     if path.is_dir():
         collection.extend(Data(x) for x in sorted(path.glob(glob_pattern)))
         if n_pickup is not None:
             collection = collection[:n_pickup]
         event_logger().debug("%s datasets loaded from %s", len(collection), path)
+        cnt += len(collection)
     else:
         collection.append(Data(path))
-        event_logger().debug("dataset loaded from %s", path)
+        cnt += 1
+    event_logger().debug("%s datasets loaded in total", cnt)
 
     return collection
 
