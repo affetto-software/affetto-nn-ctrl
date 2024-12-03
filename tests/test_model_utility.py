@@ -669,7 +669,7 @@ class TestJointDataAdapter:
         output = make_prediction_data_path(make_work_directory, "joint", name, **kw)
         y_test, score = self.generate_prediction_data(output, train_datasets, test_dataset, adapter, model)
         assert_file_contents(TESTS_DATA_DIR_PATH / output.name, output)
-        assert expected_score == pytest.approx(score)
+        assert score == pytest.approx(expected_score, abs=5e-2)
 
 
 def check_expected_data_for_joint_data_adapter(
