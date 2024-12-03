@@ -45,10 +45,17 @@ def save_scores(
     model_filepath: str,
     calculated_scores: list[CalculatedScore],
     ext: str = ".toml",
+    *,
+    overwrite: bool = False,
 ) -> None:
     if not ext.startswith("."):
         ext = f".{ext}"
-    output = output_dir_path / f"{output_prefix}{ext}"
+
+    suffix = ""
+    if not overwrite:
+        count_existing = len(list(output_dir_path.glob(f"{output_prefix}*{ext}")))
+        suffix = f"_{count_existing:03d}"
+    output = output_dir_path / f"{output_prefix}{suffix}{ext}"
 
     text_lines = ["[model.performance]\n", f"path = {model_filepath}\n", "\n"]
     for score in calculated_scores:
@@ -163,7 +170,7 @@ def run(
         )
         calculated_scores.append(CalculatedScore(test_dataset.datapath, plot_dir_path, score))
 
-    save_scores(output_dir_path, output_prefix, model_filepath, calculated_scores)
+    save_scores(output_dir_path, output_prefix, model_filepath, calculated_scores, overwrite=overwrite)
 
     if show_screen is None and n_test_datasets <= DEFAULT_SHOW_SCREEN_NUM:
         show_screen = True
