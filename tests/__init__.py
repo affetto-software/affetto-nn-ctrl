@@ -18,4 +18,6 @@ def assert_file_contents(expected: Path, actual: Path) -> None:
     with actual.open() as f:
         actual_lines = f.readlines()
     diff = list(unified_diff(expected_lines, actual_lines))
-    assert diff == [], "Unexpected file differences:\n" + "".join(diff)
+    assert diff == [], (
+        "Unexpected file differences:\n" + f"  expected: {expected!s}\n" + f"    actual: {actual!s}\n" + "".join(diff)
+    )
