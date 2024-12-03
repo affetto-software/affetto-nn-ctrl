@@ -45,17 +45,10 @@ def save_scores(
     model_filepath: str,
     calculated_scores: list[CalculatedScore],
     ext: str = ".toml",
-    *,
-    overwrite: bool = False,
 ) -> None:
     if not ext.startswith("."):
         ext = f".{ext}"
-
-    suffix = ""
-    if not overwrite:
-        count_existing = len(list(output_dir_path.glob(f"{output_prefix}*{ext}")))
-        suffix = f"_{count_existing:03d}"
-    output = output_dir_path / f"{output_prefix}{suffix}{ext}"
+    output = output_dir_path / f"{output_prefix}{ext}"
 
     text_lines = ["[model.performance]\n", f"path = {model_filepath}\n", "\n"]
     for score in calculated_scores:
@@ -111,6 +104,7 @@ def run(
     seed: int | None,
     output_dir_path: Path,
     output_prefix: str,
+    plot_output_prefix: str,
     plot_prefix: str,
     plot_ext: list[str],
     *,
@@ -141,12 +135,20 @@ def run(
     test_datasets = load_datasets(test_dataset_files)
     n_test_datasets = len(test_datasets)
 
-    # Create output file counter.
-    n = 0
+    # Create output files counter.
+    n_scores = 0
     if not overwrite:
-        n = len(list(output_dir_path.glob(f"{output_prefix}_*")))
-    cnt = get_default_counter(n)
-    event_logger().debug("Calculated performance data counter initialized with %s", n)
+        n_scores = len(list(output_dir_path.glob(f"{output_prefix}*")))
+    cnt_scores = get_default_counter(n_scores)
+    event_logger().debug("Calculated scores data counter initialized with %s", n_scores)
+    scores_output_dir_path = build_data_file_path(output_dir_path, output_prefix, cnt_scores, ext="")
+
+    # Create output plots counter.
+    n_plots = 0
+    if not overwrite:
+        n_plots = len(list(scores_output_dir_path.glob(f"{plot_output_prefix}*")))
+    cnt_plots = get_default_counter(n_plots)
+    event_logger().debug("Performance plots counter initialized with %s", n_plots)
 
     # Calculate prediction and score of the trained model based on test datasets.
     calculated_scores: list[CalculatedScore] = []
@@ -157,7 +159,7 @@ def run(
         event_logger().info("[%s/%s] Calculated score: %s", i + 1, n_test_datasets, score)
 
         # Make plots and save them.
-        plot_dir_path = build_data_file_path(output_dir_path, output_prefix, cnt, ext="")
+        plot_dir_path = build_data_file_path(scores_output_dir_path, plot_output_prefix, cnt_plots, ext="")
         plot(
             plot_dir_path,
             plot_prefix,
@@ -170,7 +172,7 @@ def run(
         )
         calculated_scores.append(CalculatedScore(test_dataset.datapath, plot_dir_path, score))
 
-    save_scores(output_dir_path, output_prefix, model_filepath, calculated_scores, overwrite=overwrite)
+    save_scores(scores_output_dir_path, output_prefix, model_filepath, calculated_scores)
 
     if show_screen is None and n_test_datasets <= DEFAULT_SHOW_SCREEN_NUM:
         show_screen = True
@@ -238,7 +240,7 @@ def parse() -> argparse.Namespace:
     )
     parser.add_argument(
         "--output-prefix",
-        default="score",
+        default="scores",
         help="Filename prefix that will be added to calculated score.",
     )
     parser.add_argument(
@@ -248,11 +250,17 @@ def parse() -> argparse.Namespace:
         help="Boolean. If True, restart counter of calculated performance data and overwrite existing files.",
     )
     parser.add_argument(
+        "--plot-output-prefix",
+        default="plots",
+        help="Directory prefix that will be added to plot figures.",
+    )
+    parser.add_argument(
         "--plot-prefix",
         default="prediction",
         help="Filename prefix that will be added to plot figure.",
     )
     parser.add_argument(
+        "-e",
         "--plot-ext",
         nargs="*",
         help="Filename prefix that will be added to plot figure.",
@@ -314,6 +322,7 @@ def main() -> None:
         # output
         output_dir,
         args.output_prefix,
+        args.plot_output_prefix,
         args.plot_prefix,
         args.plot_ext,
         # boolean arguments
