@@ -574,17 +574,13 @@ def _load_datasets(
 ) -> list[Data]:
     collection: list[Data] = []
     path = Path(data_file_or_directory)
-    cnt = 0
     if path.is_dir():
         collection.extend(Data(x) for x in sorted(path.glob(glob_pattern)))
         if n_pickup is not None:
             collection = collection[:n_pickup]
         event_logger().debug("%s datasets loaded from %s", len(collection), path)
-        cnt += len(collection)
     else:
         collection.append(Data(path))
-        cnt += 1
-    event_logger().debug("%s datasets loaded in total", cnt)
 
     return collection
 
@@ -597,9 +593,11 @@ def load_datasets(
     if isinstance(dataset_paths, str | Path):
         dataset_paths = [dataset_paths]
 
+    event_logger().debug("Loading datasets from %s", list(map(str, dataset_paths)))
     datasets: list[Data] = []
     for dataset_path in dataset_paths:
         datasets.extend(_load_datasets(dataset_path, glob_pattern, n_pickup))
+    event_logger().debug("%s datasets loaded in total", len(datasets))
 
     if len(datasets) == 0:
         msg = f"No dataset found with {glob_pattern}: {dataset_paths}"
