@@ -5,9 +5,9 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 from affetto_nn_ctrl import DEFAULT_SEED
 from affetto_nn_ctrl.data_handling import (
@@ -24,10 +24,6 @@ from affetto_nn_ctrl.model_utility import (
     load_trained_model,
 )
 from affetto_nn_ctrl.plot_utility import save_figure
-
-if TYPE_CHECKING:
-    import numpy as np
-
 
 DEFAULT_SHOW_SCREEN_NUM = 10
 
@@ -50,13 +46,19 @@ def save_scores(
         ext = f".{ext}"
     output = output_dir_path / f"{output_prefix}{ext}"
 
-    text_lines = ["[model.performance]\n", f"path = {model_filepath}\n", "\n"]
+    scores_array = np.array([x.score for x in calculated_scores], dtype=float)
+    text_lines = [
+        "[model.performance]\n",
+        f'model_path = "{model_filepath}"\n',
+        f"score = {{ mean = {np.mean(scores_array)}, std = {np.std(scores_array)} }}\n",
+        "\n",
+    ]
     for score in calculated_scores:
         text_lines.extend(
             [
                 "[[model.performance.scores]]\n",
-                f"test_dataset = {score.test_dataset!s}\n",
-                f"plot_path = {score.plot_path!s}\n",
+                f'test_dataset = "{score.test_dataset!s}"\n',
+                f'plot_path = "{score.plot_path!s}"\n',
                 f"score = {score.score}\n",
                 "\n",
             ],
