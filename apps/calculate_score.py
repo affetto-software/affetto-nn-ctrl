@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -10,6 +11,8 @@ import matplotlib.pyplot as plt
 
 from affetto_nn_ctrl import DEFAULT_SEED
 from affetto_nn_ctrl.data_handling import (
+    build_data_file_path,
+    get_default_counter,
     prepare_data_dir_path,
     train_test_split_files,
 )
@@ -26,18 +29,41 @@ if TYPE_CHECKING:
     import numpy as np
 
 
-def save_score(output_dir_path: Path, output_prefix: str, score: float, ext: str = ".toml") -> None:
+DEFAULT_SHOW_SCREEN_NUM = 10
+
+
+@dataclass
+class CalculatedScore:
+    test_dataset: Path
+    plot_path: Path
+    score: float
+
+
+def save_scores(
+    output_dir_path: Path,
+    output_prefix: str,
+    model_filepath: str,
+    calculated_scores: list[CalculatedScore],
+    ext: str = ".toml",
+) -> None:
     if not ext.startswith("."):
         ext = f".{ext}"
     output = output_dir_path / f"{output_prefix}{ext}"
 
-    text = f"""\
-[model.result]
-score = {score}
-"""
+    text_lines = ["[model.performance]\n", f"path = {model_filepath}\n", "\n"]
+    for score in calculated_scores:
+        text_lines.extend(
+            [
+                "[[model.performance.scores]]\n",
+                f"test_dataset = {score.test_dataset!s}\n",
+                f"plot_path = {score.plot_path!s}\n",
+                f"score = {score.score}\n",
+                "\n",
+            ],
+        )
     with output.open("w") as f:
-        f.write(text)
-    event_logger().info("Score saved: %s", output)
+        f.writelines(text_lines)
+    event_logger().info("Calculated scores saved: %s", output)
 
 
 def plot(
@@ -66,7 +92,7 @@ def plot(
         ax.set_ylabel("y")
         if show_legend:
             ax.legend()
-        save_figure(fig, output_dir_path, output_basename, ext, dpi=dpi)
+        save_figure(fig, output_dir_path, output_basename, ext, loaded_from=None, dpi=dpi)
 
 
 def run(
@@ -83,9 +109,10 @@ def run(
     *,
     shuffle: bool,
     split_in_each_directory: bool,
+    overwrite: bool,
     dpi: str | float,
     show_legend: bool,
-    show_screen: bool,
+    show_screen: bool | None,
 ) -> None:
     # Load trained model.
     model = load_trained_model(model_filepath)
@@ -105,19 +132,41 @@ def run(
         split_in_each_directory=split_in_each_directory,
     )
     test_datasets = load_datasets(test_dataset_files)
+    n_test_datasets = len(test_datasets)
+
+    # Create output file counter.
+    n = 0
+    if not overwrite:
+        n = len(list(output_dir_path.glob(f"{output_prefix}_*")))
+    cnt = get_default_counter(n)
+    event_logger().debug("Calculated performance data counter initialized with %s", n)
 
     # Calculate prediction and score of the trained model based on test datasets.
-    x_test, y_true = load_train_datasets(test_datasets, model.adapter)
-    y_pred = model.predict(x_test)
-    score = model.score(x_test, y_true)
-    event_logger().info("Calculated score: %s", score)
+    calculated_scores: list[CalculatedScore] = []
+    for i, test_dataset in enumerate(test_datasets):
+        x_test, y_true = load_train_datasets(test_dataset, model.adapter)
+        y_pred = model.predict(x_test)
+        score = model.score(x_test, y_true)
+        event_logger().info("[%s/%s] Calculated score: %s", i + 1, n_test_datasets, score)
 
-    # Save calculated score.
-    save_score(output_dir_path, output_prefix, score)
+        # Make plots and save them.
+        plot_dir_path = build_data_file_path(output_dir_path, output_prefix, cnt, ext="")
+        plot(
+            plot_dir_path,
+            plot_prefix,
+            model.adapter,
+            y_true,
+            y_pred,
+            dpi=dpi,
+            show_legend=show_legend,
+            ext=plot_ext,
+        )
+        calculated_scores.append(CalculatedScore(test_dataset.datapath, plot_dir_path, score))
 
-    # Make plots and save them.
-    plot(output_dir_path, plot_prefix, model.adapter, y_true, y_pred, dpi=dpi, show_legend=show_legend, ext=plot_ext)
+    save_scores(output_dir_path, output_prefix, model_filepath, calculated_scores)
 
+    if show_screen is None and n_test_datasets <= DEFAULT_SHOW_SCREEN_NUM:
+        show_screen = True
     if show_screen:
         plt.show()
 
@@ -186,6 +235,12 @@ def parse() -> argparse.Namespace:
         help="Filename prefix that will be added to calculated score.",
     )
     parser.add_argument(
+        "--overwrite",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Boolean. If True, restart counter of calculated performance data and overwrite existing files.",
+    )
+    parser.add_argument(
         "--plot-prefix",
         default="prediction",
         help="Filename prefix that will be added to plot figure.",
@@ -206,8 +261,7 @@ def parse() -> argparse.Namespace:
     parser.add_argument(
         "--show-screen",
         action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Boolean. If True, show the plot figure. (default: True)",
+        help="Boolean. If True, show the plot figure. (default: True when test data sets are small)",
     )
     parser.add_argument(
         "-v",
@@ -258,6 +312,7 @@ def main() -> None:
         # boolean arguments
         shuffle=args.shuffle,
         split_in_each_directory=args.split_in_each_directory,
+        overwrite=args.overwrite,
         dpi=dpi,
         show_legend=args.show_legend,
         show_screen=args.show_screen,

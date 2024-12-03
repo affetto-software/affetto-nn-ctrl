@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pyplotutil.datautil import Data
 
+from affetto_nn_ctrl._typing import NoDefault, no_default
 from affetto_nn_ctrl.data_handling import find_latest_data_dir_path
 from affetto_nn_ctrl.event_logging import event_logger
 
@@ -79,14 +80,16 @@ def save_figure(
     basename: str,
     ext_list: list[str] | None,
     *,
+    loaded_from: str | None | NoDefault = no_default,
     dpi: float | str = "figure",
 ) -> Path:
-    try:
-        import __main__
+    if loaded_from is no_default:
+        try:
+            import __main__
 
-        loaded_from = Path(__main__.__file__).stem
-    except ImportError:
-        loaded_from = None
+            loaded_from = Path(__main__.__file__).stem
+        except ImportError:
+            loaded_from = None
 
     built_filename = save_dir_path
     if loaded_from:
