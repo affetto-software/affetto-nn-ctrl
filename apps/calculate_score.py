@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -18,7 +18,7 @@ from affetto_nn_ctrl.data_handling import (
 )
 from affetto_nn_ctrl.event_logging import event_logger, start_logging
 from affetto_nn_ctrl.model_utility import (
-    DataAdapterBase,
+    TrainedModel,
     load_datasets,
     load_train_datasets,
     load_trained_model,
@@ -71,27 +71,36 @@ def save_scores(
 def plot(
     output_dir_path: Path,
     plot_prefix: str,
-    adapter: DataAdapterBase,
+    model: TrainedModel,
     y_true: np.ndarray,
     y_pred: np.ndarray,
+    score: CalculatedScore,
     *,
     dpi: str | float,
     show_legend: bool,
     ext: list[str],
 ) -> None:
-    joints = adapter.params.active_joints
+    joints = model.adapter.params.active_joints
+    dt = model.adapter.params.dt
+    adapter_args = ", ".join([f"{k}={v}" for k, v in asdict(model.adapter.params).items() if k.endswith("step")])
     for i, joint_index in enumerate(joints):
         output_basename = f"{plot_prefix}_{joint_index}"
-        title = f"Command data and prediction (joint: {joint_index})"
+        title = (
+            f"Joint: {joint_index} | "
+            f"{model.adapter.__class__.__name__}({adapter_args}) | {model.model!s} | "
+            f"{score.test_dataset.name} | Score: {score.score:.6f}"
+        )
         cols = (i, i + len(joints))
         labels = ("ca", "cb")
-        fig, ax = plt.subplots(figsize=(12, 6))
+        t_true = np.arange(len(y_true)) * dt
+        t_pred = np.arange(len(y_pred)) * dt
+        fig, ax = plt.subplots(figsize=(18, 6))
         for col, label in zip(cols, labels, strict=True):
-            (line,) = ax.plot(y_true[:, col], ls="--", label=f"{label} (true)")
-            ax.plot(y_pred[:, col], c=line.get_color(), label=f"{label} (pred)")
+            (line,) = ax.plot(t_true, y_true[:, col], ls="--", label=f"{label} (true)")
+            ax.plot(t_pred, y_pred[:, col], c=line.get_color(), label=f"{label} (pred)")
         ax.set_title(title)
-        ax.set_xlabel("x")
-        ax.set_ylabel("y")
+        ax.set_xlabel("time [s]")
+        ax.set_ylabel("pressure command [0-100]")
         if show_legend:
             ax.legend()
         save_figure(fig, output_dir_path, output_basename, ext, loaded_from=None, dpi=dpi)
@@ -162,17 +171,19 @@ def run(
 
         # Make plots and save them.
         plot_dir_path = build_data_file_path(scores_output_dir_path, plot_output_prefix, cnt_plots, ext="")
+        calculated_score = CalculatedScore(test_dataset.datapath, plot_dir_path, score)
         plot(
             plot_dir_path,
             plot_prefix,
-            model.adapter,
+            model,
             y_true,
             y_pred,
+            calculated_score,
             dpi=dpi,
             show_legend=show_legend,
             ext=plot_ext,
         )
-        calculated_scores.append(CalculatedScore(test_dataset.datapath, plot_dir_path, score))
+        calculated_scores.append(calculated_score)
 
     save_scores(scores_output_dir_path, output_prefix, model_filepath, calculated_scores)
 
