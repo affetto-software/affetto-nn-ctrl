@@ -175,7 +175,7 @@ class TestSimpleDataAdapter:
     ) -> np.ndarray:
         trained_model = train_model(model, train_dataset, adapter)
         prediction = self.predict(test_dataset, adapter, trained_model.model)
-        np.savetxt(output, prediction, fmt="%.12e")
+        np.savetxt(output, prediction, fmt="%.10e")
         event_logger().info("Expected data for SimpleDataAdapter generated: %s", output)
         return prediction
 
@@ -627,7 +627,7 @@ class TestJointDataAdapter:
     ) -> tuple[np.ndarray, float]:
         trained_model = train_model(model, train_datasets, adapter)
         y_pred, score = self.predict(test_dataset, adapter, trained_model.model)
-        np.savetxt(output, y_pred, fmt="%.12e")
+        np.savetxt(output, y_pred, fmt="%.10e")
         event_logger().info("Expected data for JointDataAdapter generated: %s", output)
         event_logger().info("Score: %s", score)
         return y_pred, score
