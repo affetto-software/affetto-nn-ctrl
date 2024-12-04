@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 from dataclasses import dataclass
+from itertools import product
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -133,14 +134,49 @@ def plot_scores(ax: Axes, collected_score_data: list[ScoreData], label: str | No
     return ax
 
 
+def make_product(
+    basedir_list: list[str],
+    adapter_list: list[str],
+    regressor_list: list[str],
+    scaler_list: list[str],
+    dataset_tag_list: list[str],
+    score_tag: str,
+) -> tuple[list[tuple[str, str, str, str, str]], list[str], str]:
+    list_args = ([Path(b).name for b in basedir_list], adapter_list, scaler_list, regressor_list, dataset_tag_list)
+    comparisons: list[list[str]] = [arg for arg in list_args if len(arg) > 1]
+    labels = ["|".join(map(str, tpl)) for tpl in product(*comparisons)]
+
+    consistents: list[str] = [arg[0] for arg in list_args if len(arg) == 1]
+    title = " | ".join(map(str, consistents))
+    if len(labels) == 1 and labels[0] == "":
+        labels = [score_tag]
+    prod_list = list(product(basedir_list, adapter_list, regressor_list, scaler_list, dataset_tag_list))
+    return prod_list, labels, title
+
+
+def make_xlabel(adapter_list: list[str]) -> str:
+    preview_bool = [a.startswith("preview") for a in adapter_list]
+    delay_bool = [a.startswith("delay") for a in adapter_list]
+    if any(preview_bool) and any(delay_bool):
+        xlabel = "Preview/Delay steps"
+    elif all(preview_bool):
+        xlabel = "Preview steps"
+    elif all(delay_bool):
+        xlabel = "Delay steps"
+    else:
+        xlabel = "Steps"
+    return xlabel
+
+
 def plot_figure(
     basedir_list: list[str],
-    adapter: str,
-    regressor: str,
-    scaler: str,
-    dataset_tag: str,
+    adapter_list: list[str],
+    regressor_list: list[str],
+    scaler_list: list[str],
+    dataset_tag_list: list[str],
     score_tag: str,
     filename: str,
+    labels: list[str] | None,
     *,
     title: str | None,
     show_legend: bool,
@@ -148,8 +184,23 @@ def plot_figure(
 ) -> tuple[Figure, Axes]:
     figsize = (8, 6)
     fig, ax = plt.subplots(figsize=figsize)
-    label_list = ["not include desired velocity", "include desired velocity"]
-    for basedir, label in zip(basedir_list, label_list, strict=False):
+    plot_sets, default_labels, default_title = make_product(
+        basedir_list,
+        adapter_list,
+        regressor_list,
+        scaler_list,
+        dataset_tag_list,
+        score_tag,
+    )
+    if labels is None or len(labels) == 0:
+        labels = default_labels
+    if title is None:
+        title = default_title
+    if len(labels) != len(plot_sets):
+        msg = "Inconsistent numbers of plot sets and labels: "
+        f"{plot_sets}({len(plot_sets)}) vs {labels}({labels})"
+        raise ValueError(msg)
+    for (basedir, adapter, regressor, scaler, dataset_tag), label in zip(plot_sets, labels, strict=True):
         collected_score_data = collect_score_data(
             basedir,
             adapter,
@@ -161,12 +212,7 @@ def plot_figure(
         )
         plot_scores(ax, collected_score_data, label)
 
-    if adapter.startswith("preview"):
-        xlabel = "Preview steps"
-    elif adapter.startswith("delay"):
-        xlabel = "Delay steps"
-    else:
-        xlabel = "Steps"
+    xlabel = make_xlabel(adapter_list)
     ax.set_xlabel(xlabel)
     ax.set_ylabel("Coefficient of determination")
     ax.set_ylim((-0.05, 1.05))
@@ -179,26 +225,15 @@ def plot_figure(
     return fig, ax
 
 
-def make_title(
-    adapter: str,
-    regressor: str,
-    scaler: str,
-    dataset_tag: str,
-) -> str:
-    built_title = ""
-    adapter_name = adapter.split(".")[0]
-    built_title += f"{adapter_name} | {scaler} | {regressor} | {dataset_tag}"
-    return built_title
-
-
 def plot(
     basedir_list: list[str],
-    adapter: str,
-    regressor: str,
-    scaler: str,
-    dataset_tag: str,
+    adapter_list: list[str],
+    regressor_list: list[str],
+    scaler_list: list[str],
+    dataset_tag_list: list[str],
     score_tag: str,
     filename: str,
+    labels: list[str] | None,
     *,
     title: str | None,
     output_dir: Path,
@@ -209,16 +244,15 @@ def plot(
     show_grid: str,
     show_screen: bool,
 ) -> None:
-    if title is None:
-        title = make_title(adapter, regressor, scaler, dataset_tag)
     fig, _ = plot_figure(
         basedir_list,
-        adapter,
-        regressor,
-        scaler,
-        dataset_tag,
+        adapter_list,
+        regressor_list,
+        scaler_list,
+        dataset_tag_list,
         score_tag,
         filename,
+        labels,
         title=title,
         show_legend=show_legend,
         show_grid=show_grid,
@@ -231,12 +265,13 @@ def plot(
 def parse() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Compare scores across preview/delay steps")
     parser.add_argument("basedir", nargs="+", help="List of paths to directories containing scores data.")
-    parser.add_argument("-a", "--adapter", required=True, help="Data adapter selector.")
-    parser.add_argument("-s", "--scaler", required=True, help="Scaler selector.")
-    parser.add_argument("-r", "--regressor", required=True, help="Regressor selector.")
-    parser.add_argument("-d", "--dataset-tag", required=True, help="Dataset tag.")
+    parser.add_argument("-a", "--adapter", nargs="+", help="Data adapter selector.")
+    parser.add_argument("-s", "--scaler", nargs="+", help="Scaler selector.")
+    parser.add_argument("-r", "--regressor", nargs="+", help="Regressor selector.")
+    parser.add_argument("-d", "--dataset-tag", nargs="+", help="Dataset tag.")
     parser.add_argument("--score-tag", default="scores_000", help="Score data tag. (default: scores_000)")
     parser.add_argument("--score-filename", default="scores.toml", help="Scores filename. (default: scores.toml)")
+    parser.add_argument("-l", "--labels", nargs="*", help="Label list shown in legend.")
     parser.add_argument("--title", help="figure title")
     parser.add_argument("-o", "--output-dir", help="Path to directory that figures are saved")
     parser.add_argument(
@@ -261,6 +296,7 @@ def parse() -> argparse.Namespace:
     parser.add_argument(
         "--show-legend",
         action=argparse.BooleanOptionalAction,
+        default=True,
         help="whether to show legend (default: True)",
     )
     parser.add_argument(
@@ -276,10 +312,6 @@ def parse() -> argparse.Namespace:
         help="Enable verbose console output. -v provides additional info. -vv provides debug output.",
     )
     return parser.parse_args()
-
-
-DEFAULT_SHOW_LEGEND_N_JOINTS = 4
-DEFAULT_DOF = 13
 
 
 def main() -> None:
@@ -307,6 +339,7 @@ def main() -> None:
         args.dataset_tag,
         args.score_tag,
         args.score_filename,
+        args.labels,
         title=args.title,
         output_dir=output_dir,
         output_prefix=args.output_prefix,
