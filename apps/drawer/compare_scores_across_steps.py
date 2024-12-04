@@ -320,3 +320,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+# Local Variables:
+# jinx-local-words: "basedir dataset dir env rb regressor scaler usr vv"
+# End:
