@@ -125,9 +125,11 @@ def plot_scores(ax: Axes, collected_score_data: list[ScoreData], label: str | No
     scores = [data.score_mean for data in collected_score_data]
     errors = [data.score_std for data in collected_score_data]
     _plot_scores(ax, steps, scores, errors, fmt="--o", capsize=6, label=label)
-    ax.set_xticks(steps)
-    # ax.set_xticklabels(map(str, steps))
-    ax.set_xlim((min(steps) - 0.5, max(steps) + 0.5))
+    xticks = ax.get_xticks()
+    if len(scores) > len(xticks):
+        ax.set_xticks(steps)
+        xlim = (min(steps) - 0.5, max(steps) + 0.5)
+        ax.set_xlim(xlim)
     return ax
 
 
