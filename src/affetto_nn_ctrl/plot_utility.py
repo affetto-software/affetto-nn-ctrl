@@ -83,6 +83,10 @@ def save_figure(
     loaded_from: str | None | NoDefault = no_default,
     dpi: float | str = "figure",
 ) -> Path:
+    if save_dir_path is None:
+        msg = f"'None' is not allowed for directory path: {save_dir_path}, {type(save_dir_path)}"
+        raise ValueError(msg)
+
     if loaded_from is no_default:
         try:
             import __main__
