@@ -134,24 +134,67 @@ def plot_scores(ax: Axes, collected_score_data: list[ScoreData], label: str | No
     return ax
 
 
-def make_product(
+def make_plot_sets(
+    basedir_list: list[str],
+    adapter_list: list[str],
+    regressor_list: list[str],
+    scaler_list: list[str],
+    dataset_tag_list: list[str],
+) -> list[tuple[str, str, str, str, str]]:
+    plot_sets = product(basedir_list, adapter_list, regressor_list, scaler_list, dataset_tag_list)
+    return list(plot_sets)
+
+
+def make_labels(
     basedir_list: list[str],
     adapter_list: list[str],
     regressor_list: list[str],
     scaler_list: list[str],
     dataset_tag_list: list[str],
     score_tag: str,
-) -> tuple[list[tuple[str, str, str, str, str]], list[str], str]:
+) -> list[str]:
     list_args = ([Path(b).name for b in basedir_list], adapter_list, scaler_list, regressor_list, dataset_tag_list)
     comparisons: list[list[str]] = [arg for arg in list_args if len(arg) > 1]
     labels = ["|".join(map(str, tpl)) for tpl in product(*comparisons)]
-
-    consistents: list[str] = [arg[0] for arg in list_args if len(arg) == 1]
-    title = " | ".join(map(str, consistents))
     if len(labels) == 1 and labels[0] == "":
         labels = [score_tag]
-    prod_list = list(product(basedir_list, adapter_list, regressor_list, scaler_list, dataset_tag_list))
-    return prod_list, labels, title
+    return labels
+
+
+def make_title(
+    basedir_list: list[str],
+    adapter_list: list[str],
+    regressor_list: list[str],
+    scaler_list: list[str],
+    dataset_tag_list: list[str],
+    default_title: str,
+) -> str:
+    list_args = ([Path(b).name for b in basedir_list], adapter_list, scaler_list, regressor_list, dataset_tag_list)
+    consistents: list[str] = [arg[0] for arg in list_args if len(arg) == 1]
+    if len(consistents) > 0:
+        title = " | ".join(map(str, consistents))
+    else:
+        title = default_title
+    return title
+
+
+def make_output_prefix(
+    basedir_list: list[str],
+    adapter_list: list[str],
+    regressor_list: list[str],
+    scaler_list: list[str],
+    dataset_tag_list: list[str],
+    default_prefix: str,
+) -> str:
+    list_args = ([Path(b).name for b in basedir_list], adapter_list, scaler_list, regressor_list, dataset_tag_list)
+    args_name = ("basedir", "adapter", "scaler", "regressor", "dataset")
+    comparisons: list[str] = [name for arg, name in zip(list_args, args_name, strict=True) if len(arg) > 1]
+    if len(comparisons) > 0:
+        output_prefix = "compare_"
+        output_prefix += "_".join(comparisons)
+    else:
+        output_prefix = default_prefix
+    return output_prefix
 
 
 def make_xlabel(adapter_list: list[str]) -> str:
@@ -184,22 +227,17 @@ def plot_figure(
 ) -> tuple[Figure, Axes]:
     figsize = (8, 6)
     fig, ax = plt.subplots(figsize=figsize)
-    plot_sets, default_labels, default_title = make_product(
-        basedir_list,
-        adapter_list,
-        regressor_list,
-        scaler_list,
-        dataset_tag_list,
-        score_tag,
-    )
+    list_args = [basedir_list, adapter_list, regressor_list, scaler_list, dataset_tag_list]
     if labels is None or len(labels) == 0:
-        labels = default_labels
+        labels = make_labels(basedir_list, adapter_list, regressor_list, scaler_list, dataset_tag_list, score_tag)
     if title is None:
-        title = default_title
+        title = make_title(basedir_list, adapter_list, regressor_list, scaler_list, dataset_tag_list, "scores")
+    plot_sets = make_plot_sets(*list_args)
     if len(labels) != len(plot_sets):
         msg = "Inconsistent numbers of plot sets and labels: "
         f"{plot_sets}({len(plot_sets)}) vs {labels}({labels})"
         raise ValueError(msg)
+
     for (basedir, adapter, regressor, scaler, dataset_tag), label in zip(plot_sets, labels, strict=True):
         collected_score_data = collect_score_data(
             basedir,
@@ -220,8 +258,7 @@ def plot_figure(
         ax.grid(axis=show_grid, visible=True)
     if show_legend:
         ax.legend()
-    if title:
-        ax.set_title(title)
+    ax.set_title(title)
     return fig, ax
 
 
@@ -237,7 +274,7 @@ def plot(
     *,
     title: str | None,
     output_dir: Path,
-    output_prefix: str,
+    output_prefix: str | None,
     ext: list[str],
     dpi: float | str,
     show_legend: bool,
@@ -256,6 +293,14 @@ def plot(
         title=title,
         show_legend=show_legend,
         show_grid=show_grid,
+    )
+    output_prefix = make_output_prefix(
+        basedir_list,
+        adapter_list,
+        regressor_list,
+        scaler_list,
+        dataset_tag_list,
+        "scores",
     )
     save_figure(fig, output_dir, output_prefix, ext, dpi=dpi)
     if show_screen:
@@ -276,7 +321,6 @@ def parse() -> argparse.Namespace:
     parser.add_argument("-o", "--output-dir", help="Path to directory that figures are saved")
     parser.add_argument(
         "--output-prefix",
-        default="compare_steps",
         help="Filename prefix that will be added to plot figure.",
     )
     parser.add_argument(
