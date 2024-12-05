@@ -112,7 +112,7 @@ def run(
     event_logger().debug("Initial posture: %s", q0)
 
     # Resolve active joints.
-    active_joints = resolve_joints_str(joints_str)
+    active_joints = resolve_joints_str(joints_str, dof=ctrl.dof)
     event_logger().debug("Resolved active joints: %s", active_joints)
 
     # Create data file counter.

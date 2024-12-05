@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 
 
 APP_NAME_TRAIN_MODEL = "trained_model"
+DEFAULT_DOF = 13
 
 
 def run(
@@ -53,7 +54,7 @@ def run(
     overwrite: bool,
 ) -> None:
     # Resolve active joints.
-    active_joints = resolve_joints_str(joints_str)
+    active_joints = resolve_joints_str(joints_str, dof=DEFAULT_DOF)
     event_logger().debug("Resolved active joints: %s", active_joints)
 
     # Load a model configuration file.

@@ -113,7 +113,7 @@ def run(
     event_logger().debug("Initial posture: %s", q0)
 
     # Create random trajectory generator.
-    active_joints = resolve_joints_str(joints_str)
+    active_joints = resolve_joints_str(joints_str, dof=ctrl.dof)
     rt = RandomTrajectory(active_joints, t0, q0, t_range, q_range, q_limit, profile, seed, async_update=async_mode)
     event_logger().debug("Random trajectory generator created: profile=%s, async=%s", profile, async_mode)
     event_logger().debug("  t_range: %s, q_range: %s, q_limit: %s", t_range, q_range, q_limit)
