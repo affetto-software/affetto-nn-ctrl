@@ -597,7 +597,7 @@ def load_datasets(
     datasets: list[Data] = []
     for dataset_path in dataset_paths:
         datasets.extend(_load_datasets(dataset_path, glob_pattern, n_pickup))
-    event_logger().debug("%s datasets loaded in total", len(datasets))
+    event_logger().info("%s datasets loaded in total", len(datasets))
 
     if len(datasets) == 0:
         msg = f"No dataset found with {glob_pattern}: {dataset_paths}"
@@ -619,7 +619,7 @@ def load_train_datasets(
         x_train = np.vstack((x_train, _x_train)) if x_train is not None else np.copy(_x_train)
         y_train = np.vstack((y_train, _y_train)) if y_train is not None else np.copy(_y_train)
         if dataset.is_loaded_from_file():
-            event_logger().info("Loaded dataset: %s", dataset.datapath)
+            event_logger().debug("Loaded dataset: %s", dataset.datapath)
     if x_train is None or y_train is None:
         msg = f"No data sets found: {train_datasets}"
         raise RuntimeError(msg)
