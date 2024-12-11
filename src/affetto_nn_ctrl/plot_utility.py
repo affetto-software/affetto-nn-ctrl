@@ -42,7 +42,8 @@ def savefig(
     *,
     dpi: float | str = "figure",
     separate_dir: bool = True,
-) -> None:
+) -> list[Path]:
+    saved_figpath: list[Path] = []
     for ext in ext_list:
         e = ext
         if not e.startswith("."):
@@ -58,8 +59,10 @@ def savefig(
             figpath = figpath.parent / e[1:] / figpath.name
             figpath.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(figpath, dpi=dpi, bbox_inches="tight")
+        saved_figpath.append(figpath)
         msg = f"Figure saved: {figpath}"
         event_logger().info(msg)
+    return saved_figpath
 
 
 FILENAME_T = TypeVar("FILENAME_T", str, Path)
@@ -82,7 +85,7 @@ def save_figure(
     *,
     loaded_from: str | None | NoDefault = no_default,
     dpi: float | str = "figure",
-) -> Path:
+) -> list[Path]:
     if save_dir_path is None:
         msg = f"'None' is not allowed for directory path: {save_dir_path}, {type(save_dir_path)}"
         raise ValueError(msg)
@@ -102,12 +105,13 @@ def save_figure(
     built_filename = _compatible_filename(built_filename)
 
     fig.tight_layout()
+    saved_figures: list[Path] = []
     if ext_list is not None:
-        savefig(fig, built_filename, ext_list, dpi=dpi)
+        saved_figures = savefig(fig, built_filename, ext_list, dpi=dpi)
     else:
         event_logger().warning("Nothing saved.")
         event_logger().debug("Figures have not been saved since no extension is provided.")
-    return built_filename
+    return saved_figures
 
 
 def load_dataset(dataset_dir_path: Path, pattern: str = "**.csv") -> list[Data]:
