@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from affetto_nn_ctrl.control_utility import (
@@ -15,6 +16,7 @@ from affetto_nn_ctrl.control_utility import (
 )
 from affetto_nn_ctrl.data_handling import (
     build_data_file_path,
+    collect_files,
     copy_config,
     get_default_base_dir,
     get_default_counter,
@@ -29,15 +31,12 @@ from affetto_nn_ctrl.model_utility import (
 )
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from affctrllib import Logger
 
     from affetto_nn_ctrl import CONTROLLER_T
 
 DEFAULT_DURATION = 10
 DEFAULT_N_REPEAT = 10
-APP_NAME_TRACK_TRAJECTORY = "performance"
 
 
 def track_motion_trajectory(
@@ -76,8 +75,9 @@ def run(
     q_init: list[float] | None,
     ca_init: list[float] | None,
     cb_init: list[float] | None,
-    reference_filepath: str,
     model_filepath: str | None,
+    reference_files: list[str],
+    glob_pattern: str,
     smoothness: float | None,
     duration: float,
     n_repeat: int,
@@ -115,16 +115,12 @@ def run(
     active_joints = resolve_joints_str(joints_str, dof=ctrl.dof)
     event_logger().debug("Resolved active joints: %s", active_joints)
 
-    # Create data file counter.
-    n = 0
-    if not overwrite:
-        n = len(list(output_dir_path.glob(f"{output_prefix}*.csv")))
-    cnt = get_default_counter(n)
-    event_logger().debug("Data file counter initialized with %s", n)
-
-    # Load reference motion trajectory.
-    reference = Spline(reference_filepath, active_joints, smoothness)
-    event_logger().debug("Reference motion trajectory is loaded: %s", reference_filepath)
+    # Collect reference motion trajectories.
+    event_logger().debug("Loading reference trajectories with following condition:")
+    event_logger().debug("     Path list: %s", reference_files)
+    event_logger().debug("  glob pattern: %s", glob_pattern)
+    reference_paths = collect_files(reference_files, glob_pattern)
+    event_logger().info("%s reference motion trajectories found", len(reference_paths))
 
     # Load trained model.
     model: DefaultTrainedModelType | None = None
@@ -134,24 +130,50 @@ def run(
     else:
         event_logger().info("No model is loaded, PID control is used.")
 
-    # Perform trajectory tracking.
-    for i in range(n_repeat):
-        if i > 0:
-            # Initialize robot pose again.
-            initializer.get_back_home((comm, ctrl, state))
-        data_file_path = build_data_file_path(output_dir_path, prefix=output_prefix, iterator=cnt, ext=".csv")
-        header_text = f"[{i+1}/{n_repeat}] Performing trajectory tracking..."
-        event_logger().debug(header_text)
-        track_motion_trajectory(
-            (comm, ctrl, state),
-            model,
-            data_logger,
-            reference,
-            duration,
-            data_file_path,
-            header_text=header_text,
-        )
-        event_logger().debug("Data saved: %s", data_file_path)
+    # Create reference file counter.
+    n_reference = 0
+    if not overwrite:
+        n_reference = len(list(output_dir_path.glob(f"{output_prefix}*")))
+    cnt_reference = get_default_counter(n_reference)
+    event_logger().debug("Reference counter initialized with %s", n_reference)
+
+    for i, reference_path in enumerate(reference_paths):
+        reference_output_dir_path = build_data_file_path(output_dir_path, output_prefix, cnt_reference, ext="")
+
+        # Create tracked motion trajectory counter.
+        n = 0
+        if not overwrite:
+            n = len(list(reference_output_dir_path.glob(f"{output_prefix}*.csv")))
+        cnt = get_default_counter(n)
+        event_logger().debug("Tracked motion trajectory counter initialized with %s", n)
+
+        # Load reference motion trajectory.
+        reference = Spline(reference_path, active_joints, smoothness)
+        event_logger().debug("Reference motion trajectory is loaded: %s", reference_path)
+
+        # Perform trajectory tracking.
+        for j in range(n_repeat):
+            if i == 0 and j == 0:
+                # Initialize robot pose again.
+                initializer.get_back_home((comm, ctrl, state))
+            motion_file_path = build_data_file_path(
+                reference_output_dir_path,
+                prefix=output_prefix,
+                iterator=cnt,
+                ext=".csv",
+            )
+            header_text = f"[{i+1}/{len(reference_paths)}|{j+1}/{n_repeat}] Performing trajectory tracking..."
+            event_logger().debug(header_text)
+            track_motion_trajectory(
+                (comm, ctrl, state),
+                model,
+                data_logger,
+                reference,
+                duration,
+                motion_file_path,
+                header_text=header_text,
+            )
+            event_logger().debug("Motion file saved: %s", motion_file_path)
 
     # Release all joints.
     release_pressure((comm, ctrl, state))
@@ -237,11 +259,21 @@ def parse() -> argparse.Namespace:
         help="Valve command list for negative side when making the robot get back to home position.",
     )
     # Input
-    parser.add_argument("-r", "--reference", required=True, help="Path to file storing reference motion trajectory.")
     parser.add_argument(
-        "-m",
-        "--model",
+        "model",
         help="Path to file in which trained model is encoded. If no model is provided, PID controller is used.",
+    )
+    parser.add_argument(
+        "-r",
+        "--reference-files",
+        nargs="+",
+        help="A directory path or paths to files storing reference motion trajectory.",
+    )
+    parser.add_argument(
+        "-g",
+        "--glob-pattern",
+        default="**/*.csv",
+        help="Glob pattern to filter motion files load as references.",
     )
     # Parameters
     parser.add_argument(
@@ -262,7 +294,7 @@ def parse() -> argparse.Namespace:
         "--n-repeat",
         default=DEFAULT_N_REPEAT,
         type=int,
-        help="Number of iterations to generate trajectories.",
+        help="Number of iterations to track each reference trajectory.",
     )
     # Output
     parser.add_argument(
@@ -272,7 +304,7 @@ def parse() -> argparse.Namespace:
     )
     parser.add_argument(
         "--output-prefix",
-        default="motion_trajectory",
+        default="tracked_trajectory",
         help="Filename prefix that will be added to generated data files.",
     )
     parser.add_argument(
@@ -283,7 +315,7 @@ def parse() -> argparse.Namespace:
     )
     parser.add_argument(
         "--label",
-        default="testing",
+        default="track_performance",
         help="Label name of the current dataset.",
     )
     parser.add_argument(
@@ -325,15 +357,19 @@ def main() -> None:
     args = parse()
 
     # Prepare input/output
-    output_dir = get_output_dir_path(
-        args.base_dir,
-        APP_NAME_TRACK_TRAJECTORY,
-        args.output,
-        args.label,
-        args.sublabel,
-        args.specify_date,
-        split_by_date=args.split_by_date,
-    )
+    if args.output is not None:
+        output_dir = Path(args.output)
+    else:
+        base_dir = args.base_dir if args.model is None else str(Path(args.model).parent)
+        output_dir = get_output_dir_path(
+            base_dir,
+            None,
+            None,
+            args.label,
+            args.sublabel,
+            args.specify_date,
+            split_by_date=args.split_by_date,
+        )
     start_logging(sys.argv, output_dir, __name__, args.verbose)
     event_logger().info("Output directory: %s", output_dir)
     prepare_data_dir_path(output_dir, make_latest_symlink=args.make_latest_symlink)
@@ -355,8 +391,9 @@ def main() -> None:
         args.ca_init,
         args.cb_init,
         # input
-        args.reference,
         args.model,
+        args.reference_files,
+        args.glob_pattern,
         # parameters
         args.smoothness,
         args.duration,
