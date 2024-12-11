@@ -33,9 +33,31 @@ def get_default_counter(start: int = 0, step: int = 1, fmt: str = "_{:03d}") -> 
     return map(fmt.format, itertools.count(start, step))
 
 
+def append_date_to_dir_path(
+    dir_path: str | Path,
+    specified_date: str | None = None,
+    *,
+    millisecond: bool = False,
+) -> Path:
+    built_path = Path(dir_path)
+    # Split directory into sub-directory by date.
+    if specified_date is not None:
+        if specified_date == "latest":
+            built_path = find_latest_data_dir_path(built_path)
+        else:
+            built_path /= specified_date
+    else:
+        fmt = "%Y%m%dT%H%M%S"
+        if millisecond:
+            fmt += ".%f"
+        now = datetime.datetime.now().strftime(fmt)  # noqa: DTZ005
+        built_path /= now
+    return built_path
+
+
 def build_data_dir_path(
     base_dir: str | Path | None = None,
-    app_name: str = "app",
+    app_name: str | None = "app",
     label: str = "test",
     sublabel: str | None = None,
     specified_date: str | None = None,
@@ -47,20 +69,19 @@ def build_data_dir_path(
         base_dir = DEFAULT_BASE_DIR_PATH
 
     # Build upon the provided app name and label.
-    built_path: Path = Path(base_dir) / app_name / label
+    built_path: Path
+    if app_name is not None:
+        built_path = Path(base_dir) / app_name / label
+    else:
+        built_path = Path(base_dir) / label
 
     # Split directory into sub-directory by date.
-    if specified_date is not None:
-        if specified_date == "latest":
-            built_path = find_latest_data_dir_path(base_dir, app_name, label)
-        else:
-            built_path /= specified_date
-    elif split_by_date:
-        fmt = "%Y%m%dT%H%M%S"
-        if millisecond:
-            fmt += ".%f"
-        now = datetime.datetime.now().strftime(fmt)  # noqa: DTZ005
-        built_path /= now
+    if specified_date is not None or split_by_date:
+        built_path = append_date_to_dir_path(
+            built_path,
+            specified_date,
+            millisecond=millisecond,
+        )
 
     # Add the provided sublabel.
     if sublabel is not None and len(sublabel) > 0:
@@ -71,7 +92,7 @@ def build_data_dir_path(
 
 def get_output_dir_path(
     base_dir: str,
-    app_name: str,
+    app_name: str | None,
     given_output: str | None,
     label: str | None,
     sublabel: str | None,
@@ -212,6 +233,25 @@ def build_data_file_path(
         built_path /= filename
 
     return built_path
+
+
+def collect_files(
+    file_or_directory_paths: str | Path | Iterable[str | Path],
+    glob_pattern: str = "**/*.csv",
+) -> list[Path]:
+    if isinstance(file_or_directory_paths, str | Path):
+        file_or_directory_paths = [file_or_directory_paths]
+
+    collection: list[Path] = []
+    for file_or_directory in file_or_directory_paths:
+        path = Path(file_or_directory)
+        if not path.exists():
+            raise FileNotFoundError(path)
+        if path.is_dir():
+            collection.extend(sorted(path.glob(glob_pattern)))
+        else:
+            collection.append(path)
+    return collection
 
 
 def _collect_dataset_files(
