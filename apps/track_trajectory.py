@@ -63,7 +63,46 @@ def track_motion_trajectory(
     data_logger.dump(quiet=True)
 
 
-def run(
+def save_paths(
+    output_dir_path: Path,
+    output_prefix: str,
+    model_file_path: str | None,
+    reference_output_paths: list[Path],
+    motion_paths: dict[str, list[Path]],
+    ext: str = ".toml",
+) -> Path:
+    if not ext.startswith("."):
+        ext = f".{ext}"
+    output = output_dir_path / f"{output_prefix}{ext}"
+
+    text_lines = [
+        "[model.performance]\n",
+        f'model_path = "{model_file_path}"\n',
+        "\n",
+    ]
+    for ref in reference_output_paths:
+        text_lines.extend(
+            [
+                f"[model.performance.{ref.stem}]\n",
+                f'reference_path = "{ref!s}"\n',
+                "\n",
+            ],
+        )
+        for motion in motion_paths[ref.stem]:
+            text_lines.extend(
+                [
+                    f"[[model.performance.{ref.stem}.errors]]\n",
+                    f'motion_path = "{motion!s}"\n',
+                    "\n",
+                ],
+            )
+    with output.open("w") as f:
+        f.writelines(text_lines)
+    event_logger().info("Paths data saved: %s", output)
+    return output
+
+
+def run(  # noqa: PLR0915
     config: str,
     joints_str: list[str] | None,
     sfreq: float | None,
@@ -137,8 +176,12 @@ def run(
     cnt_reference = get_default_counter(n_reference)
     event_logger().debug("Reference counter initialized with %s", n_reference)
 
+    reference_output_paths: list[Path] = []
+    motion_paths: dict[str, list[Path]] = {}
     for i, reference_path in enumerate(reference_paths):
         reference_output_dir_path = build_data_file_path(output_dir_path, output_prefix, cnt_reference, ext="")
+        reference_output_paths.append(reference_output_dir_path)
+        motion_paths[reference_output_dir_path.stem] = []
 
         # Create tracked motion trajectory counter.
         n = 0
@@ -173,6 +216,7 @@ def run(
                 motion_file_path,
                 header_text=header_text,
             )
+            motion_paths[reference_output_dir_path.stem].append(motion_file_path)
             event_logger().debug("Motion file saved: %s", motion_file_path)
 
     # Release all joints.
@@ -182,6 +226,9 @@ def run(
     event_logger().debug("Tracking reference motion trajectory finished")
     comm.close_command_socket()
     state.join()
+
+    # Save paths data
+    save_paths(output_dir_path, output_prefix, model_filepath, reference_output_paths, motion_paths)
 
 
 def parse() -> argparse.Namespace:
@@ -410,5 +457,5 @@ if __name__ == "__main__":
     main()
 
 # Local Variables:
-# jinx-local-words: "cb cfreq csv ctrl dataset dir env init mlp pid sfreq sublabel symlink usr vv"
+# jinx-local-words: "cb cfreq csv ctrl dataset dir env init mlp noqa pid sfreq sublabel symlink usr vv"
 # End:
