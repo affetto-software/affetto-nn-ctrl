@@ -91,7 +91,7 @@ def plot(
         title = (
             f"Joint: {joint_index} | "
             f"{model.adapter.__class__.__name__}({adapter_args}) | {model.model!s} | "
-            f"{score.test_dataset.name} | Score: {score.score:.6f}"
+            f"{score.test_dataset.name} | Score: {score.score:.6f} | {output_dir_path.name}"
         )
         cols = (i, i + len(joints))
         labels = ("ca", "cb")
