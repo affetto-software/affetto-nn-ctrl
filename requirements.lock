@@ -41,6 +41,8 @@ pillow==10.3.0
     # via matplotlib
 pyparsing==3.1.2
     # via matplotlib
+pypdf==5.1.0
+    # via affetto-nn-ctrl
 pyplotutil @ git+https://github.com/hrshtst/pyplotutil.git@d691ca9515d31611e4fc23f4fb89eb6f8e5b28c0
     # via affetto-nn-ctrl
 pyqt6==6.7.1
