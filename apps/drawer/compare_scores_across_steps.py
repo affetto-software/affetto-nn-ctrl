@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 from affetto_nn_ctrl.data_handling import prepare_data_dir_path
 from affetto_nn_ctrl.event_logging import FakeLogger, event_logger, get_logging_level_from_verbose_count, start_logging
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
 
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure
+    from matplotlib.typing import ColorType
 
 if sys.version_info < (3, 11):
     import tomli as tomllib
@@ -116,16 +118,46 @@ def _plot_scores(
     fmt: str,
     capsize: int,
     label: str | None,
+    *,
+    show_arrows: bool,
 ) -> Axes:
-    ax.errorbar(x, y, yerr=yerr, capsize=capsize, fmt=fmt, label=label)
+    errbar = ax.errorbar(x, y, yerr=yerr, capsize=capsize, fmt=fmt, label=label)
+    if show_arrows:
+        _plot_arrow(ax, x, y, facecolor=errbar.lines[0].get_color())
     return ax
 
 
-def plot_scores(ax: Axes, collected_score_data: list[ScoreData], label: str | None) -> Axes:
+def _plot_arrow(ax: Axes, x: list[int], y: list[float], facecolor: ColorType) -> Axes:
+    rng = np.random.default_rng()
+    argmax = [i for i, _y in enumerate(y) if _y == max(y)]
+    length = 1.0
+    theta = np.pi * 0.03 + rng.uniform(-0.2, 0.2)
+    offset: tuple[float, float] = (0.0, 0.0)
+    for i in argmax:
+        x_head = x[i] + offset[0]
+        y_head = y[i] + offset[1]
+        x_tail = x_head + length * np.cos(theta)
+        y_tail = y_head + length * np.sin(theta)
+        ax.annotate(
+            "",
+            xy=(x_head, y_head),
+            xytext=(x_tail, y_tail),
+            arrowprops={"facecolor": facecolor, "shrink": 0.0, "lw": 0.0},
+        )
+    return ax
+
+
+def plot_scores(
+    ax: Axes,
+    collected_score_data: list[ScoreData],
+    label: str | None,
+    *,
+    show_arrows: bool,
+) -> Axes:
     steps = [data.steps for data in collected_score_data]
     scores = [data.score_mean for data in collected_score_data]
     errors = [data.score_std for data in collected_score_data]
-    _plot_scores(ax, steps, scores, errors, fmt="--o", capsize=6, label=label)
+    _plot_scores(ax, steps, scores, errors, fmt="--o", capsize=6, label=label, show_arrows=show_arrows)
     xticks = ax.get_xticks()
     if len(scores) > len(xticks):
         ax.set_xticks(steps)
@@ -223,6 +255,7 @@ def plot_figure(
     *,
     title: str | None,
     show_legend: bool,
+    show_arrows: bool,
     show_grid: str,
 ) -> tuple[Figure, Axes]:
     figsize = (8, 6)
@@ -248,7 +281,7 @@ def plot_figure(
             score_tag,
             filename,
         )
-        plot_scores(ax, collected_score_data, label)
+        plot_scores(ax, collected_score_data, label, show_arrows=show_arrows)
 
     xlabel = make_xlabel(adapter_list)
     ax.set_xlabel(xlabel)
@@ -278,6 +311,7 @@ def plot(
     ext: list[str],
     dpi: float | str,
     show_legend: bool,
+    show_arrows: bool,
     show_grid: str,
     show_screen: bool,
 ) -> None:
@@ -292,6 +326,7 @@ def plot(
         labels,
         title=title,
         show_legend=show_legend,
+        show_arrows=show_arrows,
         show_grid=show_grid,
     )
     output_prefix = make_output_prefix(
@@ -344,6 +379,12 @@ def parse() -> argparse.Namespace:
         help="whether to show legend (default: True)",
     )
     parser.add_argument(
+        "--show-arrows",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="whether to show arrows at maximum scores (default: True)",
+    )
+    parser.add_argument(
         "--show-grid",
         default="both",
         help="which axis to show grid. choose from ['x','y','both', 'none'] (default: both)",
@@ -390,6 +431,7 @@ def main() -> None:
         ext=args.ext,
         dpi=dpi,
         show_legend=args.show_legend,
+        show_arrows=args.show_arrows,
         show_grid=args.show_grid,
         show_screen=args.show_screen,
     )
@@ -399,5 +441,5 @@ if __name__ == "__main__":
     main()
 
 # Local Variables:
-# jinx-local-words: "basedir dataset dir env rb regressor scaler usr vv"
+# jinx-local-words: "basedir dataset dir env facecolor lw rb regressor scaler usr vv"
 # End:
