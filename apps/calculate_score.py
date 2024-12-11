@@ -46,11 +46,12 @@ def save_scores(
         ext = f".{ext}"
     output = output_dir_path / f"{output_prefix}{ext}"
 
-    scores_array = np.array([x.score for x in calculated_scores], dtype=float)
+    arr = np.array([x.score for x in calculated_scores], dtype=float)
     text_lines = [
         "[model.performance]\n",
         f'model_path = "{model_filepath}"\n',
-        f"score = {{ mean = {np.mean(scores_array)}, std = {np.std(scores_array)} }}\n",
+        f"score = {{ mean = {np.mean(arr)}, std = {np.std(arr)}, "
+        f"argmax = {np.argmax(arr)}, argmin = {np.argmin(arr)} }}\n",
         "\n",
     ]
     for score in calculated_scores:
@@ -352,5 +353,5 @@ if __name__ == "__main__":
     main()
 
 # Local Variables:
-# jinx-local-words: "cb csv dataset datasets env pred regressor usr vv"
+# jinx-local-words: "argmax argmin cb csv dataset datasets env pdf pred regressor usr vv"
 # End:
