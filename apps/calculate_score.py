@@ -8,6 +8,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+from pypdf import PdfWriter
 
 from affetto_nn_ctrl import DEFAULT_SEED
 from affetto_nn_ctrl.data_handling import (
@@ -23,7 +24,7 @@ from affetto_nn_ctrl.model_utility import (
     load_train_datasets,
     load_trained_model,
 )
-from affetto_nn_ctrl.plot_utility import save_figure
+from affetto_nn_ctrl.plot_utility import extract_common_parts, save_figure
 
 DEFAULT_SHOW_SCREEN_NUM = 10
 
@@ -80,10 +81,11 @@ def plot(
     dpi: str | float,
     show_legend: bool,
     ext: list[str],
-) -> None:
+) -> list[Path]:
     joints = model.adapter.params.active_joints
     dt = model.adapter.params.dt
     adapter_args = ", ".join([f"{k}={v}" for k, v in asdict(model.adapter.params).items() if k.endswith("step")])
+    all_saved_figures: list[Path] = []
     for i, joint_index in enumerate(joints):
         output_basename = f"{plot_prefix}_{joint_index}"
         title = (
@@ -104,7 +106,30 @@ def plot(
         ax.set_ylabel("pressure command [0-100]")
         if show_legend:
             ax.legend()
-        save_figure(fig, output_dir_path, output_basename, ext, loaded_from=None, dpi=dpi)
+        saved_figures = save_figure(fig, output_dir_path, output_basename, ext, loaded_from=None, dpi=dpi)
+        all_saved_figures.extend(saved_figures)
+    return all_saved_figures
+
+
+def merge_plot_figures(saved_figures: list[Path]) -> list[Path]:
+    pdf_figures = sorted(filter(lambda x: x.suffix == ".pdf", saved_figures))
+    if len(pdf_figures) == 0:
+        event_logger().warning("Unable to merge plots because no PDF files saved.")
+        return []
+
+    output_dirpath = extract_common_parts(*pdf_figures)
+    filename_set = {x.name for x in pdf_figures}
+    merged_files: list[Path] = []
+    for name in filename_set:
+        merger = PdfWriter()
+        for pdf in filter(lambda x: x.name == name, pdf_figures):
+            merger.append(pdf)
+        output = output_dirpath / f"merged_{name}"
+        merger.write(output)
+        merger.close()
+        merged_files.append(output)
+        event_logger().info("Saved merged plots: %s", output)
+    return merged_files
 
 
 def run(
@@ -123,6 +148,7 @@ def run(
     shuffle: bool,
     split_in_each_directory: bool,
     overwrite: bool,
+    merge_plots: bool,
     dpi: str | float,
     show_legend: bool,
     show_screen: bool | None,
@@ -164,6 +190,7 @@ def run(
 
     # Calculate prediction and score of the trained model based on test datasets.
     calculated_scores: list[CalculatedScore] = []
+    all_saved_figures: list[Path] = []
     for i, test_dataset in enumerate(test_datasets):
         x_test, y_true = load_train_datasets(test_dataset, model.adapter)
         y_pred = model.predict(x_test)
@@ -173,7 +200,7 @@ def run(
         # Make plots and save them.
         plot_dir_path = build_data_file_path(scores_output_dir_path, plot_output_prefix, cnt_plots, ext="")
         calculated_score = CalculatedScore(test_dataset.datapath, plot_dir_path, score)
-        plot(
+        saved_figures = plot(
             plot_dir_path,
             plot_prefix,
             model,
@@ -185,8 +212,11 @@ def run(
             ext=plot_ext,
         )
         calculated_scores.append(calculated_score)
+        all_saved_figures.extend(saved_figures)
 
     save_scores(scores_output_dir_path, output_prefix, model_filepath, calculated_scores)
+    if merge_plots:
+        merge_plot_figures(all_saved_figures)
 
     if show_screen is None and n_test_datasets <= DEFAULT_SHOW_SCREEN_NUM:
         show_screen = True
@@ -279,6 +309,12 @@ def parse() -> argparse.Namespace:
         nargs="*",
         help="Filename prefix that will be added to plot figure.",
     )
+    parser.add_argument(
+        "--merge-plots",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Boolean. If True, merge saved plot figures per active joint.",
+    )
     parser.add_argument("--dpi", default="figure", help="Figure DPI to be saved")
     parser.add_argument(
         "--show-legend",
@@ -343,6 +379,7 @@ def main() -> None:
         shuffle=args.shuffle,
         split_in_each_directory=args.split_in_each_directory,
         overwrite=args.overwrite,
+        merge_plots=args.merge_plots,
         dpi=dpi,
         show_legend=args.show_legend,
         show_screen=args.show_screen,
