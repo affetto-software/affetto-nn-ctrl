@@ -66,6 +66,7 @@ def track_motion_trajectory(
 def save_paths(
     output_dir_path: Path,
     output_prefix: str,
+    active_joints: list[int],
     model_file_path: str | None,
     reference_output_paths: list[Path],
     motion_paths: dict[str, list[Path]],
@@ -75,9 +76,11 @@ def save_paths(
         ext = f".{ext}"
     output = output_dir_path / f"{output_prefix}{ext}"
 
+    joints_str = ", ".join(map(str, active_joints))
     text_lines = [
         "[model.performance]\n",
         f'model_path = "{model_file_path}"\n',
+        f"active_joints = [ {joints_str} ]\n",
         "\n",
     ]
     for ref in reference_output_paths:
@@ -229,7 +232,14 @@ def run(  # noqa: PLR0915
     state.join()
 
     # Save paths data
-    save_paths(output_dir_path, output_prefix, model_filepath, reference_output_paths, motion_paths)
+    save_paths(
+        output_dir_path,
+        output_prefix,
+        active_joints,
+        model_filepath,
+        reference_output_paths,
+        motion_paths,
+    )
 
 
 def parse() -> argparse.Namespace:
