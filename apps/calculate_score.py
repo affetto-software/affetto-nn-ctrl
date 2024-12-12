@@ -87,7 +87,7 @@ def plot(
     adapter_args = ", ".join([f"{k}={v}" for k, v in asdict(model.adapter.params).items() if k.endswith("step")])
     all_saved_figures: list[Path] = []
     for i, joint_index in enumerate(joints):
-        output_basename = f"{plot_prefix}_{joint_index}"
+        output_basename = f"{plot_prefix}_{joint_index:02d}"
         title = (
             f"Joint: {joint_index} | "
             f"{model.adapter.__class__.__name__}({adapter_args}) | {model.model!s} | "
@@ -99,11 +99,11 @@ def plot(
         t_pred = np.arange(len(y_pred)) * dt
         fig, ax = plt.subplots(figsize=(18, 6))
         for col, label in zip(cols, labels, strict=True):
-            (line,) = ax.plot(t_true, y_true[:, col], ls="--", label=f"{label} (true)")
-            ax.plot(t_pred, y_pred[:, col], c=line.get_color(), label=f"{label} (pred)")
+            (line,) = ax.plot(t_true, y_true[:, col] * 600.0 / 255.0, ls="--", label=f"{label} (true)")
+            ax.plot(t_pred, y_pred[:, col] * 600.0 / 255.0, c=line.get_color(), label=f"{label} (pred)")
         ax.set_title(title)
         ax.set_xlabel("time [s]")
-        ax.set_ylabel("pressure command [0-100]")
+        ax.set_ylabel("pressure at valve [kPa]")
         if show_legend:
             ax.legend()
         saved_figures = save_figure(fig, output_dir_path, output_basename, ext, loaded_from=None, dpi=dpi)
