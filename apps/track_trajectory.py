@@ -121,6 +121,7 @@ def run(  # noqa: PLR0915
     duration: float,
     n_repeat: int,
     output_dir_path: Path,
+    reference_prefix: str,
     output_prefix: str,
     *,
     overwrite: bool,
@@ -172,14 +173,14 @@ def run(  # noqa: PLR0915
     # Create reference file counter.
     n_reference = 0
     if not overwrite:
-        n_reference = len(list(output_dir_path.glob(f"{output_prefix}*")))
+        n_reference = len(list(output_dir_path.glob(f"{reference_prefix}*")))
     cnt_reference = get_default_counter(n_reference)
     event_logger().debug("Reference counter initialized with %s", n_reference)
 
     reference_output_paths: list[Path] = []
     motion_paths: dict[str, list[Path]] = {}
     for i, reference_path in enumerate(reference_paths):
-        reference_output_dir_path = build_data_file_path(output_dir_path, output_prefix, cnt_reference, ext="")
+        reference_output_dir_path = build_data_file_path(output_dir_path, reference_prefix, cnt_reference, ext="")
         reference_output_paths.append(reference_output_dir_path)
         motion_paths[reference_output_dir_path.stem] = []
 
@@ -350,15 +351,20 @@ def parse() -> argparse.Namespace:
         help="Output directory where performed tracking data files are stored.",
     )
     parser.add_argument(
+        "--reference-prefix",
+        default="reference",
+        help="Directory name prefix that will be added to reference motion trajectory.",
+    )
+    parser.add_argument(
         "--output-prefix",
         default="tracked_trajectory",
-        help="Filename prefix that will be added to generated data files.",
+        help="Filename prefix that will be added to tracked motion files.",
     )
     parser.add_argument(
         "--overwrite",
         action=argparse.BooleanOptionalAction,
         default=False,
-        help="Boolean. If True, restart counter of generated data files and overwrite existing data files.",
+        help="Boolean. If True, restart counter of generated data files and overwrite tracked motion files.",
     )
     parser.add_argument(
         "--label",
@@ -447,6 +453,7 @@ def main() -> None:
         args.n_repeat,
         # output
         output_dir,
+        args.reference_prefix,
         args.output_prefix,
         # boolean arguments
         overwrite=args.overwrite,
