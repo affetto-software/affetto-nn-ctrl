@@ -501,6 +501,8 @@ def run(
 
         if merge_plots:
             merge_plot_figures(saved_figures_single_motion, prefix="merged")
+        if not show_screen:
+            plt.close()
 
         all_motions_plot_dir = output_dir_path / reference_key / f"{output_prefix}_all"
         all_rmse[reference_key] = np.array(rmse_list)

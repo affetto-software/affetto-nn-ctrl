@@ -188,6 +188,10 @@ def run(
     cnt_plots = get_default_counter(n_plots)
     event_logger().debug("Performance plots counter initialized with %s", n_plots)
 
+    # Determine if show screen.
+    if show_screen is None and n_test_datasets <= DEFAULT_SHOW_SCREEN_NUM:
+        show_screen = True
+
     # Calculate prediction and score of the trained model based on test datasets.
     calculated_scores: list[CalculatedScore] = []
     all_saved_figures: list[Path] = []
@@ -213,13 +217,13 @@ def run(
         )
         calculated_scores.append(calculated_score)
         all_saved_figures.extend(saved_figures)
+        if not show_screen:
+            plt.close()
 
     save_scores(scores_output_dir_path, output_prefix, model_filepath, calculated_scores)
     if merge_plots:
         merge_plot_figures(all_saved_figures)
 
-    if show_screen is None and n_test_datasets <= DEFAULT_SHOW_SCREEN_NUM:
-        show_screen = True
     if show_screen:
         plt.show()
 
