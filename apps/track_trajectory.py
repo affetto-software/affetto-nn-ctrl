@@ -26,6 +26,8 @@ from affetto_nn_ctrl.data_handling import (
 from affetto_nn_ctrl.event_logging import event_logger, start_logging
 from affetto_nn_ctrl.model_utility import (
     DefaultTrainedModelType,
+    DelayStatesAllParams,
+    DelayStatesParams,
     control_position_or_model,
     load_trained_model,
 )
@@ -47,6 +49,7 @@ def track_motion_trajectory(
     duration: float,
     data_file_path: Path,
     header_text: str,
+    warmup_steps: int,
 ) -> None:
     qdes_func, dqdes_func = reference.get_qdes_func(), reference.get_dqdes_func()
     control_position_or_model(
@@ -59,6 +62,7 @@ def track_motion_trajectory(
         data_file_path,
         time_updater="accumulated",
         header_text=header_text,
+        warmup_steps=warmup_steps,
     )
     data_logger.dump(quiet=True)
 
@@ -68,6 +72,7 @@ def save_paths(
     output_prefix: str,
     active_joints: list[int],
     model_file_path: str | None,
+    reference_paths: list[Path],
     reference_output_paths: list[Path],
     motion_paths: dict[str, list[Path]],
     ext: str = ".toml",
@@ -83,18 +88,18 @@ def save_paths(
         f"active_joints = [ {joints_str} ]\n",
         "\n",
     ]
-    for ref in reference_output_paths:
+    for ref, ref_output in zip(reference_paths, reference_output_paths, strict=True):
         text_lines.extend(
             [
-                f"[model.performance.{ref.stem}]\n",
+                f"[model.performance.{ref_output.stem}]\n",
                 f'reference_path = "{ref!s}"\n',
                 "\n",
             ],
         )
-        for motion in motion_paths[ref.stem]:
+        for motion in motion_paths[ref_output.stem]:
             text_lines.extend(
                 [
-                    f"[[model.performance.{ref.stem}.errors]]\n",
+                    f"[[model.performance.{ref_output.stem}.errors]]\n",
                     f'motion_path = "{motion!s}"\n',
                     "\n",
                 ],
@@ -167,9 +172,14 @@ def run(  # noqa: PLR0915
 
     # Load trained model.
     model: DefaultTrainedModelType | None = None
+    warmup_steps = 0
     if model_filepath is not None:
         model = load_trained_model(model_filepath)
         event_logger().info("Trained model is loaded: %s", model_filepath)
+        event_logger().debug("Trained model: %s", model)
+        if isinstance(model.adapter.params, DelayStatesParams | DelayStatesAllParams):
+            warmup_steps = model.adapter.params.delay_step
+            event_logger().debug("Warm-up step is set to: %f", warmup_steps)
     else:
         event_logger().info("No model is loaded, PID control is used.")
 
@@ -184,6 +194,7 @@ def run(  # noqa: PLR0915
     motion_paths: dict[str, list[Path]] = {}
     for i, reference_path in enumerate(reference_paths):
         reference_output_dir_path = build_data_file_path(output_dir_path, reference_prefix, cnt_reference, ext="")
+        prepare_data_dir_path(reference_output_dir_path, make_latest_symlink=False)
         reference_output_paths.append(reference_output_dir_path)
         motion_paths[reference_output_dir_path.stem] = []
 
@@ -200,7 +211,7 @@ def run(  # noqa: PLR0915
 
         # Perform trajectory tracking.
         for j in range(n_repeat):
-            if i == 0 and j == 0:
+            if i != 0 or j != 0:
                 # Initialize robot pose again.
                 initializer.get_back_home((comm, ctrl, state))
             motion_file_path = build_data_file_path(
@@ -219,6 +230,7 @@ def run(  # noqa: PLR0915
                 duration,
                 motion_file_path,
                 header_text=header_text,
+                warmup_steps=warmup_steps,
             )
             motion_paths[reference_output_dir_path.stem].append(motion_file_path)
             event_logger().debug("Motion file saved: %s", motion_file_path)
@@ -237,6 +249,7 @@ def run(  # noqa: PLR0915
         output_prefix,
         active_joints,
         model_filepath,
+        reference_paths,
         reference_output_paths,
         motion_paths,
     )

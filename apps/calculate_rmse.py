@@ -544,7 +544,6 @@ def parse() -> argparse.Namespace:
     # Configuration
     parser.add_argument(
         "tracked_trajectory",
-        required=True,
         help="Path to a file 'tracked_trajectory.toml' to calculate RMSE.",
     )
     parser.add_argument(
@@ -640,7 +639,7 @@ def main() -> None:
         output_dir = Path(args.tracked_trajectory).parent
     start_logging(sys.argv, output_dir, __name__, args.verbose)
     event_logger().info("Output directory: %s", output_dir)
-    prepare_data_dir_path(output_dir, make_latest_symlink=args.make_latest_symlink)
+    prepare_data_dir_path(output_dir, make_latest_symlink=False)
     event_logger().debug("Parsed arguments: %s", args)
     dpi = float(args.dpi) if args.dpi != "figure" else args.dpi
 

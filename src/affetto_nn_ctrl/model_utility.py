@@ -760,7 +760,7 @@ class DefaultCtrlAdapter(CtrlAdapter[DataAdapterParamsType, DefaultStates, Defau
         qdes: RefFuncType,
         dqdes: RefFuncType,
     ) -> tuple[np.ndarray, np.ndarray]:
-        ca, cb = self.ctrl.update(t, q, dq, pa, pb, qdes, dqdes)
+        ca, cb = self.ctrl.update(t, q, dq, pa, pb, qdes(t), dqdes(t))
         x = self.model.adapter.make_model_input(
             t,
             {"q": q, "dq": dq, "pa": pa, "pb": pb},
