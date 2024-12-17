@@ -37,7 +37,6 @@ if TYPE_CHECKING:
 
     from affetto_nn_ctrl import CONTROLLER_T
 
-DEFAULT_DURATION = 10
 DEFAULT_N_REPEAT = 10
 
 
@@ -126,7 +125,7 @@ def run(  # noqa: PLR0915
     reference_files: list[str],
     glob_pattern: str,
     smoothness: float | None,
-    duration: float,
+    given_duration: float | None,
     n_repeat: int,
     output_dir_path: Path,
     reference_prefix: str,
@@ -208,6 +207,7 @@ def run(  # noqa: PLR0915
         # Load reference motion trajectory.
         reference = Spline(reference_path, active_joints, smoothness)
         event_logger().debug("Reference motion trajectory is loaded: %s", reference_path)
+        duration = given_duration if given_duration is not None else reference.duration
 
         # Perform trajectory tracking.
         for j in range(n_repeat):
@@ -356,9 +356,8 @@ def parse() -> argparse.Namespace:
     parser.add_argument(
         "-T",
         "--duration",
-        default=DEFAULT_DURATION,
         type=float,
-        help="Time duration of generated trajectory.",
+        help="Time duration to perform trajectory tracking.",
     )
     parser.add_argument(
         "-n",
