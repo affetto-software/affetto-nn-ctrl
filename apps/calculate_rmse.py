@@ -145,19 +145,6 @@ def calculate_rmse(
     return root_mean_squared_error(y_true, y_pred, multioutput="raw_values")
 
 
-def calculate_rmse_per_reference(
-    reference_data: Data,
-    motion_data_list: list[Data],
-    active_joints: list[int],
-) -> np.ndarray:
-    rmse_list: list[np.ndarray] = []
-    for motion_data in motion_data_list:
-        y_true = reference_data[[f"q{x}" for x in active_joints]].to_numpy()
-        y_pred = motion_data[[f"q{x}" for x in active_joints]].to_numpy()
-        rmse_list.append(root_mean_squared_error(y_true, y_pred, multioutput="raw_values"))
-    return np.array(rmse_list)
-
-
 def save_rmse(
     output_dir_path: Path,
     output_prefix: str,
@@ -474,10 +461,12 @@ def run(
         strict=True,
     ):
         reference_data = Data(reference_path)
+        event_logger().debug("Loaded reference data: %s", reference_path)
         motion_data_list = [Data(motion_path) for motion_path in tracked_trajectory_paths.motion_paths[reference_key]]
         rmse_list: list[np.ndarray] = []
         saved_figures_single_motion: list[Path] = []
         for motion_data in motion_data_list:
+            event_logger().debug("Loaded motion data: %s", motion_data.datapath)
             rmse = calculate_rmse(reference_data, motion_data, active_joints)
             assert rmse.ndim == 1
             assert len(rmse) == len(active_joints)
