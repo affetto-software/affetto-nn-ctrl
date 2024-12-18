@@ -680,13 +680,16 @@ class CtrlAdapter(Generic[DataAdapterParamsType, StatesType, RefsType, InputsTyp
     ctrl: AffPosCtrl
     model: TrainedModel[DataAdapterParamsType, StatesType, RefsType, InputsType]
     _updater: CtrlAdapterUpdater
+    preview_steps: int
     warmup_steps: int
     _n_steps: int
+    _preview_time: float
 
     def __init__(
         self,
         ctrl: AffPosCtrl,
         model: TrainedModel[DataAdapterParamsType, StatesType, RefsType, InputsType] | None,
+        preview_steps: int,
         warmup_steps: int,
     ) -> None:
         self.ctrl = ctrl
@@ -695,8 +698,10 @@ class CtrlAdapter(Generic[DataAdapterParamsType, StatesType, RefsType, InputsTyp
         else:
             self.model = model
             self._updater = self.update_model
+        self.preview_steps = preview_steps
         self.warmup_steps = warmup_steps
         self._n_steps = 0
+        self._preview_time = self.preview_steps * self.ctrl.dt
 
     def update_ctrl(
         self,
@@ -708,7 +713,8 @@ class CtrlAdapter(Generic[DataAdapterParamsType, StatesType, RefsType, InputsTyp
         qdes: RefFuncType,
         dqdes: RefFuncType,
     ) -> tuple[np.ndarray, np.ndarray]:
-        return self.ctrl.update(t, q, dq, pa, pb, qdes(t), dqdes(t))
+        t_ref = t + self._preview_time
+        return self.ctrl.update(t, q, dq, pa, pb, qdes(t_ref), dqdes(t_ref))
 
     def update_model(
         self,
@@ -743,6 +749,7 @@ class DefaultCtrlAdapter(CtrlAdapter[DataAdapterParamsType, DefaultStates, Defau
         self,
         ctrl: AffPosCtrl,
         model: TrainedModel[DataAdapterParamsType, DefaultStates, DefaultRefs, DefaultInputs] | None,
+        preview_steps: int,
         warmup_steps: int,
     ) -> None:
         super().__init__(ctrl, model, warmup_steps)
@@ -780,6 +787,7 @@ def control_position_or_model(
     qdes_func: RefFuncType,
     dqdes_func: RefFuncType,
     duration: float,
+    preview_steps: int,
     logger: Logger | None = None,
     log_filename: str | Path | None = None,
     time_updater: str = "accumulated",

@@ -49,6 +49,7 @@ def track_motion_trajectory(
     duration: float,
     data_file_path: Path,
     header_text: str,
+    preview_steps: int,
     warmup_steps: int,
 ) -> None:
     qdes_func, dqdes_func = reference.get_qdes_func(), reference.get_dqdes_func()
@@ -58,6 +59,7 @@ def track_motion_trajectory(
         qdes_func,
         dqdes_func,
         duration,
+        preview_steps,
         data_logger,
         data_file_path,
         time_updater="accumulated",
@@ -125,6 +127,7 @@ def run(  # noqa: PLR0915
     model_filepath: str | None,
     reference_files: list[str],
     glob_pattern: str,
+    preview_steps: int,
     smoothness: float | None,
     given_duration: float | None,
     n_repeat: int,
@@ -179,9 +182,10 @@ def run(  # noqa: PLR0915
         event_logger().debug("Trained model: %s", model)
         if isinstance(model.adapter.params, DelayStatesParams | DelayStatesAllParams):
             warmup_steps = model.adapter.params.delay_step
-            event_logger().debug("Warm-up step is set to: %f", warmup_steps)
+            event_logger().debug("Warm-up step is set to: %d", warmup_steps)
     else:
         event_logger().info("No model is loaded, PID control is used.")
+        event_logger().debug("Preview step is set to: %d", preview_steps)
 
     # Create reference file counter.
     n_reference = 0
@@ -232,6 +236,7 @@ def run(  # noqa: PLR0915
                 duration,
                 motion_file_path,
                 header_text=header_text,
+                preview_steps=preview_steps,
                 warmup_steps=warmup_steps,
             )
             motion_paths[reference_output_dir_path.stem].append(motion_file_path)
@@ -350,6 +355,12 @@ def parse() -> argparse.Namespace:
         help="Glob pattern to filter motion files load as references.",
     )
     # Parameters
+    parser.add_argument(
+        "--preview-steps",
+        type=int,
+        default=0,
+        help="Preview steps using for PID control.",
+    )
     parser.add_argument(
         "-s",
         "--smoothness",
@@ -476,6 +487,7 @@ def main() -> None:
         args.reference_files,
         args.glob_pattern,
         # parameters
+        args.preview_steps,
         args.smoothness,
         args.duration,
         args.n_repeat,
