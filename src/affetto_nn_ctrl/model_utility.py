@@ -733,10 +733,7 @@ class CtrlAdapter(Generic[DataAdapterParamsType, StatesType, RefsType, InputsTyp
         qdes: RefFuncType,
         dqdes: RefFuncType,
     ) -> tuple[np.ndarray, np.ndarray]:
-        if self._n_steps < self.warmup_steps:
-            ca, cb = self.ctrl.update(t, q, dq, pa, pb, qdes(t), dqdes(t))
-        else:
-            ca, cb = self._updater(t, q, dq, pa, pb, qdes, dqdes)
+        ca, cb = self._updater(t, q, dq, pa, pb, qdes, dqdes)
         self._n_steps += 1
         return ca, cb
 
@@ -767,6 +764,8 @@ class DefaultCtrlAdapter(CtrlAdapter[DataAdapterParamsType, DefaultStates, Defau
             {"qdes": qdes, "dqdes": dqdes},
         )
         y = self.model.predict(x)
+        if self._n_steps < self.warmup_steps:
+            return ca, cb
         ca, cb = self.model.adapter.make_ctrl_input(y, {"ca": ca, "cb": cb})
         return ca, cb
 
@@ -790,6 +789,8 @@ def control_position_or_model(
     reset_logger(logger, log_filename)
     comm, ctrl, state = controller
     ctrl_adapter = DefaultCtrlAdapter(ctrl, model, warmup_steps)
+    if model is not None:
+        model.adapter.reset()
     ca, cb = np.zeros(ctrl.dof, dtype=float), np.zeros(ctrl.dof, dtype=float)
     timer = Timer(rate=ctrl.freq)
     current_time = select_time_updater(timer, time_updater)
