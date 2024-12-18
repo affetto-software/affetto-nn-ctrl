@@ -217,6 +217,10 @@ def calculate_mean_err(
     err_type: str = "std",
     ddof: int = 0,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
+    if not isinstance(err_type, str):
+        msg = f"`err_type` must be string: {err_type}, (type: {type(err_type)})"
+        raise TypeError(msg)
+
     mean = np.mean(data_array, axis=0)
     if err_type.lower() in ("std", "sd"):
         # standard deviation

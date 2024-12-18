@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Literal, overload
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.figure import Figure
 from pypdf import PdfWriter
 from pyplotutil.datautil import Data
 
@@ -246,17 +247,19 @@ def plot_single_motion(
         var = ("q", "dq")
         ylabels = ("Joint position [0-100]", "Joint angular velocity [0-100/s]")
         for v, ylabel in zip(var, ylabels, strict=True):
+            ax: Axes
+            fig: Figure
             fig, ax = plt.subplots(figsize=(18, 6))
             if use_motion_reference:
-                ref = motion_data.getattr(f"{v}des{joint_index}")
+                ref = getattr(motion_data, f"{v}des{joint_index}")
             else:
-                ref = reference_data.getattr(f"{v}{joint_index}")
-            y = motion_data.getattr(f"{v}{joint_index}")
+                ref = getattr(reference_data, f"{v}{joint_index}")
+            y = getattr(motion_data, f"{v}{joint_index}")
             (line,) = ax.plot(t_ref[mask_ref], ref[mask_ref], ls="--", label="reference trajectory")
             ax.plot(t_mot[mask_mot], y[mask_mot], c=line.get_color(), label="actual trajectory")
             ax.set_title(title)
             ax.set_xlabel("time [s]")
-            ax.set_yalbel(ylabel)
+            ax.set_ylabel(ylabel)
             if show_legend:
                 ax.legend()
             output_basename = f"{plot_prefix}_{joint_index:02d}_{v}"
@@ -315,14 +318,14 @@ def plot_mean_err(
     ax: Axes,
     t: np.ndarray,
     y: np.ndarray,
-    err_type: str,
+    err_type: str | None,
     tlim: tuple[float, float] | None,
     fmt: str,
     capsize: int,
     label: str | None,
 ) -> Line2D:
     mask = get_tlim_mask(t, tlim)
-    if err_type == "none":
+    if err_type is None or err_type == "none":
         mean, _, _ = calculate_mean_err(y)
         lines = ax.plot(t[mask], mean[mask], fmt, label=label)
     else:
@@ -339,11 +342,15 @@ def fill_between_err(
     ax: Axes,
     t: np.ndarray,
     y: np.ndarray,
-    err_type: str,
+    err_type: str | None,
     tlim: tuple[float, float] | None,
     color: ColorType,
     alpha: float,
 ) -> Axes:
+    if err_type is None:
+        msg = "`err_type` for `fill_between_err` must not be None."
+        raise TypeError(msg)
+
     mask = get_tlim_mask(t, tlim)
     mean, err1, err2 = calculate_mean_err(y, err_type=err_type)
     # Note that fill_between always goes behind lines.
@@ -369,9 +376,9 @@ def plot_all_motions(
     show_legend: bool,
     ext: list[str],
     use_motion_reference: bool,
-    err_type: str,
+    err_type: str | None,
     fill: bool,
-    fill_err_type: str,
+    fill_err_type: str | None,
     fill_alpha: float,
 ) -> list[Path]:
     all_saved_figures: list[Path] = []
@@ -385,15 +392,17 @@ def plot_all_motions(
         var = ("q", "dq")
         ylabels = ("Joint position [0-100]", "Joint angular velocity [0-100/s]")
         for v, ylabel in zip(var, ylabels, strict=True):
+            ax: Axes
+            fig: Figure
             fig, ax = plt.subplots(figsize=(18, 6))
             t, y = load_timeseries(motion_data_list, f"{v}{joint_index}", tshift)
 
             t_ref = t if use_motion_reference else reference_data.t - tshift
             mask_ref = get_tlim_mask(t_ref, tlim)
             if use_motion_reference:
-                y_ref = motion_data_list[0].getattr(f"{v}des{joint_index}")
+                y_ref = getattr(motion_data_list[0], f"{v}des{joint_index}")
             else:
-                y_ref = reference_data.getattr(f"{v}{joint_index}")
+                y_ref = getattr(reference_data, f"{v}{joint_index}")
             (line,) = ax.plot(t_ref[mask_ref], y_ref[mask_ref], ls="--", label="reference trajectory")
 
             line = plot_mean_err(ax, t, y, err_type, tlim, fmt="-", capsize=2, label="mean of actual trajectories")
@@ -402,7 +411,7 @@ def plot_all_motions(
 
             ax.set_title(title)
             ax.set_xlabel("time [s]")
-            ax.set_yalbel(ylabel)
+            ax.set_ylabel(ylabel)
             if show_legend:
                 ax.legend()
             output_basename = f"{plot_prefix}_{joint_index:02d}_{v}"
@@ -434,9 +443,9 @@ def run(
     show_legend: bool,
     show_screen: bool | None,
     use_motion_reference: bool,
-    err_type: str,
+    err_type: str | None,
     fill: bool,
-    fill_err_type: str,
+    fill_err_type: str | None,
     fill_alpha: float,
 ) -> None:
     # Resolve active joints.
@@ -595,7 +604,7 @@ def parse() -> argparse.Namespace:
     parser.add_argument(
         "--fill",
         action=argparse.BooleanOptionalAction,
-        default=True,
+        default=False,
         help="whether fill between error (default: True)",
     )
     parser.add_argument("--fill-err-type", help="how to calculate errors for filling, e.g. sd, range, se")
