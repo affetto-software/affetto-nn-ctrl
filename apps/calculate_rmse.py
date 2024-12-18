@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Literal, overload
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.figure import Figure
 from pypdf import PdfWriter
 from pyplotutil.datautil import Data
 
@@ -30,6 +29,7 @@ from affetto_nn_ctrl.plot_utility import (
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
+    from matplotlib.figure import Figure
     from matplotlib.lines import Line2D
     from matplotlib.typing import ColorType
 

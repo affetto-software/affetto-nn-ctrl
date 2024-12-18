@@ -752,7 +752,7 @@ class DefaultCtrlAdapter(CtrlAdapter[DataAdapterParamsType, DefaultStates, Defau
         preview_steps: int,
         warmup_steps: int,
     ) -> None:
-        super().__init__(ctrl, model, warmup_steps)
+        super().__init__(ctrl, model, preview_steps, warmup_steps)
 
     def update_model(
         self,
@@ -796,7 +796,7 @@ def control_position_or_model(
 ) -> tuple[np.ndarray, np.ndarray]:
     reset_logger(logger, log_filename)
     comm, ctrl, state = controller
-    ctrl_adapter = DefaultCtrlAdapter(ctrl, model, warmup_steps)
+    ctrl_adapter = DefaultCtrlAdapter(ctrl, model, preview_steps, warmup_steps)
     if model is not None:
         model.adapter.reset()
     ca, cb = np.zeros(ctrl.dof, dtype=float), np.zeros(ctrl.dof, dtype=float)
