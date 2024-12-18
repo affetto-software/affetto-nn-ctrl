@@ -31,6 +31,7 @@ from affetto_nn_ctrl.model_utility import (
     control_position_or_model,
     load_trained_model,
 )
+from affetto_nn_ctrl.plot_utility import extract_common_parts
 
 if TYPE_CHECKING:
     from affctrllib import Logger
@@ -220,7 +221,8 @@ def run(  # noqa: PLR0915
                 iterator=cnt,
                 ext=".csv",
             )
-            header_text = f"[{i+1}/{len(reference_paths)}|{j+1}/{n_repeat}] Performing trajectory tracking..."
+            header_text = f"[Ref:{i+1}/{len(reference_paths)}(Cnt:{j+1}/{n_repeat})] "
+            header_text += "Performing trajectory tracking..."
             event_logger().debug(header_text)
             track_motion_trajectory(
                 (comm, ctrl, state),
@@ -332,6 +334,7 @@ def parse() -> argparse.Namespace:
     # Input
     parser.add_argument(
         "model",
+        nargs="?",
         help="Path to file in which trained model is encoded. If no model is provided, PID controller is used.",
     )
     parser.add_argument(
@@ -435,7 +438,10 @@ def main() -> None:
     if args.output is not None:
         output_dir = Path(args.output)
     else:
-        base_dir = args.base_dir if args.model is None else str(Path(args.model).parent)
+        if args.model is None:
+            base_dir = str(extract_common_parts(*args.reference_files))
+        else:
+            base_dir = str(Path(args.model).parent)
         output_dir = get_output_dir_path(
             base_dir,
             None,
@@ -486,5 +492,5 @@ if __name__ == "__main__":
     main()
 
 # Local Variables:
-# jinx-local-words: "cb cfreq csv ctrl dataset dir env init mlp noqa pid sfreq sublabel symlink usr vv"
+# jinx-local-words: "Cnt cb cfreq csv ctrl dataset dir env init mlp noqa pid sfreq sublabel symlink usr vv"
 # End:
