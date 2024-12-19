@@ -209,7 +209,9 @@ def save_rmse(
                     "\n",
                 ],
             )
-
+    with output.open("w") as f:
+        f.writelines(text_lines)
+    event_logger().info("Calculated RMSE saved: %s", output)
     return output
 
 
