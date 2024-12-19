@@ -450,7 +450,10 @@ def main() -> None:
         output_dir = Path(args.output)
     else:
         if args.model is None:
-            base_dir = str(extract_common_parts(*args.reference_files))
+            if len(args.reference_files) == 1 and Path(args.reference_files[0]).is_file():
+                base_dir = str(Path(args.reference_files[0]).parent)
+            else:
+                base_dir = str(extract_common_parts(*args.reference_files))
         else:
             base_dir = str(Path(args.model).parent)
         output_dir = get_output_dir_path(
