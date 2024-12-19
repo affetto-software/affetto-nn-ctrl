@@ -289,6 +289,8 @@ def merge_plot_figures(
         return []
 
     output_dirpath = extract_common_parts(*pdf_figures)
+    if output_dirpath.is_file():
+        output_dirpath = output_dirpath.parent
     filename_set = {x.name for x in pdf_figures}
     merged_files: list[Path] = []
     for name in filename_set:
