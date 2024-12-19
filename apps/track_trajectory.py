@@ -351,7 +351,7 @@ def parse() -> argparse.Namespace:
     parser.add_argument(
         "-g",
         "--glob-pattern",
-        default="**/*.csv",
+        default="*.csv",
         help="Glob pattern to filter motion files load as references.",
     )
     # Parameters
