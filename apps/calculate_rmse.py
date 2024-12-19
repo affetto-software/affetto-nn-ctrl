@@ -410,6 +410,8 @@ def plot_all_motions(
                 fill_between_err(ax, t, y, fill_err_type, tlim, line.get_color(), fill_alpha)
 
             ax.set_title(title)
+            if v == "q":
+                ax.set_ylim((-5, 105))
             ax.set_xlabel("time [s]")
             ax.set_ylabel(ylabel)
             if show_legend:
