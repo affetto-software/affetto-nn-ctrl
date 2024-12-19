@@ -481,6 +481,7 @@ def run(
             rmse = calculate_rmse(reference_data, motion_data, active_joints)
             assert rmse.ndim == 1
             assert len(rmse) == len(active_joints)
+            event_logger().debug("Calculated RMSE for each joint: %s", rmse)
             rmse_list.append(rmse)
             single_motion_plot_dir = output_dir_path / reference_key / motion_data.datapath.stem
             saved_figures = plot_single_motion(
@@ -500,6 +501,7 @@ def run(
             saved_figures_single_motion.extend(saved_figures)
 
         if merge_plots:
+            event_logger().debug("Merging the following figures: %s", saved_figures_single_motion)
             merge_plot_figures(saved_figures_single_motion, prefix="merged")
         if not show_screen:
             plt.close()
@@ -531,6 +533,7 @@ def run(
     save_rmse(output_dir_path, output_prefix, tracked_trajectory_paths, all_rmse)
 
     if merge_plots:
+        event_logger().debug("Merging the following figures: %s", saved_figures_all_motion)
         merge_plot_figures(saved_figures_all_motion, prefix="merged")
 
     if show_screen:
