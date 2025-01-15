@@ -227,6 +227,8 @@ class DelayStatesParams(DataAdapterParamsBase):
 
 
 class DelayStates(DataAdapterBase[DelayStatesParams, DefaultStates, DefaultRefs, DefaultInputs]):
+    states_queue: deque[np.ndarray]
+
     def __init__(self, params: DelayStatesParams) -> None:
         super().__init__(params)
         if params.ctrl_step < 1:
@@ -310,6 +312,8 @@ class DelayStatesAllParams(DataAdapterParamsBase):
 
 
 class DelayStatesAll(DataAdapterBase[DelayStatesAllParams, DefaultStates, DefaultRefs, DefaultInputs]):
+    states_queue: list[np.ndarray]
+
     def __init__(self, params: DelayStatesAllParams) -> None:
         super().__init__(params)
         if params.ctrl_step < 1:

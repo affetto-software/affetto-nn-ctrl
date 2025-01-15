@@ -7,7 +7,7 @@ import sys
 from dataclasses import dataclass
 from itertools import product
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -256,7 +256,7 @@ def plot_figure(
     title: str | None,
     show_legend: bool,
     show_arrows: bool,
-    show_grid: str,
+    show_grid: Literal["both", "x", "y"],
 ) -> tuple[Figure, Axes]:
     figsize = (8, 6)
     fig, ax = plt.subplots(figsize=figsize)
@@ -312,7 +312,7 @@ def plot(
     dpi: float | str,
     show_legend: bool,
     show_arrows: bool,
-    show_grid: str,
+    show_grid: Literal["both", "x", "y"],
     show_screen: bool,
 ) -> None:
     fig, _ = plot_figure(
