@@ -58,7 +58,7 @@ if sys.version_info >= (3, 11):
 
     import tomllib
 else:
-    import tomli as tomllib
+    import tomli as tomllib  # type: ignore[reportMissingImports]
     from typing_extensions import NotRequired
 
 if TYPE_CHECKING:
@@ -1424,7 +1424,7 @@ def main() -> None:
       2) Expected data for testing JointDataAdapter class
 
     EXAMPLE:
-      $ python {' '.join(sys.argv)} 1
+      $ python {" ".join(sys.argv)} 1
 """
     if len(sys.argv) > 1:
         match sys.argv[1]:

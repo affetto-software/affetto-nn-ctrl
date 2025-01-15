@@ -18,7 +18,7 @@ from affetto_nn_ctrl.event_logging import event_logger
 from affetto_nn_ctrl.random_utility import get_rng
 
 if sys.version_info < (3, 11):
-    import tomli as tomllib
+    import tomli as tomllib  # type: ignore[reportMissingImports]
 else:
     import tomllib
 

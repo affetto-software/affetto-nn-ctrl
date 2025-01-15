@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from matplotlib.typing import ColorType
 
 if sys.version_info < (3, 11):
-    import tomli as tomllib
+    import tomli as tomllib  # type: ignore[reportMissingImports]
 else:
     import tomllib
 
