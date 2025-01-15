@@ -14,13 +14,12 @@ maintainers = [
 ]
 dependencies = [
     "affctrllib @ git+https://github.com/affetto-software/affctrllib@develop",
-    "pyplotutil @ git+https://github.com/hrshtst/pyplotutil.git@develop",
+    "pyplotutil @ git+https://github.com/hrshtst/pyplotutil.git",
     "tomli>=2.0.1; python_version < '3.11'",
     "scipy>=1.14.1",
     "scikit-learn>=1.5.2",
     "joblib>=1.4.2",
     "pypdf>=5.1.0",
-    "pandas>=2.2.3",
 ]
 readme = "README.md"
 requires-python = ">= 3.10"
