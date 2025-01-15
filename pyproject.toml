@@ -20,6 +20,7 @@ dependencies = [
     "scikit-learn>=1.5.2",
     "joblib>=1.4.2",
     "pypdf>=5.1.0",
+    "pandas>=2.2.3",
 ]
 readme = "README.md"
 requires-python = ">= 3.10"
