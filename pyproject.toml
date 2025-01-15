@@ -25,9 +25,8 @@ readme = "README.md"
 requires-python = ">= 3.10"
 license = { text = "MIT" }
 
-[tool.rye]
-managed = true
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "pytest>=8.3.2",
     "pytest-cov>=5.0.0",
     "pytest-randomly>=3.15.0",
@@ -96,7 +95,9 @@ ignore = [
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]
-# unfixable = []
+unfixable = [
+  "SIM105",                     # Avoid inadvertently fix try-except-pass clause
+]
 
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
@@ -174,5 +175,5 @@ module = [
 ignore_missing_imports = true
 
 # Local Variables:
-# jinx-local-words: "McCabe Pyflakes addopts backend bzr cov ctrl defs dev direnv doctests hatchling hg ini ipynb isort joblib md mixedCase mypy nn nox numpy pycache pycodestyle pydocstyle pyenv pypackages pyplotutil pyright pytest pytype ra reStructuredText rgx scikit scipy sklearn src svn testpaths tomli tox unfixable untyped urls vcs venv venvPath vscode xdist zA"
+# jinx-local-words: "McCabe Pyflakes addopts backend bzr cov ctrl defs dev direnv doctests hatchling hg ini ipynb isort joblib md mixedCase mypy nn nox numpy pycache pycodestyle pydocstyle pyenv pypackages pypdf pyplotutil pyright pytest pytype ra reStructuredText rgx scikit scipy sklearn src svn testpaths tomli tox unfixable untyped urls vcs venv venvPath vscode xdist zA"
 # End:
