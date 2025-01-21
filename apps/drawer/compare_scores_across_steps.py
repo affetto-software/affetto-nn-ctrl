@@ -243,6 +243,14 @@ def make_xlabel(adapter_list: list[str]) -> str:
     return xlabel
 
 
+def make_limit(limit: list[float] | tuple[float, ...] | None) -> tuple[float, float] | None:
+    if limit is None or len(limit) == 0:
+        return None
+    if len(limit) == 1:
+        return (-0.05, limit[0])
+    return (min(limit), max(limit))
+
+
 def plot_figure(
     basedir_list: list[str],
     adapter_list: list[str],
@@ -254,6 +262,7 @@ def plot_figure(
     labels: list[str] | None,
     *,
     title: str | None,
+    ylim: list[float] | tuple[float, float] | None,
     show_legend: bool,
     show_arrows: bool,
     show_grid: Literal["both", "x", "y"],
@@ -265,6 +274,7 @@ def plot_figure(
         labels = make_labels(basedir_list, adapter_list, regressor_list, scaler_list, dataset_tag_list, score_tag)
     if title is None:
         title = make_title(basedir_list, adapter_list, regressor_list, scaler_list, dataset_tag_list, "scores")
+    ylim = make_limit(ylim)
     plot_sets = make_plot_sets(*list_args)
     if len(labels) != len(plot_sets):
         msg = "Inconsistent numbers of plot sets and labels: "
@@ -286,7 +296,7 @@ def plot_figure(
     xlabel = make_xlabel(adapter_list)
     ax.set_xlabel(xlabel)
     ax.set_ylabel("Coefficient of determination")
-    ax.set_ylim((-0.05, 1.05))
+    ax.set_ylim(ylim)
     if show_grid in ("x", "y", "both"):
         ax.grid(axis=show_grid, visible=True)
     if show_legend:
@@ -306,6 +316,7 @@ def plot(
     labels: list[str] | None,
     *,
     title: str | None,
+    ylim: list[float] | None,
     output_dir: Path,
     output_prefix: str | None,
     ext: list[str],
@@ -325,6 +336,7 @@ def plot(
         filename,
         labels,
         title=title,
+        ylim=ylim,
         show_legend=show_legend,
         show_arrows=show_arrows,
         show_grid=show_grid,
@@ -353,6 +365,7 @@ def parse() -> argparse.Namespace:
     parser.add_argument("--score-filename", default="scores.toml", help="Scores filename. (default: scores.toml)")
     parser.add_argument("-l", "--labels", nargs="*", help="Label list shown in legend.")
     parser.add_argument("--title", help="figure title")
+    parser.add_argument("--ylim", nargs="+", type=float, help="Limits along y-axis.")
     parser.add_argument("-o", "--output-dir", help="Path to directory that figures are saved")
     parser.add_argument(
         "--output-prefix",
@@ -426,6 +439,7 @@ def main() -> None:
         args.score_filename,
         args.labels,
         title=args.title,
+        ylim=args.ylim,
         output_dir=output_dir,
         output_prefix=args.output_prefix,
         ext=args.ext,
@@ -441,5 +455,5 @@ if __name__ == "__main__":
     main()
 
 # Local Variables:
-# jinx-local-words: "basedir dataset dir env facecolor lw rb regressor scaler usr vv"
+# jinx-local-words: "basedir dataset dir env facecolor lw rb regressor scaler usr vv ylim"
 # End:
