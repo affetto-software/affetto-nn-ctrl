@@ -120,10 +120,17 @@ def _plot_scores(
     label: str | None,
     *,
     show_arrows: bool,
+    fill_alpha: float | None,
 ) -> Axes:
-    errbar = ax.errorbar(x, y, yerr=yerr, capsize=capsize, fmt=fmt, label=label)
-    if show_arrows:
-        _plot_arrow(ax, x, y, facecolor=errbar.lines[0].get_color())
+    if fill_alpha:
+        (line,) = ax.plot(x, y, fmt, label=label)
+        y1 = np.asarray(y) + np.asarray(yerr)
+        y2 = np.asarray(y) - np.asarray(yerr)
+        ax.fill_between(x, y1, y2, alpha=fill_alpha, facecolor=line.get_color())
+    else:
+        errbar = ax.errorbar(x, y, yerr=yerr, capsize=capsize, fmt=fmt, label=label)
+        if show_arrows:
+            _plot_arrow(ax, x, y, facecolor=errbar.lines[0].get_color())
     return ax
 
 
@@ -153,11 +160,22 @@ def plot_scores(
     label: str | None,
     *,
     show_arrows: bool,
+    fill_alpha: float | None,
 ) -> Axes:
     steps = [data.steps for data in collected_score_data]
     scores = [data.score_mean for data in collected_score_data]
     errors = [data.score_std for data in collected_score_data]
-    _plot_scores(ax, steps, scores, errors, fmt="--o", capsize=6, label=label, show_arrows=show_arrows)
+    _plot_scores(
+        ax,
+        steps,
+        scores,
+        errors,
+        fmt="--o",
+        capsize=6,
+        label=label,
+        show_arrows=show_arrows,
+        fill_alpha=fill_alpha,
+    )
     xticks = ax.get_xticks()
     if len(scores) > len(xticks):
         ax.set_xticks(steps)
@@ -266,6 +284,7 @@ def plot_figure(
     show_legend: bool,
     show_arrows: bool,
     show_grid: Literal["both", "x", "y"],
+    fill_alpha: float | None,
 ) -> tuple[Figure, Axes]:
     figsize = (8, 6)
     fig, ax = plt.subplots(figsize=figsize)
@@ -291,7 +310,7 @@ def plot_figure(
             score_tag,
             filename,
         )
-        plot_scores(ax, collected_score_data, label, show_arrows=show_arrows)
+        plot_scores(ax, collected_score_data, label, show_arrows=show_arrows, fill_alpha=fill_alpha)
 
     xlabel = make_xlabel(adapter_list)
     ax.set_xlabel(xlabel)
@@ -324,6 +343,7 @@ def plot(
     show_legend: bool,
     show_arrows: bool,
     show_grid: Literal["both", "x", "y"],
+    fill_alpha: float | None,
     show_screen: bool,
 ) -> None:
     fig, _ = plot_figure(
@@ -340,6 +360,7 @@ def plot(
         show_legend=show_legend,
         show_arrows=show_arrows,
         show_grid=show_grid,
+        fill_alpha=fill_alpha,
     )
     output_prefix = make_output_prefix(
         basedir_list,
@@ -403,6 +424,11 @@ def parse() -> argparse.Namespace:
         help="which axis to show grid. choose from ['x','y','both', 'none'] (default: both)",
     )
     parser.add_argument(
+        "--fill-alpha",
+        type=float,
+        help="use fill_between to show errors with supplied alpha",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="count",
@@ -447,6 +473,7 @@ def main() -> None:
         show_legend=args.show_legend,
         show_arrows=args.show_arrows,
         show_grid=args.show_grid,
+        fill_alpha=args.fill_alpha,
         show_screen=args.show_screen,
     )
 
