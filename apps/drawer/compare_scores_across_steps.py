@@ -29,6 +29,9 @@ else:
     import tomllib
 
 
+plt.style.use(["science", "notebook", "grid"])
+
+
 @dataclass
 class ScoreData:
     adapter_selector: str
@@ -179,6 +182,7 @@ def plot_scores(
     xticks = ax.get_xticks()
     if len(scores) > len(xticks):
         ax.set_xticks(steps)
+        ax.minorticks_off()
         xlim = (min(steps) - 0.5, max(steps) + 0.5)
         ax.set_xlim(xlim)
     return ax
@@ -251,11 +255,11 @@ def make_xlabel(adapter_list: list[str]) -> str:
     preview_bool = [a.startswith("preview") for a in adapter_list]
     delay_bool = [a.startswith("delay") for a in adapter_list]
     if any(preview_bool) and any(delay_bool):
-        xlabel = "Preview/Delay steps"
+        xlabel = r"Preview/Delay steps, $k$"
     elif all(preview_bool):
-        xlabel = "Preview steps"
+        xlabel = r"Preview steps, $k$"
     elif all(delay_bool):
-        xlabel = "Delay steps"
+        xlabel = r"Delay steps, $k$"
     else:
         xlabel = "Steps"
     return xlabel
@@ -314,7 +318,7 @@ def plot_figure(
 
     xlabel = make_xlabel(adapter_list)
     ax.set_xlabel(xlabel)
-    ax.set_ylabel("Coefficient of determination")
+    ax.set_ylabel(r"Coefficient of determination, $R^2$")
     ax.set_ylim(ylim)
     if show_grid in ("x", "y", "both"):
         ax.grid(axis=show_grid, visible=True)
