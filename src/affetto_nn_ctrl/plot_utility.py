@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, TypeVar
 
 import matplotlib.pyplot as plt
 import numpy as np
+import scienceplots  # noqa: F401
 from pyplotutil.datautil import Data
 
 from affetto_nn_ctrl._typing import NoDefault, no_default
@@ -253,5 +254,5 @@ def calculate_mean_err(
 
 
 # Local Variables:
-# jinx-local-words: "arg ci csv dataset sd se"
+# jinx-local-words: "arg ci csv dataset noqa sd se"
 # End:
