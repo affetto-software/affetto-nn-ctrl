@@ -255,13 +255,13 @@ def make_xlabel(adapter_list: list[str]) -> str:
     preview_bool = [a.startswith("preview") for a in adapter_list]
     delay_bool = [a.startswith("delay") for a in adapter_list]
     if any(preview_bool) and any(delay_bool):
-        xlabel = r"Preview/Delay steps, $k$"
+        xlabel = r"Preview/Delay steps, $\kappa$"
     elif all(preview_bool):
-        xlabel = r"Preview steps, $k$"
+        xlabel = r"Preview steps, $\kappa$"
     elif all(delay_bool):
-        xlabel = r"Delay steps, $k$"
+        xlabel = r"Delay steps, $\kappa$"
     else:
-        xlabel = "Steps"
+        xlabel = r"Steps, $\kappa$"
     return xlabel
 
 
