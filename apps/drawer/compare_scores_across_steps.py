@@ -295,7 +295,7 @@ def plot_figure(
     list_args = [basedir_list, adapter_list, regressor_list, scaler_list, dataset_tag_list]
     if labels is None or len(labels) == 0:
         labels = make_labels(basedir_list, adapter_list, regressor_list, scaler_list, dataset_tag_list, score_tag)
-    if title is None:
+    if title is not None and title.lower() == "default":
         title = make_title(basedir_list, adapter_list, regressor_list, scaler_list, dataset_tag_list, "scores")
     ylim = make_limit(ylim)
     plot_sets = make_plot_sets(*list_args)
@@ -324,7 +324,8 @@ def plot_figure(
         ax.grid(axis=show_grid, visible=True)
     if show_legend:
         ax.legend()
-    ax.set_title(title)
+    if title:
+        ax.set_title(title)
     return fig, ax
 
 
