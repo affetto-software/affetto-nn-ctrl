@@ -367,14 +367,15 @@ def plot(
         show_grid=show_grid,
         fill_alpha=fill_alpha,
     )
-    output_prefix = make_output_prefix(
-        basedir_list,
-        adapter_list,
-        regressor_list,
-        scaler_list,
-        dataset_tag_list,
-        "scores",
-    )
+    if output_prefix is None:
+        output_prefix = make_output_prefix(
+            basedir_list,
+            adapter_list,
+            regressor_list,
+            scaler_list,
+            dataset_tag_list,
+            "scores",
+        )
     save_figure(fig, output_dir, output_prefix, ext, dpi=dpi)
     if show_screen:
         plt.show()
