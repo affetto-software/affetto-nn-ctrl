@@ -8,7 +8,7 @@ import warnings
 from dataclasses import dataclass
 from itertools import product
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, TypeAlias
+from typing import TYPE_CHECKING, Literal, TypeAlias, TypedDict
 
 import numpy as np
 
@@ -132,6 +132,8 @@ def generate_preamble() -> str:
 \usepackage[a4paper,margin=1in]{geometry}
 \usepackage{booktabs}
 \usepackage{pdflscape}
+\usepackage{ulem}
+\usepackage{xcolor}
 \newcommand\mr[1]{\multicolumn{2}{r}{#1}} % handy shortcut macro
 \begin{document}
 """
@@ -223,6 +225,14 @@ FontSize: TypeAlias = Literal[
 ]
 
 
+class R2Text(TypedDict):
+    r2: str
+    error: str | None
+    bold: bool
+    underline: bool
+    color: str | None
+
+
 def generate_table_wide(  # noqa: PLR0912,PLR0915,C901
     collected_score_data: CollectedScoreData,
     step: int,
@@ -284,38 +294,72 @@ def generate_table_wide(  # noqa: PLR0912,PLR0915,C901
     lines.append(" ".join(scaler_headers))
     lines.append(r"\midrule")
 
+    scores: np.ndarray = np.empty((0, n_column), dtype=np.float64)
+    r2text: list[list[R2Text]] = []
     for dataset_tag in dataset_tag_list:
-        scores: list[float] = []
+        scores_row: list[float] = []
+        r2text_row: list[R2Text] = []
+        for adapter in adapter_list:
+            for scaler in scaler_list:
+                score_data = collected_score_data.get(dataset_tag, {}).get(adapter, {}).get(scaler, None)
+                if score_data is not None:
+                    scores_row.append(score_data.score_mean)
+                    r2text_row.append(
+                        {
+                            "r2": f"{score_data.score_mean:.{precision}f}",
+                            "error": f"{score_data.score_std:.{precision}f}",
+                            "bold": False,
+                            "underline": False,
+                            "color": None,
+                        },
+                    )
+                else:
+                    scores_row.append(-1.0e8)  # very small value
+                    r2text_row.append(
+                        {
+                            "r2": "---",
+                            "error": None,
+                            "bold": False,
+                            "underline": False,
+                            "color": None,
+                        },
+                    )
+        scores = np.vstack((scores, np.asarray(scores_row, dtype=np.float64)))
+        r2text.append(r2text_row)
+
+    # Find maximum values across rows/columns/entire.
+    arg: int
+    for row, arg in enumerate(np.argmax(scores, axis=1)):
+        r2text[row][arg]["bold"] = True
+    for column, arg in enumerate(np.argmax(scores, axis=0)):
+        r2text[arg][column]["underline"] = True
+    index = np.unravel_index(np.argmax(scores), scores.shape)
+    r2text[index[0]][index[1]]["color"] = "red"
+
+    for r2text_list, dataset_tag in zip(r2text, dataset_tag_list, strict=True):
         line: list[str] = []
         dataset_tag_name = dataset_tag_names.get(dataset_tag, dataset_tag)
-        # mean values
+        # r2 score (mean)
         line.append(dataset_tag_name)
-        for adapter in adapter_list:
-            _line: list[str] = []
-            for scaler in scaler_list:
-                score_data = collected_score_data.get(dataset_tag, {}).get(adapter, {}).get(scaler, None)
-                if score_data is not None:
-                    scores.append(score_data.score_mean)
-                    _line.append(f"& {score_data.score_mean:.{precision}f}")
-                else:
-                    scores.append(1e-32)  # very small value
-                    _line.append("& ---")
-            line.extend(_line)
-        argmax = np.argmax(scores) + 1
-        line[argmax] = r"& \textbf{" + line[argmax][2:] + r"}"
+        for x in r2text_list:
+            formatted_value = f"{x['r2']}"
+            if x["bold"]:
+                formatted_value = r"\textbf{" + formatted_value + r"}"
+            if x["underline"]:
+                formatted_value = r"\uline{" + formatted_value + r"}"
+            if x["color"] is not None:
+                formatted_value = r"\textcolor{" + x["color"] + r"}{" + formatted_value + r"}"
+            line.append(f"& {formatted_value}")
         line.append(r"\\")
         lines.append(" ".join(line))
-        # deviation values
+        # r2 error (std)
         line = [" " * len(dataset_tag_name)]
-        for adapter in adapter_list:
-            _line = []
-            for scaler in scaler_list:
-                score_data = collected_score_data.get(dataset_tag, {}).get(adapter, {}).get(scaler, None)
-                if score_data is not None:
-                    _line.append(f"& ({score_data.score_std:.{precision}f})")
-                else:
-                    _line.append("& ")
-            line.extend(_line)
+        for x in r2text_list:
+            if x["error"] is not None:
+                formatted_value = f"({x['error']})"
+            else:
+                formatted_value = ""
+            line.append(f"& {formatted_value}")
         if dataset_tag != dataset_tag_list[-1]:
             line.append(r"\\[3pt]")
         else:
@@ -505,5 +549,5 @@ if __name__ == "__main__":
     main()
 
 # Local Variables:
-# jinx-local-words: "Discont ReLU async basedir booktabs bottomrule cmidrule dataset documentclass env extracolsep footnotesize lbfgs linewidth lr maxabs midrule minmax mlp mr multicolumn newcommand noqa normalsize pdflatex pdflscape rb regressor scaler scriptsize setlength sgd tabcolsep tanh textbf toprule trapez usepackage usr vv" # noqa: E501
+# jinx-local-words: "Discont ReLU async basedir booktabs bottomrule cmidrule dataset documentclass env extracolsep footnotesize lbfgs linewidth lr maxabs midrule minmax mlp mr multicolumn newcommand noqa normalsize pdflatex pdflscape rb regressor scaler scriptsize setlength sgd tabcolsep tanh textbf textcolor toprule trapez ulem uline usepackage usr vv xcolor" # noqa: E501
 # End:
