@@ -205,7 +205,7 @@ def generate_table_wide(  # noqa: PLR0912,PLR0915,C901
     if caption is None:
         caption = r"Comparison of $R^{2}$ scores across regressor models. Delay/Preview step: " + str(step) + "."
     if label is None:
-        label = "tab:r2-score-comparison"
+        label = "tab:r2-score-comparison-across-regressor"
 
     lines: list[str] = []
     lines.extend(
@@ -258,7 +258,7 @@ def generate_table_wide(  # noqa: PLR0912,PLR0915,C901
                     scores.append(score_data.score_mean)
                     _line.append(f"& {score_data.score_mean:.{precision}f}")
                 else:
-                    scores.append(-1e32)  # very small value
+                    scores.append(1e-32)  # very small value
                     _line.append("& ---")
             line.extend(_line)
         argmax = np.argmax(scores) + 1
