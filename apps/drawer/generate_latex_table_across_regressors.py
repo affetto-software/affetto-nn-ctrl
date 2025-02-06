@@ -160,16 +160,16 @@ scaler_names = {
 regressor_names = {
     "linear.default": "Linear",
     "ridge.default": "Ridge",
-    "mlp.default-iter800": "MLP(#100)/ReLU",
-    "mlp.layer200-iter800": "MLP(#200)/ReLU",
-    "mlp.layer100-100-iter800": "MLP(#100-#100)/ReLU",
-    "mlp.layer100-100-iter800-identity": "MLP(#100-#100)/Identity",
-    "mlp.layer100-100-iter800-logistic": "MLP(#100-#100)/Logistic",
-    "mlp.layer100-100-iter800-logistic-lbfgs": "MLP(#100-#100)/Logistic/L-FBFGS",
-    "mlp.layer100-100-iter800-logistic-sgd": "MLP(#100-#100)/Logistic/SGD",
-    "mlp.layer100-100-iter800-tanh": "MLP(#100-#100)/tanh",
-    "mlp.layer100-100-iter800-tanh-lbfgs": "MLP(#100-#100)/tanh/L-FBFGS",
-    "mlp.layer100-100-iter800-tanh-sgd": "MLP(#100-#100)/tanh/SGD",
+    "mlp.default-iter800": "MLP(\\#100)/ReLU",
+    "mlp.layer200-iter800": "MLP(\\#200)/ReLU",
+    "mlp.layer100-100-iter800": "MLP(\\#100--\\#100)/ReLU",
+    "mlp.layer100-100-iter800-identity": "MLP(\\#100--\\#100)/Identity",
+    "mlp.layer100-100-iter800-logistic": "MLP(\\#100--\\#100)/Logistic",
+    "mlp.layer100-100-iter800-logistic-lbfgs": "MLP(\\#100--\\#100)/Logistic/L-FBFGS",
+    "mlp.layer100-100-iter800-logistic-sgd": "MLP(\\#100--\\#100)/Logistic/SGD",
+    "mlp.layer100-100-iter800-tanh": "MLP(\\#100--\\#100)/tanh",
+    "mlp.layer100-100-iter800-tanh-lbfgs": "MLP(\\#100--\\#100)/tanh/L-FBFGS",
+    "mlp.layer100-100-iter800-tanh-sgd": "MLP(\\#100--\\#100)/tanh/SGD",
 }
 
 FontSize: TypeAlias = Literal[

@@ -159,16 +159,16 @@ scaler_names = {
 regressor_names = {
     "linear.default": "Linear",
     "ridge.default": "Ridge",
-    "mlp.default-iter800": "MLP(#100)/ReLU",
-    "mlp.layer200-iter800": "MLP(#200)/ReLU",
-    "mlp.layer100-100-iter800": "MLP(#100-#100)/ReLU",
-    "mlp.layer100-100-iter800-identity": "MLP(#100-#100)/Identity",
-    "mlp.layer100-100-iter800-logistic": "MLP(#100-#100)/Logistic",
-    "mlp.layer100-100-iter800-logistic-lbfgs": "MLP(#100-#100)/Logistic/L-FBFGS",
-    "mlp.layer100-100-iter800-logistic-sgd": "MLP(#100-#100)/Logistic/SGD",
-    "mlp.layer100-100-iter800-tanh": "MLP(#100-#100)/tanh",
-    "mlp.layer100-100-iter800-tanh-lbfgs": "MLP(#100-#100)/tanh/L-FBFGS",
-    "mlp.layer100-100-iter800-tanh-sgd": "MLP(#100-#100)/tanh/SGD",
+    "mlp.default-iter800": "MLP(\\#100)/ReLU",
+    "mlp.layer200-iter800": "MLP(\\#200)/ReLU",
+    "mlp.layer100-100-iter800": "MLP(\\#100--\\#100)/ReLU",
+    "mlp.layer100-100-iter800-identity": "MLP(\\#100--\\#100)/Identity",
+    "mlp.layer100-100-iter800-logistic": "MLP(\\#100--\\#100)/Logistic",
+    "mlp.layer100-100-iter800-logistic-lbfgs": "MLP(\\#100--\\#100)/Logistic/L-FBFGS",
+    "mlp.layer100-100-iter800-logistic-sgd": "MLP(\\#100--\\#100)/Logistic/SGD",
+    "mlp.layer100-100-iter800-tanh": "MLP(\\#100--\\#100)/tanh",
+    "mlp.layer100-100-iter800-tanh-lbfgs": "MLP(\\#100--\\#100)/tanh/L-FBFGS",
+    "mlp.layer100-100-iter800-tanh-sgd": "MLP(\\#100--\\#100)/tanh/SGD",
 }
 dataset_tag_names = {
     "step_sync_slow": "Discont/Sync/Slow",
@@ -243,7 +243,7 @@ def generate_table_wide(  # noqa: PLR0912,PLR0915,C901
     if caption is None:
         caption = r"Comparison of $R^{2}$ scores across dataset tags."
         caption += f" Regressor model: {regressor_names.get(regressor, regressor)}."
-        caption += f" Delay/Preview step: {step!s}." + str(step) + "."
+        caption += f" Delay/Preview step: {step!s}."
     if label is None:
         label = "tab:r2-score-comparison-across-dataset"
 
