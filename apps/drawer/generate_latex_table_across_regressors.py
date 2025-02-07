@@ -95,10 +95,10 @@ CollectedScoreData: TypeAlias = dict[str, _AdapterMap]
 
 def collect_score_data(
     basedir_list: list[str],
+    step: int,
     adapter_list: list[str],
     regressor_list: list[str],
     scaler_list: list[str],
-    step: int,
     dataset_tag: str,
     score_tag: str,
     filename: str,
@@ -172,6 +172,59 @@ regressor_names = {
     "mlp.layer100-100-iter800-tanh": "MLP(\\#100--\\#100)/tanh",
     "mlp.layer100-100-iter800-tanh-lbfgs": "MLP(\\#100--\\#100)/tanh/L-FBFGS",
     "mlp.layer100-100-iter800-tanh-sgd": "MLP(\\#100--\\#100)/tanh/SGD",
+    "mlp.default-iter1000": "MLP(\\#100)/ReLU",
+    "mlp.default-iter1000-logistic": "MLP(\\#100)/Logistic",
+    "mlp.default-iter1000-tanh": "MLP(\\#100)/tanh",
+    "mlp.layer200-iter1000": "MLP(\\#200)/ReLU",
+    "mlp.layer200-iter1000-logistic": "MLP(\\#200)/Logistic",
+    "mlp.layer200-iter1000-tanh": "MLP(\\#200)/tanh",
+    "mlp.layer400-iter1000": "MLP(\\#400)/ReLU",
+    "mlp.layer400-iter1000-logistic": "MLP(\\#400)/Logistic",
+    "mlp.layer400-iter1000-tanh": "MLP(\\#400)/tanh",
+    "mlp.layer100-100-iter1000": "MLP(\\#100--\\#100)/ReLU",
+    "mlp.layer100-100-iter1000-logistic": "MLP(\\#100--\\#100)/Logistic",
+    "mlp.layer100-100-iter1000-tanh": "MLP(\\#100--\\#100)/tanh",
+    "mlp.layer200-200-iter1000": "MLP(\\#200--\\#200)/ReLU",
+    "mlp.layer200-200-iter1000-logistic": "MLP(\\#200--\\#200)/Logistic",
+    "mlp.layer200-200-iter1000-tanh": "MLP(\\#200--\\#200)/tanh",
+}
+dataset_tag_names = {
+    "step_sync_slow": "Discont/Sync/Slow",
+    "step_sync_middle": "Discont/Sync/Middle",
+    "step_sync_fast": "Discont/Sync/Fast",
+    "step_sync_all": "Discont/Sync/All",
+    "trapez_sync_slow": "Cont/Sync/Slow",
+    "trapez_sync_middle": "Cont/Sync/Middle",
+    "trapez_sync_fast": "Cont/Sync/Fast",
+    "trapez_sync_all": "Cont/Sync/All",
+    "mix_sync_slow": "Mix/Sync/Slow",
+    "mix_sync_middle": "Mix/Sync/Middle",
+    "mix_sync_fast": "Mix/Sync/Fast",
+    "mix_sync_all": "Mix/Sync/All",
+    "step_async_slow": "Discont/Async/Slow",
+    "step_async_middle": "Discont/Async/Middle",
+    "step_async_fast": "Discont/Async/Fast",
+    "step_async_all": "Discont/Async/All",
+    "trapez_async_slow": "Cont/Async/Slow",
+    "trapez_async_middle": "Cont/Async/Middle",
+    "trapez_async_fast": "Cont/Async/Fast",
+    "trapez_async_all": "Cont/Async/All",
+    "mix_async_slow": "Mix/Async/Slow",
+    "mix_async_middle": "Mix/Async/Middle",
+    "mix_async_fast": "Mix/Async/Fast",
+    "mix_async_all": "Mix/Async/All",
+    "step_mix_slow": "Discont/Mix/Slow",
+    "step_mix_middle": "Discont/Mix/Middle",
+    "step_mix_fast": "Discont/Mix/Fast",
+    "step_mix_all": "Discont/Mix/All",
+    "trapez_mix_slow": "Cont/Mix/Slow",
+    "trapez_mix_middle": "Cont/Mix/Middle",
+    "trapez_mix_fast": "Cont/Mix/Fast",
+    "trapez_mix_all": "Cont/Mix/All",
+    "mix_mix_slow": "Mix/Mix/Slow",
+    "mix_mix_middle": "Mix/Mix/Middle",
+    "mix_mix_fast": "Mix/Mix/Fast",
+    "mix_mix_all": "Mix/Mix/All",
 }
 
 FontSize: TypeAlias = Literal[
@@ -198,11 +251,12 @@ class R2Text(TypedDict):
 
 def generate_table_wide(  # noqa: PLR0912,PLR0915,C901
     collected_score_data: CollectedScoreData,
+    step: int,
     adapter_list: list[str],
     regressor_list: list[str],
     scaler_list: list[str],
+    dataset_tag: str,
     *,
-    step: int,
     caption: str | None,
     label: str | None,
     font_size: FontSize,
@@ -213,7 +267,9 @@ def generate_table_wide(  # noqa: PLR0912,PLR0915,C901
     n_column = n_adapter * n_scaler
 
     if caption is None:
-        caption = r"Comparison of $R^{2}$ scores across regressor models. Delay/Preview step: " + str(step) + "."
+        caption = r"Comparison of $R^{2}$ scores across dataset tags."
+        caption += f" Delay/Preview step: {step!s}."
+        caption += f" Dataset tag: {dataset_tag_names.get(dataset_tag, dataset_tag)}."
     if label is None:
         label = "tab:r2-score-comparison-across-regressor"
 
@@ -354,20 +410,21 @@ def generate_latex(
 ) -> str:
     collected_score_data = collect_score_data(
         basedir_list,
+        step,
         adapter_list,
         regressor_list,
         scaler_list,
-        step,
         dataset_tag,
         score_tag,
         filename,
     )
     table = generate_table_wide(
         collected_score_data,
+        step,
         adapter_list,
         regressor_list,
         scaler_list,
-        step=step,
+        dataset_tag,
         caption=caption,
         label=label,
         font_size=font_size,
@@ -508,5 +565,5 @@ if __name__ == "__main__":
     main()
 
 # Local Variables:
-# jinx-local-words: "ReLU basedir booktabs bottomrule cmidrule dataset documentclass env extracolsep footnotesize lbfgs linewidth lr maxabs midrule minmax mlp mr multicolumn newcommand noqa normalsize pdflatex pdflscape rb regressor scaler scriptsize setlength sgd tabcolsep tanh textbf textcolor toprule ulem uline usepackage usr vv xcolor" # noqa: E501
+# jinx-local-words: "Discont ReLU async basedir booktabs bottomrule cmidrule dataset documentclass env extracolsep footnotesize lbfgs linewidth lr maxabs midrule minmax mlp mr multicolumn newcommand noqa normalsize pdflatex pdflscape rb regressor scaler scriptsize setlength sgd tabcolsep tanh textbf textcolor toprule trapez ulem uline usepackage usr vv xcolor" # noqa: E501
 # End:
