@@ -47,8 +47,11 @@ def _plot_timeseries_multi_data(
 ) -> Axes:
     if plot_labels is None:
         if len(list(key_list)) == 1:
-            if next(iter(key_list)) == "qdes":
+            k = next(iter(key_list))
+            if k == "qdes":
                 plot_labels = [f"Data {i} (qdes)" for i in range(len(dataset))]
+            elif k == "rq":
+                plot_labels = [f"Data {i} (raw)" for i in range(len(dataset))]
             else:
                 plot_labels = [f"Data {i}" for i in range(len(dataset))]
         else:
@@ -158,8 +161,11 @@ def _plot_timeseries_active_joints(
 ) -> Axes:
     if plot_labels is None:
         if len(list(key_list)) == 1:
-            if next(iter(key_list)) == "qdes":
+            k = next(iter(key_list))
+            if k == "qdes":
                 plot_labels = [f"Joint #{i} (qdes)" for i in active_joints]
+            elif k == "rq":
+                plot_labels = [f"Joint #{i} (raw)" for i in active_joints]
             else:
                 plot_labels = [f"Joint #{i}" for i in active_joints]
         else:
