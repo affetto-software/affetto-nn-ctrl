@@ -89,7 +89,7 @@ def load_score_data(score_data_path: Path) -> ScoreData:
 
 
 # dataset_tag -> adapter -> scaler -> score_data
-CollectedScoreData: TypeAlias = dict[str, dict[str, dict[str, ScoreData]]]
+CollectedScoreData: TypeAlias = dict[str, dict[str, dict[str, ScoreData | None]]]
 
 
 def collect_score_data(
@@ -122,8 +122,9 @@ def collect_score_data(
                 msg = f"Duplicate score data found: {score_data_path}"
                 warnings.warn(msg, RuntimeWarning, stacklevel=2)
         if not found:
+            collected_score_data.setdefault(dataset_tag, {}).setdefault(adapter, {})[scaler] = None
             msg = f"No score data found: {score_data_file} in {basedir_list}"
-            raise RuntimeError(msg)
+            warnings.warn(msg, RuntimeWarning, stacklevel=2)
     return collected_score_data
 
 

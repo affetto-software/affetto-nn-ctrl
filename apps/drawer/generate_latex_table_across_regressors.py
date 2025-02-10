@@ -88,7 +88,7 @@ def load_score_data(score_data_path: Path) -> ScoreData:
     return loaded_score_data
 
 
-_ScalerMap: TypeAlias = dict[str, ScoreData]
+_ScalerMap: TypeAlias = dict[str, ScoreData | None]
 _AdapterMap: TypeAlias = dict[str, _ScalerMap]
 CollectedScoreData: TypeAlias = dict[str, _AdapterMap]
 
@@ -123,8 +123,9 @@ def collect_score_data(
                 msg = f"Duplicate score data found: {score_data_path}"
                 warnings.warn(msg, RuntimeWarning, stacklevel=2)
         if not found:
+            collected_score_data.setdefault(regressor, {}).setdefault(adapter, {})[scaler] = None
             msg = f"No score data found: {score_data_file} in {basedir_list}"
-            raise RuntimeError(msg)
+            warnings.warn(msg, RuntimeWarning, stacklevel=2)
     return collected_score_data
 
 
