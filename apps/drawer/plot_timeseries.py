@@ -323,6 +323,31 @@ def plot_pressure_sensor(
     )
 
 
+def plot_raw_pressure_sensor(
+    ax: Axes,
+    tshift: float,
+    tlim: tuple[float, float] | None,
+    dataset: Data | list[Data],
+    active_joints: int | list[int],
+    *,
+    legend: bool = False,
+) -> Axes:
+    return _plot_timeseries(
+        ax,
+        tshift,
+        tlim,
+        dataset,
+        active_joints,
+        ("rpa", "rpb"),
+        ylim=None,
+        ylabel="Pressure [kPa]",
+        title=None,
+        legend=legend,
+        only_once=False,
+        err_type=None,
+    )
+
+
 def plot_velocity(
     ax: Axes,
     tshift: float,
@@ -353,6 +378,31 @@ def plot_velocity(
         fill=fill,
         fill_err_type=fill_err_type,
         fill_alpha=fill_alpha,
+    )
+
+
+def plot_raw_velocity(
+    ax: Axes,
+    tshift: float,
+    tlim: tuple[float, float] | None,
+    dataset: Data | list[Data],
+    active_joints: int | list[int],
+    *,
+    legend: bool = False,
+) -> Axes:
+    return _plot_timeseries(
+        ax,
+        tshift,
+        tlim,
+        dataset,
+        active_joints,
+        ("rdq",),
+        ylim=None,
+        ylabel="Velocity [0-100/s]",
+        title=None,
+        legend=legend,
+        only_once=False,
+        err_type=None,
     )
 
 
@@ -417,7 +467,32 @@ def plot_desired_position(
     )
 
 
-def plot_multi_data(
+def plot_raw_position(
+    ax: Axes,
+    tshift: float,
+    tlim: tuple[float, float] | None,
+    dataset: Data | list[Data],
+    active_joints: int | list[int],
+    *,
+    legend: bool = False,
+) -> Axes:
+    return _plot_timeseries(
+        ax,
+        tshift,
+        tlim,
+        dataset,
+        active_joints,
+        ("rq",),
+        ylim=None,
+        ylabel="Position [0-100]",
+        title=None,
+        legend=legend,
+        only_once=False,
+        err_type=None,
+    )
+
+
+def plot_multi_data(  # noqa: C901
     datapath_list: list[Path],
     joint_id: int,
     plot_keys: str,
@@ -430,6 +505,7 @@ def plot_multi_data(
     show_cmd_once: bool = True,
     show_qdes: bool = True,
     show_qdes_once: bool = True,
+    show_raw_value: bool = False,
     err_type: str | None = None,
     fill: bool = True,
     fill_err_type: str = "range",
@@ -469,6 +545,15 @@ def plot_multi_data(
                 fill_err_type=fill_err_type,
                 fill_alpha=fill_alpha,
             )
+            if show_raw_value:
+                plot_raw_pressure_sensor(
+                    ax,
+                    tshift,
+                    tlim,
+                    dataset,
+                    joint_id,
+                    legend=legend,
+                )
         elif v == "v":
             plot_velocity(
                 ax,
@@ -483,6 +568,15 @@ def plot_multi_data(
                 fill_err_type=fill_err_type,
                 fill_alpha=fill_alpha,
             )
+            if show_raw_value:
+                plot_raw_velocity(
+                    ax,
+                    tshift,
+                    tlim,
+                    dataset,
+                    joint_id,
+                    legend=legend,
+                )
         elif v == "q":
             if show_qdes:
                 plot_desired_position(
@@ -507,6 +601,15 @@ def plot_multi_data(
                 fill_err_type=fill_err_type,
                 fill_alpha=fill_alpha,
             )
+            if show_raw_value:
+                plot_raw_position(
+                    ax,
+                    tshift,
+                    tlim,
+                    dataset,
+                    joint_id,
+                    legend=legend,
+                )
         else:
             msg = f"unrecognized plot variable: {v}"
             raise ValueError(msg)
@@ -518,7 +621,7 @@ def plot_multi_data(
     return fig, axes
 
 
-def plot_multi_joint(
+def plot_multi_joint(  # noqa: C901
     datapath: Path,
     active_joints: list[int],
     plot_keys: str,
@@ -531,6 +634,7 @@ def plot_multi_joint(
     show_cmd_once: bool = True,
     show_qdes: bool = True,
     show_qdes_once: bool = True,
+    show_raw_value: bool = False,
 ) -> tuple[Figure, list[Axes]]:
     n_keys = len(plot_keys)
     figsize = (8, 4 * n_keys)
@@ -562,6 +666,15 @@ def plot_multi_joint(
                 ylim=None,
                 legend=legend,
             )
+            if show_raw_value:
+                plot_raw_pressure_sensor(
+                    ax,
+                    tshift,
+                    tlim,
+                    data,
+                    active_joints,
+                    legend=legend,
+                )
         elif v == "v":
             plot_velocity(
                 ax,
@@ -572,6 +685,15 @@ def plot_multi_joint(
                 ylim=None,
                 legend=legend,
             )
+            if show_raw_value:
+                plot_raw_velocity(
+                    ax,
+                    tshift,
+                    tlim,
+                    data,
+                    active_joints,
+                    legend=legend,
+                )
         elif v == "q":
             if show_qdes:
                 plot_desired_position(
@@ -592,6 +714,15 @@ def plot_multi_joint(
                 ylim=None,
                 legend=legend,
             )
+            if show_raw_value:
+                plot_raw_position(
+                    ax,
+                    tshift,
+                    tlim,
+                    data,
+                    active_joints,
+                    legend=legend,
+                )
         else:
             msg = f"unrecognized plot variable: {v}"
             raise ValueError(msg)
@@ -616,6 +747,7 @@ def _plot_data_across_multi_joints(
     show_cmd_once: bool,
     show_qdes: bool,
     show_qdes_once: bool,
+    show_raw_value: bool,
     savefig_dir: Path,
     ext_list: list[str] | None,
     dpi: float | str,
@@ -639,6 +771,7 @@ def _plot_data_across_multi_joints(
         show_cmd_once=show_cmd_once,
         show_qdes=show_qdes,
         show_qdes_once=show_qdes_once,
+        show_raw_value=show_raw_value,
     )
     save_figure(fig, savefig_dir, savefig_basename, ext_list, dpi=dpi)
 
@@ -657,6 +790,7 @@ def _plot_specific_joint_across_multi_data(
     show_cmd_once: bool,
     show_qdes: bool,
     show_qdes_once: bool,
+    show_raw_value: bool,
     savefig_dir: Path,
     ext_list: list[str] | None,
     dpi: float | str,
@@ -701,6 +835,7 @@ def _plot_specific_joint_across_multi_data(
         show_cmd_once=show_cmd_once,
         show_qdes=show_qdes,
         show_qdes_once=show_qdes_once,
+        show_raw_value=show_raw_value,
         err_type=err_type,
         fill=fill,
         fill_err_type=fill_err_type,
@@ -777,6 +912,7 @@ def plot(
     show_cmd_once: bool,
     show_qdes: bool,
     show_qdes_once: bool,
+    show_raw_value: bool,
     ext_list: list[str] | None,
     dpi: float | str,
     err_type: str | None,
@@ -798,6 +934,7 @@ def plot(
             show_cmd_once=show_cmd_once,
             show_qdes=show_qdes,
             show_qdes_once=show_qdes_once,
+            show_raw_value=show_raw_value,
             savefig_dir=output_dir,
             ext_list=ext_list,
             dpi=dpi,
@@ -817,6 +954,7 @@ def plot(
             show_cmd_once=show_cmd_once,
             show_qdes=show_qdes,
             show_qdes_once=show_qdes_once,
+            show_raw_value=show_raw_value,
             savefig_dir=output_dir,
             ext_list=ext_list,
             dpi=dpi,
@@ -895,6 +1033,12 @@ def parse() -> argparse.Namespace:
         help="whether show desired position only once (default: True)",
     )
     parser.add_argument(
+        "--show-raw-value",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="whether show raw values for sensory data (default: False)",
+    )
+    parser.add_argument(
         "--show-legend",
         action=argparse.BooleanOptionalAction,
         help=f"whether show legend (default: True when --joints < {DEFAULT_SHOW_LEGEND_N_JOINTS})",
@@ -958,6 +1102,7 @@ def main() -> None:
         show_cmd_once=args.show_cmd_once,
         show_qdes=args.show_qdes,
         show_qdes_once=args.show_qdes_once,
+        show_raw_value=args.show_raw_value,
         ext_list=args.ext,
         dpi=dpi,
         err_type=args.err_type,
@@ -974,5 +1119,5 @@ if __name__ == "__main__":
     main()
 
 # Local Variables:
-# jinx-local-words: "cb cmd cpvq csv datapath dir dq env pb png qdes savefig sd se sharex tlim tshift usr vv"
+# jinx-local-words: "cb cmd cpvq csv datapath dir dq env noqa pb png qdes rdq rpa rpb rq savefig sd se sharex tlim tshift usr vv" # noqa: E501
 # End:
