@@ -210,7 +210,7 @@ def run(  # noqa: PLR0915
         event_logger().debug("Tracked motion trajectory counter initialized with %s", n)
 
         # Load reference motion trajectory.
-        reference = Spline(reference_path, active_joints, smoothness)
+        reference = Spline(reference_path, active_joints, smoothness, use_filter_value=True)
         event_logger().debug("Reference motion trajectory is loaded: %s", reference_path)
         duration = given_duration if given_duration is not None else reference.duration
 
@@ -225,7 +225,7 @@ def run(  # noqa: PLR0915
                 iterator=cnt,
                 ext=".csv",
             )
-            header_text = f"[Ref:{i+1}/{len(reference_paths)}(Cnt:{j+1}/{n_repeat})] "
+            header_text = f"[Ref:{i + 1}/{len(reference_paths)}(Cnt:{j + 1}/{n_repeat})] "
             header_text += "Performing trajectory tracking..."
             event_logger().debug(header_text)
             track_motion_trajectory(

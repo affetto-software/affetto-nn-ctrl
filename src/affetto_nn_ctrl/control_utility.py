@@ -163,6 +163,7 @@ def record_motion(
     q0: np.ndarray,
     controller: CONTROLLER_T,
     duration: float,
+    q_limit: tuple[float, float] | list[tuple[float, float]] | None,
     logger: Logger,
     data_file_path: Path,
     time_updater: str = "elapsed",
@@ -180,6 +181,11 @@ def record_motion(
     qdes = q0.copy()
     dqdes = np.zeros(ctrl.dof, dtype=float)
 
+    # Make limit of joint positions when recording.
+    if isinstance(q_limit, tuple):
+        x = (min(q_limit), max(q_limit))
+        q_limit = [x for _ in active_joints]
+
     timer.start()
     t = 0.0
     while t < duration:
@@ -187,6 +193,9 @@ def record_motion(
         t = current_time()
         rq, rdq, rpa, rpb = state.get_raw_states()
         q, dq, pa, pb = state.get_states()
+        # Clip measured position between specified limits.
+        if q_limit:
+            q[active_joints] = [min(q_limit[i][1], max(q_limit[i][0], x)) for i, x in enumerate(q[active_joints])]
         ca, cb = ctrl.update(t, q, dq, pa, pb, qdes, dqdes)
         comm.send_commands(ca, cb)
         if logger is not None:
@@ -771,9 +780,18 @@ class Spline:
     _dof: int
     _q0: np.ndarray
     _duration: float
+    _use_filter_value: bool
 
-    def __init__(self, data: str | Path | Data, active_joints: list[int], s: float | None = None) -> None:
+    def __init__(
+        self,
+        data: str | Path | Data,
+        active_joints: list[int],
+        s: float | None = None,
+        *,
+        use_filter_value: bool = False,
+    ) -> None:
         self.active_joints = active_joints
+        self._use_filter_value = use_filter_value
         if isinstance(data, str | Path):
             self.load_data(data)
         else:
@@ -804,7 +822,10 @@ class Spline:
 
     def _set_data(self) -> None:
         self._dof = self.count_dof(self._data)
-        self._q0 = np.array([getattr(self._data, f"rq{i}")[0] for i in range(self._dof)])
+        if self._use_filter_value:
+            self._q0 = np.array([getattr(self._data, f"q{i}")[0] for i in range(self._dof)])
+        else:
+            self._q0 = np.array([getattr(self._data, f"rq{i}")[0] for i in range(self._dof)])
         self._duration = self._data.t.to_numpy()[-1]
 
     def load_data(self, datapath: str | Path) -> Data:
@@ -825,7 +846,10 @@ class Spline:
         self._tck = []
         self._der = []
         for i in self.active_joints:
-            y = getattr(self._data, f"rq{i}")
+            if self._use_filter_value:
+                y = getattr(self._data, f"q{i}")
+            else:
+                y = getattr(self._data, f"rq{i}")
             tck = interpolate.splrep(x, y, s=s)
             self._tck.append(tck)
             self._der.append(interpolate.splder(tck))

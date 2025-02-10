@@ -26,6 +26,7 @@ from affetto_nn_ctrl.event_logging import event_logger, start_logging
 if TYPE_CHECKING:
     from pathlib import Path
 
+DEFAULT_Q_LIMIT = (5.0, 95.0)
 DEFAULT_DURATION = 10
 APP_NAME_RECORD_TRAJECTORY = "reference_trajectory"
 
@@ -43,6 +44,7 @@ def run(
     ca_init: list[float] | None,
     cb_init: list[float] | None,
     duration: float,
+    q_limit: tuple[float, float] | None,
     output_dir_path: Path,
     output_prefix: str,
     *,
@@ -93,6 +95,7 @@ def run(
         q0,
         (comm, ctrl, state),
         duration,
+        q_limit,
         data_logger,
         data_file_path,
         time_updater="accumulated",
@@ -193,6 +196,14 @@ def parse() -> argparse.Namespace:
         type=float,
         help="Time duration of generated trajectory.",
     )
+    parser.add_argument(
+        "-Q",
+        "--q-limit",
+        default=DEFAULT_Q_LIMIT,
+        nargs="+",
+        type=float,
+        help="Joint angle limit when recording joint angle position. When [0 0] is specified no limit is applied",
+    )
     # Output
     parser.add_argument(
         "-o",
@@ -268,6 +279,8 @@ def main() -> None:
     prepare_data_dir_path(output_dir, make_latest_symlink=args.make_latest_symlink)
     copy_config(args.config, args.init_config, None, output_dir)
     event_logger().debug("Parsed arguments: %s", args)
+    if args.q_limit is not None and len(args.q_limit) > 1 and args.q_limit[0] == 0.0 and args.q_limit[1] == 0.0:
+        args.q_limit = None
 
     # Start mainloop
     run(
@@ -286,6 +299,7 @@ def main() -> None:
         # input
         # parameters
         args.duration,
+        args.q_limit,
         # output
         output_dir,
         args.output_prefix,
