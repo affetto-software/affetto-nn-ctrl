@@ -351,11 +351,14 @@ def generate_table_wide(  # noqa: PLR0912,PLR0915,C901
     # Find maximum values across rows/columns/entire.
     arg: int
     for row, arg in enumerate(np.argmax(scores, axis=1)):
-        r2text[row][arg]["bold"] = True
+        if not np.all(scores[row] == scores[row][0]):
+            r2text[row][arg]["bold"] = True
     for column, arg in enumerate(np.argmax(scores, axis=0)):
-        r2text[arg][column]["underline"] = True
-    index = np.unravel_index(np.argmax(scores), scores.shape)
-    r2text[index[0]][index[1]]["color"] = "red"
+        if not np.all(scores[:, column] == scores[:, column][0]):
+            r2text[arg][column]["underline"] = True
+    if not np.all(scores == scores[0][0]):
+        index = np.unravel_index(np.argmax(scores), scores.shape)
+        r2text[index[0]][index[1]]["color"] = "red"
 
     for r2text_list, dataset_tag in zip(r2text, dataset_tag_list, strict=True):
         line: list[str] = []
