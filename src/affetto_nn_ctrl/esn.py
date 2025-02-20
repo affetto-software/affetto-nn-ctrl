@@ -1,7 +1,6 @@
 # ruff: noqa: N803, N802, N806, NPY002, ANN204, ANN205, ANN201, C901, PLR0912, ERA001
 from __future__ import annotations
 
-import warnings
 from abc import abstractmethod
 from functools import partial
 from typing import TYPE_CHECKING
@@ -9,6 +8,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from scipy import sparse, stats
 from scipy.sparse import linalg as sla
+from sklearn.metrics import r2_score
 
 from affetto_nn_ctrl.random_utility import get_rng
 
@@ -230,7 +230,7 @@ class ESN:
         noise_fb: float = 0.0,
         input_keys: list[str] | None = None,
         readout_keys: list[str] | None = None,
-        optimizer: str | None = None,
+        optimizer: str | None = "Tikhonov",
         noise_in_seed: int | None = None,
         noise_fb_seed: int | None = None,
     ) -> None:
@@ -284,7 +284,7 @@ class ESN:
     def readout_keys(self) -> list[str] | None:
         return self.readout.keys
 
-    def fit(
+    def _fit(
         self,
         U: np.ndarray,
         D: np.ndarray,
@@ -294,7 +294,7 @@ class ESN:
         *,
         enable_teacher_force: bool = False,
         warmup: int = 0,
-    ):
+    ) -> np.ndarray:
         # initialize
         if optimizer is None:
             if self.optimizer is None:
@@ -349,8 +349,11 @@ class ESN:
         self.readout.set_weight(optimizer.get_Wout())
         return np.array(Y)
 
-    def predict(self, U: np.ndarray):
-        warnings.warn("This method is not carefully debugged yet", stacklevel=2)
+    def fit(self, X: np.ndarray, y: np.ndarray) -> ESN:
+        self._fit(X, y, enable_teacher_force=True)
+        return self
+
+    def _predict(self, U: np.ndarray) -> np.ndarray:
         Y = []
         y = self.yinit
         for u in U:
@@ -362,8 +365,10 @@ class ESN:
             Y.append(y)
         return np.array(Y)
 
-    def run(self, U: np.ndarray):
-        warnings.warn("This method is not carefully debugged yet", stacklevel=2)
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        return self._predict(X)
+
+    def run(self, U: np.ndarray) -> np.ndarray:
         Y = []
         y = self.yinit
         u = U[0]
@@ -384,7 +389,7 @@ class ESN:
         feedback: np.ndarray | None = None,
         *,
         reset_when_context_switch: bool = False,
-    ):
+    ) -> np.ndarray:
         if reset_when_context_switch and (self.u_prev is None or not np.allclose(u, self.u_prev)):
             self.reset_reservoir_state()
             self.u_prev = u.copy()
@@ -394,6 +399,18 @@ class ESN:
             x_in += self.feedback(feedback)
         x = self.reservoir(x_in)
         return self.readout(x)
+
+    def score(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        sample_weight: np.ndarray | None = None,
+    ):
+        y_pred = self.predict(X)
+        return r2_score(y, y_pred, sample_weight=sample_weight)
+
+    def get_params(self) -> dict[str, object]:
+        return {}
 
 
 # Local Variables:

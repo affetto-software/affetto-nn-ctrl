@@ -1,3 +1,4 @@
+# ruff: noqa: N806
 from __future__ import annotations
 
 import sys
@@ -20,6 +21,7 @@ from sklearn.preprocessing import MaxAbsScaler, MinMaxScaler, RobustScaler, Stan
 
 from affetto_nn_ctrl import RefFuncType
 from affetto_nn_ctrl.control_utility import reset_logger, select_time_updater
+from affetto_nn_ctrl.esn import ESN
 from affetto_nn_ctrl.event_logging import event_logger
 
 if TYPE_CHECKING:
@@ -395,6 +397,8 @@ class DelayStatesAll(DataAdapterBase[DelayStatesAllParams, DefaultStates, Defaul
 class Scaler(Protocol):
     def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> Scaler: ...  # noqa: N803
 
+    def fit_transform(self, X: np.ndarray, y: np.ndarray | None = None) -> np.ndarray: ...  # noqa: N803
+
     def inverse_transform(self, X: np.ndarray) -> np.ndarray: ...  # noqa: N803
 
     def transform(self, X: np.ndarray) -> np.ndarray | Unknown: ...  # noqa: N803
@@ -440,6 +444,7 @@ REGRESSOR_MAP: Mapping[str, tuple[type[Regressor], None]] = {
     "linear": (LinearRegression, None),
     "ridge": (Ridge, None),
     "mlp": (MLPRegressor, None),
+    "esn": (ESN, None),
 }
 
 
@@ -540,6 +545,62 @@ def load_regressor(config: dict[str, Unknown], selector: str | None = None) -> R
     return regressor
 
 
+def _load_esn_from_map(
+    config: dict[str, Unknown],
+    active_joints: list[int],
+    _map: Mapping[str, tuple[type[T], type[DataAdapterParamsBase] | None]],
+    _display: str,
+) -> ESN:
+    try:
+        name = config.pop("name")
+    except KeyError as e:
+        msg = f"'name' is required to load {_display}"
+        raise KeyError(msg) from e
+
+    try:
+        _type, params_type = _map[name]
+    except KeyError as e:
+        msg = f"unknown {_display} name: {name}"
+        raise KeyError(msg) from e
+
+    params_set = pop_multi_keys(config, _map.keys())
+    selected_params_set = config.pop("params", None)
+    if isinstance(selected_params_set, str):
+        try:
+            config.update(params_set[name][selected_params_set])
+        except KeyError as e:
+            msg = f"unknown parameter set name: {selected_params_set}"
+            raise KeyError(msg) from e
+    elif selected_params_set is not None:
+        msg = f"value of 'params' is not string: {selected_params_set}"
+        raise ValueError(msg)
+
+    _tweak_config_values(config)
+    if "activation_func" in config:
+        key = "activation_func"
+        value = config[key]
+        match value:
+            case "tanh":
+                config[key] = np.tanh
+
+    N_u = len(active_joints) * 5
+    N_y = len(active_joints) * 2
+    config.update({"N_u": N_u, "N_y": N_y})
+    return ESN(**config)
+
+
+def load_esn(
+    config: dict[str, Unknown],
+    active_joints: list[int],
+    selector: str | None = None,
+) -> ESN:
+    if selector is not None:
+        config = update_config_by_selector(config, selector)
+    esn = _load_esn_from_map(config, active_joints, REGRESSOR_MAP, "regressor")
+    event_logger().debug("Loaded ESN: %s", esn)
+    return esn
+
+
 def load_model(
     config: dict[str, Unknown],
     scaler_selector: str | None = None,
@@ -550,6 +611,17 @@ def load_model(
     if scaler is None:
         return regressor
     return make_pipeline(scaler, regressor)
+
+
+def load_esn_model(
+    config: dict[str, Unknown],
+    active_joints: list[int],
+    scaler_selector: str | None = None,
+    regressor_selector: str | None = None,
+) -> tuple[Scaler | None, ESN]:
+    scaler = load_scaler(config["scaler"], scaler_selector)
+    esn = load_esn(config["regressor"], active_joints, regressor_selector)
+    return scaler, esn
 
 
 def extract_data(
@@ -663,6 +735,47 @@ def train_model(
     event_logger().debug("y_train.shape = %s", y_train.shape)
     model = model.fit(x_train, y_train)
     return TrainedModel(model, adapter)
+
+
+@dataclass
+class TrainedEsnModel(Generic[DataAdapterParamsType, StatesType, RefsType, InputsType]):
+    model: ESN
+    scaler: Scaler | None
+    adapter: DataAdapterBase[DataAdapterParamsType, StatesType, RefsType, InputsType]
+
+    def get_params(self) -> dict:
+        return self.model.get_params()
+
+    def predict(self, X: np.ndarray) -> np.ndarray | Unknown:  # noqa: N803
+        if self.scaler is not None:
+            X = self.scaler.fit_transform(X)
+        return self.model.predict(X)
+
+    def score(self, X: np.ndarray, y: np.ndarray, sample_weight: np.ndarray | None = None) -> float | Unknown:  # noqa: N803
+        if self.scaler is not None:
+            X = self.scaler.fit_transform(X)
+        return self.model.score(X, y, sample_weight)
+
+    @property
+    def model_name(self) -> str:
+        if isinstance(self.model, Pipeline):
+            return " -> ".join(str(step[1]) for step in self.model.steps)
+        return str(self.model)
+
+
+def train_esn_model(
+    model: ESN,
+    scaler: Scaler | None,
+    datasets: Data | Iterable[Data],
+    adapter: DataAdapterBase[DataAdapterParamsType, StatesType, RefsType, InputsType],
+) -> TrainedEsnModel:
+    x_train, y_train = load_train_datasets(datasets, adapter)
+    if scaler is not None:
+        x_train = scaler.fit_transform(x_train)
+    event_logger().debug("x_train.shape = %s", x_train.shape)
+    event_logger().debug("y_train.shape = %s", y_train.shape)
+    model = model.fit(x_train, y_train)
+    return TrainedEsnModel(model, scaler, adapter)
 
 
 def dump_trained_model(trained_model: TrainedModel, output: str | Path) -> Path:
@@ -825,5 +938,5 @@ def control_position_or_model(
 
 
 # Local Variables:
-# jinx-local-words: "MLPRegressor Params apdater arg cb csv ctrl dataset datasets des dq dqdes maxabs minmax mlp noqa npqa params pb qdes quantile rb regressor scaler" # noqa: E501
+# jinx-local-words: "MLPRegressor Params apdater arg cb csv ctrl dataset datasets des dq dqdes esn func maxabs minmax mlp noqa npqa params pb qdes quantile rb regressor scaler tanh" # noqa: E501
 # End:

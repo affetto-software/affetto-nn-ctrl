@@ -19,6 +19,7 @@ from affetto_nn_ctrl.data_handling import (
 )
 from affetto_nn_ctrl.event_logging import event_logger, start_logging
 from affetto_nn_ctrl.model_utility import (
+    TrainedEsnModel,
     TrainedModel,
     load_datasets,
     load_train_datasets,
@@ -73,7 +74,7 @@ def save_scores(
 def plot(
     output_dir_path: Path,
     plot_prefix: str,
-    model: TrainedModel,
+    model: TrainedModel | TrainedEsnModel,
     y_true: np.ndarray,
     y_pred: np.ndarray,
     score: CalculatedScore,
