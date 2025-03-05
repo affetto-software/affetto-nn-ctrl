@@ -237,7 +237,6 @@ def parse() -> argparse.Namespace:
 
 
 def main() -> None:
-    import sys
 
     args = parse()
     if args.train_size is not None and args.train_size > 1:

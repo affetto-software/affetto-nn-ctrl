@@ -778,7 +778,7 @@ def train_esn_model(
     return TrainedEsnModel(model, scaler, adapter)
 
 
-def dump_trained_model(trained_model: TrainedModel, output: str | Path) -> Path:
+def dump_trained_model(trained_model: TrainedModel | TrainedEsnModel, output: str | Path) -> Path:
     joblib.dump(trained_model, output)
     return Path(output)
 
