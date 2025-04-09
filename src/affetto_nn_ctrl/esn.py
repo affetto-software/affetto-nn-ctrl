@@ -366,6 +366,7 @@ class ESN:
         return np.array(Y)
 
     def predict(self, X: np.ndarray) -> np.ndarray:
+        self.reset_reservoir_state()
         return self._predict(X)
 
     def run(self, U: np.ndarray) -> np.ndarray:
@@ -373,6 +374,7 @@ class ESN:
         y = self.yinit
         u = U[0]
         assert u.shape == y.shape
+        self.reset_reservoir_state()
         for _ in range(len(U)):
             x_in = self.input(u)
             if self.feedback is not None:
