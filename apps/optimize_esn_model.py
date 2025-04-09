@@ -109,7 +109,7 @@ def _toml_string(value: Unknown) -> str:
     if value is None:
         value = "None"
     elif isinstance(value, bool):
-        value = "true" if value else "false"
+        return "true" if value else "false"
     if value is np.tanh:
         value = "tanh"
 
@@ -160,19 +160,20 @@ def save_optimization_result(
         "\n",
     ]
 
-    text_lines.extend(
-        [
-            "[model]\n",
-            "[model.adapter]\n",
-            f'name = "{adapter_name(adapter)}"\n',
-            'params = "default"\n',
-            f"active_joints = [{', '.join(map(str, adapter.params.active_joints))}]\n",
-            f"dt = {adapter.params.dt}\n",
-            f"include_dqdes = {_toml_string(adapter.params.include_dqdes)}\n",
-            f"ctrl_step = {_toml_string(adapter.params.ctrl_step)}\n",
-            "\n",
-        ],
-    )
+    if isinstance(adapter, PreviewRef | DelayStates | DelayStatesAll):
+        text_lines.extend(
+            [
+                "[model]\n",
+                "[model.adapter]\n",
+                f'name = "{adapter_name(adapter)}"\n',
+                'params = "default"\n',
+                f"active_joints = [{', '.join(map(str, adapter.params.active_joints))}]\n",
+                f"dt = {adapter.params.dt}\n",
+                f"include_dqdes = {_toml_string(adapter.params.include_dqdes)}\n",
+                f"ctrl_step = {_toml_string(adapter.params.ctrl_step)}\n",
+                "\n",
+            ],
+        )
     if isinstance(adapter, PreviewRef):
         text_lines.extend(
             [
@@ -210,8 +211,8 @@ def save_optimization_result(
             "[model.regressor]\n",
             f"name = {_toml_string('esn')}\n",
             f"params = {_toml_string('best')}\n",
-            "[model.regressor.esn.best]\n",
             "\n",
+            "[model.regressor.esn.best]\n",
         ],
     )
     text_lines.extend([f"{key} = {_toml_string(value)}\n" for key, value in best_params.items()])
