@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import optuna
 from optuna import Trial
+from optuna.samplers import TPESampler
 from sklearn.metrics import mean_squared_error
 
 from affetto_nn_ctrl import DEFAULT_SEED
@@ -39,6 +40,7 @@ from affetto_nn_ctrl.model_utility import (
     load_train_datasets,
     train_esn_model,
 )
+from affetto_nn_ctrl.random_utility import set_seed
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -60,6 +62,7 @@ def optimize(
     adapter: DataAdapterBase,
     scaler_selectors: list[str],
     active_joints: list[int],
+    seed: int | None,
 ) -> Study:
     train_datasets = load_datasets(train_dataset_files)
     x_train, y_train = load_train_datasets(train_datasets, adapter)
@@ -100,7 +103,8 @@ def optimize(
             mse.append(mean_squared_error(y_true, y_pred))
         return np.mean(mse)
 
-    study = optuna.create_study(direction="minimize")
+    sampler = TPESampler(seed=seed) if seed is not None else None
+    study = optuna.create_study(sampler=sampler, direction="minimize")
     study.optimize(objective, n_trials=n_trials)
     return study
 
@@ -134,6 +138,7 @@ def save_optimization_result(
     output_prefix: str,
     study: Study,
     adapter: DataAdapterBase,
+    seed: int | None,
     *,
     ext: str = ".toml",
     overwrite: bool = False,
@@ -157,6 +162,7 @@ def save_optimization_result(
         f"best_scaler = {_toml_string(best_scaler)}\n",
         f"best_value = {study.best_value}\n",
         f"trials = {len(study.trials)}\n",
+        f"seed = {_toml_string(seed)}\n",
         "\n",
     ]
 
@@ -231,6 +237,7 @@ def run(
     train_size: float | None,
     test_size: float | None,
     seed: int | None,
+    opt_seed: int | None,
     model_config: str,  # required
     adapter_selector: str | None,
     scaler_selectors: list[str],
@@ -274,11 +281,20 @@ def run(
         adapter,
         scaler_selectors,
         active_joints,
+        opt_seed,
     )
     event_logger().debug("Optimization has done")
 
     # Save the best parameters.
-    output = save_optimization_result(output_dir_path, output_prefix, study, adapter, ext=".toml", overwrite=overwrite)
+    output = save_optimization_result(
+        output_dir_path,
+        output_prefix,
+        study,
+        adapter,
+        opt_seed,
+        ext=".toml",
+        overwrite=overwrite,
+    )
     event_logger().info("Optimization result saved: %s", output)
 
     # Calculate score.
@@ -363,6 +379,12 @@ def parse() -> argparse.Namespace:
         default=DEFAULT_SEED,
         type=int,
         help="Seed value given to random number generator.",
+    )
+    parser.add_argument(
+        "--opt-seed",
+        default=DEFAULT_SEED,
+        type=int,
+        help="Seed value given to optimization sampler.",
     )
     parser.add_argument(
         "--shuffle",
@@ -474,6 +496,8 @@ def main() -> None:
     event_logger().debug("Parsed arguments: %s", args)
 
     # Start mainloop
+    if args.opt_seed is not None:
+        set_seed(args.opt_seed)
     run(
         # configuration
         args.joints,
@@ -484,6 +508,7 @@ def main() -> None:
         args.train_size,
         args.test_size,
         args.seed,
+        args.opt_seed,
         # parameters
         args.model_config,
         args.adapter,
