@@ -67,6 +67,7 @@ def optimize(
     train_datasets = load_datasets(train_dataset_files)
     x_train, y_train = load_train_datasets(train_datasets, adapter)
     test_datasets = load_datasets(test_dataset_files)
+    loaded_test_datasets = [load_train_datasets(test_dataset, adapter) for test_dataset in test_datasets]
 
     # Default parameters
     N_u = len(active_joints) * 5
@@ -74,7 +75,7 @@ def optimize(
 
     def objective(trial: Trial) -> float | Unknown:
         scaler_selector = trial.suggest_categorical("scaler_selector", scaler_selectors)
-        N_x = trial.suggest_int("N_x", 100, 3000, step=100)
+        N_x = trial.suggest_int("N_x", 400, 3000, step=100)
         density = trial.suggest_float("density", 0.01, 0.2)
         rho = trial.suggest_float("rho", 0.5, 2.0)
         leaking_rate = trial.suggest_float("leaking_rate", 0.01, 1.0)
@@ -97,8 +98,7 @@ def optimize(
         esn.fit(x_train_fit, y_train)
 
         mse: list[float | Unknown] = []
-        for test_dataset in test_datasets:
-            x_test, y_true = load_train_datasets(test_dataset, adapter)
+        for x_test, y_true in loaded_test_datasets:
             y_pred = esn.predict(x_test)
             mse.append(mean_squared_error(y_true, y_pred))
         return np.mean(mse)
