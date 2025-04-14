@@ -687,8 +687,8 @@ def load_train_datasets(
 ) -> tuple[np.ndarray, np.ndarray]:
     if isinstance(train_datasets, Data):
         train_datasets = [train_datasets]
-    x_train = cast(np.ndarray, None)
-    y_train = cast(np.ndarray, None)
+    x_train = cast("np.ndarray", None)
+    y_train = cast("np.ndarray", None)
     for dataset in train_datasets:
         _x_train = adapter.make_feature(dataset)
         _y_train = adapter.make_target(dataset)
@@ -938,5 +938,5 @@ def control_position_or_model(
 
 
 # Local Variables:
-# jinx-local-words: "MLPRegressor Params apdater arg cb csv ctrl dataset datasets des dq dqdes esn func maxabs minmax mlp noqa npqa params pb qdes quantile rb regressor scaler tanh" # noqa: E501
+# jinx-local-words: "MLPRegressor Params apdater arg cb csv ctrl dataset datasets des dq dqdes esn func maxabs minmax mlp ndarray noqa np npqa params pb qdes quantile rb regressor scaler tanh" # noqa: E501
 # End:
