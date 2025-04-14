@@ -76,8 +76,8 @@ def optimize(
     def objective(trial: Trial) -> float | Unknown:
         scaler_selector = trial.suggest_categorical("scaler_selector", scaler_selectors)
         N_x = trial.suggest_int("N_x", 400, 3000, step=100)
-        density = trial.suggest_float("density", 0.01, 0.2)
-        rho = trial.suggest_float("rho", 0.5, 2.0)
+        density = trial.suggest_float("density", 0.01, 0.5)
+        rho = trial.suggest_float("rho", 0.1, 2.0)
         leaking_rate = trial.suggest_float("leaking_rate", 0.01, 1.0)
         input_scale = trial.suggest_float("input_scale", 0.01, 1.0)
 
