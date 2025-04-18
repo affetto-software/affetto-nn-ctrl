@@ -74,7 +74,7 @@ def optimize(
 
     def objective(trial: Trial) -> float | Unknown:
         scaler_selector = trial.suggest_categorical("scaler_selector", scaler_selectors)
-        hidden_layer_size = trial.suggest_int("hidden_layer_size", 100, 2000, step=100)
+        hidden_layer_size = trial.suggest_int("hidden_layer_size", 100, 3000, step=100)
         activation = trial.suggest_categorical("activation", ["relu", "tanh", "logistic"])
         alpha = trial.suggest_float("alpha", 1e-5, 1e-3, log=True)
         learning_rate_init = trial.suggest_float("learning_rate_init", 1e-5, 1e-2, log=True)
