@@ -160,6 +160,46 @@ uv run python apps/calculate_rmse.py -v \
 
 RMSE values are added to `tracked_trajectory.toml`, and time-series plots are saved in the output directory.
 
+## Demonstration Instruction
+
+### Kinesthetic Teaching Demonstration
+
+Performing a simple kinesthetic teaching demonstration is attractive
+for visitors. This demonstration consists of the following three
+steps:
+- Teach a motion that the robot reproduce.
+- Track the recorded motion with a trained model.
+- (Optional) Track the same motion with PID control for comparison.
+
+The following instruction uses 4 joints in the left arm of Affetto.
+
+#### Teaching
+
+Use `apps/record_trajectory.py` to record joint position trajectories.
+The following example records the left arm joints for 10 seconds:
+
+``` shell
+uv run python apps/record_trajectory.py -v --init-config "apps/config/init_left_arm.toml" --joints 2-5 -T 10 --base-dir "." --output "demo/$(date '+%Y%m%d')"
+```
+
+#### Playback using trained model
+
+Use `apps/track_trajectory.py` to perform the trajectory tracking using a trained model. The following command replays a specific reference trajectory:
+
+``` shell
+model="/mnt/storage1/data/affetto_nn_ctrl/trained_model/left_arm/20250207T001027/preview-ref.step09/mlp.layer200-iter1000-logistic/std/trapez_async_all/trained_model.joblib"
+uv run python apps/track_trajectory.py -v "$model" --init-config "apps/config/init_left_arm.toml" --joints 2-5 -r "./demo/$(date '+%Y%m%d')/reference_trajectory_000.csv" -n 1 --base-dir "." --output "demo/$(date '+%Y%m%d')" --output-prefix "tracked_trajectory_mlp" --reference-prefix "mlp"
+```
+
+#### (Optional) Playback using PID control
+
+Depending on reactions from visitors, tracking the same recorded
+trajectory with the conventional PID controller might be convincing. The following command tracks the same reference trajectory through PID control:
+
+``` shell
+uv run python apps/track_trajectory.py -v --init-config "apps/config/init_left_arm.toml" --joints 2-5 -r "./demo/$(date '+%Y%m%d')/reference_trajectory_000.csv" -n 1 --base-dir "." --output "demo/$(date '+%Y%m%d')" --output-prefix "tracked_trajectory_pid" --reference-prefix "pid"
+```
+
 ## License
 
 This project is licensed under the MIT License.
