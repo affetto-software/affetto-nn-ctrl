@@ -90,6 +90,7 @@ target-version = "py310"
 select = ["ALL"]
 ignore = [
   "D1",                         # Ignore missing docstring
+  "PLC0415",                    # Ignore `import` not at the top-level of a file
   "PLR0913",                    # Ignore too many function arguments
   "S101",                       # Ignore detection of using assert
   "SIM108",                     # Ignore suggestion of using ternary operator instead of `if`-`else`-block
@@ -178,5 +179,5 @@ module = [
 ignore_missing_imports = true
 
 # Local Variables:
-# jinx-local-words: "McCabe Pyflakes addopts backend bzr cov ctrl defs dev direnv doctests hatchling hg ini ipynb isort joblib md mixedCase mypy nn nox numpy pycache pycodestyle pydocstyle pyenv pypackages pypdf pyplotutil pyright pytest pytype ra reStructuredText rgx scikit scipy sklearn src svn testpaths tomli tox unfixable untyped urls vcs venv venvPath vscode xdist zA"
+# jinx-local-words: "McCabe Pyflakes addopts backend bzr cov ctrl defs dev direnv doctests hatchling hg ini ipynb isort joblib md mixedCase mypy nn nox numpy optuna pycache pycodestyle pydocstyle pyenv pypackages pypdf pyplotutil pyright pytest pytype ra reStructuredText rgx scienceplots scikit scipy sklearn src svn testpaths tomli tox unfixable untyped urls vcs venv venvPath vscode xdist zA"
 # End:

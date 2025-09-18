@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# ruff: noqa: N806
 from __future__ import annotations
 
 import argparse

@@ -519,10 +519,10 @@ def test_prepare_data_dir_path_make_symlink_with_sublabel(
 
 def test_prepare_data_dir_path_make_symlink_but_no_date(make_work_directory: Path) -> None:
     data_dir_path = make_work_directory / "label" / "sublabel"
-    with pytest.warns(UserWarning) as record:
+    msg = "Trying to make latest symlink, but no date part has found"
+    with pytest.warns(UserWarning, match=msg) as record:
         prepare_data_dir_path(data_dir_path, make_latest_symlink=True)
     assert len(record) == 1
-    msg = "Trying to make latest symlink, but no date part has found"
     assert str(record[0].message).startswith(msg)
 
 

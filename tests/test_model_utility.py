@@ -74,7 +74,7 @@ def make_prediction_data_path(
     **model_params: str | float,
 ) -> Path:
     filename = f"{adapter_name}_{model_name}"
-    if len(model_params):
+    if len(model_params) > 0:
         joined = "_".join("-".join(map(str, x)) for x in model_params.items())
         filename += f"_{joined}"
     filename += ".csv"

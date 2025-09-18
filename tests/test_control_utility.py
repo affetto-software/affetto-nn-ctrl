@@ -477,7 +477,8 @@ class TestRandomTrajectory:
     def test_update_t_range_warn_mismatch_when_sync(self) -> None:
         active_joints = [0, 1]
         update_t_range_list = [(0.1, 0.5), (0.2, 0.6)]
-        with pytest.warns(UserWarning) as record:
+        msg = "Enabled sync update but various update t range is given."
+        with pytest.warns(UserWarning, match=msg) as record:
             _ = RandomTrajectory(
                 active_joints,
                 0.0,
@@ -488,7 +489,6 @@ class TestRandomTrajectory:
                 async_update=False,
             )
         assert len(record) == 1
-        msg = "Enabled sync update but various update t range is given."
         assert str(record[0].message).startswith(msg)
 
     @pytest.mark.parametrize(
