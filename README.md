@@ -26,7 +26,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 Clone the repository and install dependencies in a virtual environment:
 
 ``` shell
-git clone https://github.com/hrshtst/affetto-nn-ctrl.git
+git clone https://github.com/affetto-software/affetto-nn-ctrl.git
 cd affetto-nn-ctrl
 uv sync
 ```
