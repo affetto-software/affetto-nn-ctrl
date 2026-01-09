@@ -166,13 +166,15 @@ def plot_mean_err(
     mask = get_tlim_mask(t, tlim)
     if err_type is None or err_type == "none":
         mean, _, _ = calculate_mean_err(y)
-        lines = ax.plot(t[mask], mean[mask], fmt, label=label)
+        lines = ax.plot(t[mask], mean[mask], fmt, label=label, lw=3.0)
     else:
         mean, err1, err2 = calculate_mean_err(y, err_type=err_type)
         if err2 is None:
-            eb = ax.errorbar(t[mask], mean[mask], yerr=err1[mask], capsize=capsize, fmt=fmt, label=label)
+            eb = ax.errorbar(t[mask], mean[mask], yerr=err1[mask], capsize=capsize, fmt=fmt, label=label, lw=3.0)
         else:
-            eb = ax.errorbar(t[mask], mean[mask], yerr=(err1[mask], err2[mask]), capsize=capsize, fmt=fmt, label=label)
+            eb = ax.errorbar(
+                t[mask], mean[mask], yerr=(err1[mask], err2[mask]), capsize=capsize, fmt=fmt, label=label, lw=3.0
+            )
         lines = eb.lines  # type: ignore[assignment]
     return lines[0]
 
@@ -228,7 +230,7 @@ def plot_all_motions(
 
     ax: Axes
     fig: Figure
-    fig, ax = plt.subplots(figsize=(18, 6))
+    fig, ax = plt.subplots(figsize=(12, 6))
 
     # Plot reference
     t, y = load_timeseries(motion_data_list[0], f"q{joint_index}", tshift)
@@ -238,7 +240,7 @@ def plot_all_motions(
         y_ref = getattr(motion_data_list[0], f"qdes{joint_index}")
     else:
         y_ref = getattr(reference_data, f"q{joint_index}")
-    (line,) = ax.plot(t_ref[mask_ref], y_ref[mask_ref], ls="--", label=ref_label)
+    (line,) = ax.plot(t_ref[mask_ref], y_ref[mask_ref], ls="--", label=ref_label, lw=3.0)
 
     # Plot tracked trajectories
     for i, motion_data_set in enumerate(motion_data_list):
@@ -248,12 +250,14 @@ def plot_all_motions(
         if fill:
             fill_between_err(ax, t, y, fill_err_type, tlim, line.get_color(), fill_alpha)
 
-    ax.set_title(title)
+    ax.set_title(title, fontsize="xx-large")
     ax.set_ylim((-5, 105))
-    ax.set_xlabel("time [s]")
-    ax.set_ylabel(ylabel)
+    ax.set_xlabel("time [s]", fontsize="xx-large")
+    ax.set_ylabel(ylabel, fontsize="xx-large")
+    ax.tick_params(axis="both", labelsize="xx-large")
     if show_legend:
-        ax.legend()
+        ax.legend(bbox_to_anchor=(1.01, 1), loc="upper left", borderaxespad=0.0, fontsize="xx-large")
+    fig.tight_layout()
     output_basename = f"{plot_prefix}_{joint_index:02d}_q"
     return save_figure(fig, output_dir_path, output_basename, ext, loaded_from=None, dpi=dpi)
 

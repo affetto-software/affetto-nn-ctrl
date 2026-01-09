@@ -215,7 +215,7 @@ def _plot_scores(
 ) -> Axes:
     rects = ax.bar(x, y, yerr=yerr, width=width, capsize=capsize, label=label)
     if show_r2:
-        ax.bar_label(rects, label_type="center")
+        ax.bar_label(rects, label_type="center", fontsize="xx-large", fmt="%.3f")
     if show_line and len(rects.patches):
         c = rects.patches[0].get_facecolor()
         ax.plot(x, y, "--", color=c, lw=1.0)
@@ -245,7 +245,7 @@ def plot_scores(
         _plot_scores(ax, x + i * width, y, yerr, width, 6, label, show_r2=show_r2, show_line=adapter in show_lines)
 
     xticks_offset = 0.5 * (1.0 - 2.0 * width)
-    ax.set_xticks(x + xticks_offset, xlabels)
+    ax.set_xticks(x + xticks_offset, xlabels, fontsize="xx-large")
     ax.minorticks_off()
     return ax
 
@@ -398,7 +398,8 @@ def plot_figure(
         show_lines=show_lines,
     )
 
-    ax.set_ylabel(r"Coefficient of determination, $R^2$")
+    ax.set_ylabel(r"Coefficient of determination, $R^2$", fontsize="xx-large")
+    ax.tick_params(axis="y", labelsize="xx-large")
     ax.set_ylim(ylim)
     if show_grid in ("x", "y", "both"):
         ax.grid(axis=show_grid, visible=True)

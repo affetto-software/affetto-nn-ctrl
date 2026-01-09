@@ -65,7 +65,7 @@ def _plot_timeseries_multi_data(
             y = getattr(data, f"{key}{joint_id}")
             if unit == "kPa":
                 y = y * 600.0 / 255.0
-            ax.plot(*mask_data(tlim, t, y), label=next(labels_iter))
+            ax.plot(*mask_data(tlim, t, y), label=next(labels_iter), lw=3.0)
         if only_once:
             # Plot only once since all data assumed to be the same.
             break
@@ -93,13 +93,15 @@ def plot_mean_err(
     mask = get_tlim_mask(t, tlim)
     if err_type == "none":
         mean, _, _ = calculate_mean_err(y)
-        lines = ax.plot(t[mask], mean[mask], fmt, label=label)
+        lines = ax.plot(t[mask], mean[mask], fmt, label=label, lw=3.0)
     else:
         mean, err1, err2 = calculate_mean_err(y, err_type=err_type)
         if err2 is None:
-            eb = ax.errorbar(t[mask], mean[mask], yerr=err1[mask], capsize=capsize, fmt=fmt, label=label)
+            eb = ax.errorbar(t[mask], mean[mask], yerr=err1[mask], capsize=capsize, fmt=fmt, label=label, lw=3.0)
         else:
-            eb = ax.errorbar(t[mask], mean[mask], yerr=(err1[mask], err2[mask]), capsize=capsize, fmt=fmt, label=label)
+            eb = ax.errorbar(
+                t[mask], mean[mask], yerr=(err1[mask], err2[mask]), capsize=capsize, fmt=fmt, label=label, lw=3.0
+            )
         lines = eb.lines  # type: ignore[assignment]
     return lines[0]
 
@@ -179,7 +181,10 @@ def _plot_timeseries_active_joints(
             y = getattr(data, f"{key}{joint_id}")
             if unit == "kPa":
                 y = y * 600.0 / 255.0
-            ax.plot(*mask_data(tlim, t, y), label=next(labels_iter))
+            if key == "qdes":
+                ax.plot(*mask_data(tlim, t, y), label=next(labels_iter), lw=3.0, ls="--")
+            else:
+                ax.plot(*mask_data(tlim, t, y), label=next(labels_iter), lw=3.0)
 
     return ax
 
@@ -254,13 +259,14 @@ def _plot_timeseries(
         ylabel = ", ".join(key_list)
     if unit == "kPa":
         ylabel += " [kPa]"
-    ax.set_ylabel(ylabel)
+    ax.set_ylabel(ylabel, fontsize="xx-large")
+    ax.tick_params(axis="both", labelsize="xx-large")
     if ylim:
         ax.set_ylim(ylim)
     if legend:
-        ax.legend()
-    if title:
-        ax.set_title(title)
+        ax.legend(bbox_to_anchor=(1.01, 1), loc="upper left", borderaxespad=0.0, fontsize="xx-large")
+    # if title and len(title) > 0:
+    #     ax.set_title(title, fontsize="xx-large")
 
     return ax
 
@@ -518,7 +524,7 @@ def plot_multi_data(  # noqa: C901
     fill_alpha: float = 0.4,
 ) -> tuple[Figure, list[Axes]]:
     n_keys = len(plot_keys)
-    figsize = (16, 4 * n_keys)
+    figsize = (12, 4 * n_keys)
     fig, axes = plt.subplots(nrows=n_keys, sharex=sharex, figsize=figsize)
 
     if n_keys == 1:
@@ -620,9 +626,10 @@ def plot_multi_data(  # noqa: C901
             msg = f"unrecognized plot variable: {v}"
             raise ValueError(msg)
 
-    axes[-1].set_xlabel("time [s]")
-    if title:
-        fig.suptitle(title)
+    axes[-1].set_xlabel("time [s]", fontsize="xx-large")
+    # if title and len(title) > 0:
+    #     fig.suptitle(title, fontsize="xx-large")
+    fig.tight_layout()
 
     return fig, axes
 
@@ -643,7 +650,7 @@ def plot_multi_joint(  # noqa: C901
     show_raw_value: bool = False,
 ) -> tuple[Figure, list[Axes]]:
     n_keys = len(plot_keys)
-    figsize = (8, 4 * n_keys)
+    figsize = (10, 4 * n_keys)
     fig, axes = plt.subplots(nrows=n_keys, sharex=sharex, figsize=figsize)
 
     if n_keys == 1:
@@ -733,9 +740,10 @@ def plot_multi_joint(  # noqa: C901
             msg = f"unrecognized plot variable: {v}"
             raise ValueError(msg)
 
-    axes[-1].set_xlabel("time [s]")
-    if title:
-        fig.suptitle(title)
+    axes[-1].set_xlabel("time [s]", fontsize="xx-large")
+    # if title and len(title) > 0:
+    #     fig.suptitle(title, fontsize="xx-large")
+    fig.tight_layout()
 
     return fig, axes
 

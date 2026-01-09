@@ -159,7 +159,7 @@ def _plot_rmse(
 ) -> Axes:
     rects = ax.bar(x, y, yerr=yerr, width=width, capsize=capsize, label=label)
     if show_rmse:
-        ax.bar_label(rects, label_type="center")
+        ax.bar_label(rects, label_type="center", fontsize="xx-large", fmt="%.3f")
     if show_line and len(rects.patches):
         c = rects.patches[0].get_facecolor()
         ax.plot(x, y, "--", color=c, lw=1.0)
@@ -206,14 +206,15 @@ def plot_rmse(
         _plot_rmse(ax, x + i * width, y, yerr, width, 6, label, show_rmse=show_rmse, show_line=False)
 
     xticks_offset = 0.5 * (1.0 - 2.0 * width)
-    ax.set_xticks(x + xticks_offset, xlabels)
+    ax.set_xticks(x + xticks_offset, xlabels, fontsize="xx-large")
     ax.minorticks_off()
 
     ylim = make_limit(ylim)
     if ylim is not None:
         ax.set_ylim(ylim)
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel, fontsize="xx-large")
+    ax.set_ylabel(ylabel, fontsize="xx-large")
+    ax.tick_params(axis="y", labelsize="xx-large")
     if show_grid in ("x", "y", "both"):
         ax.grid(axis=show_grid, visible=True)
     if show_legend:
