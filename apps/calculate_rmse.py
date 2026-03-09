@@ -40,6 +40,10 @@ else:
 
 
 DEFAULT_DOF = 13
+FONTSIZE_TITLE = 20
+FONTSIZE_LABEL = 20
+FONTSIZE_TICK = 18
+FONTSIZE_LEGEND = 18
 
 
 @dataclass
@@ -229,6 +233,7 @@ def plot_single_motion(
     show_legend: bool,
     ext: list[str],
     use_motion_reference: bool,
+    publication: bool,
 ) -> list[Path]:
     all_saved_figures: list[Path] = []
     for i, joint_index in enumerate(active_joints):
@@ -251,19 +256,23 @@ def plot_single_motion(
         for v, ylabel in zip(var, ylabels, strict=True):
             ax: Axes
             fig: Figure
-            fig, ax = plt.subplots(figsize=(18, 6))
+            figsize = (12, 6) if publication else (18, 6)
+            fig, ax = plt.subplots(figsize=figsize)
             if use_motion_reference:
                 ref = getattr(motion_data, f"{v}des{joint_index}")
             else:
                 ref = getattr(reference_data, f"{v}{joint_index}")
             y = getattr(motion_data, f"{v}{joint_index}")
             (line,) = ax.plot(t_ref[mask_ref], ref[mask_ref], ls="--", label="reference trajectory")
-            ax.plot(t_mot[mask_mot], y[mask_mot], c=line.get_color(), label="actual trajectory")
-            ax.set_title(title)
-            ax.set_xlabel("time [s]")
-            ax.set_ylabel(ylabel)
+            actual_color = None if publication else line.get_color()
+            ax.plot(t_mot[mask_mot], y[mask_mot], c=actual_color, label="actual trajectory")
+            if not publication:
+                ax.set_title(title, fontsize=FONTSIZE_TITLE)
+            ax.set_xlabel("time [s]", fontsize=FONTSIZE_LABEL)
+            ax.set_ylabel(ylabel, fontsize=FONTSIZE_LABEL)
+            ax.tick_params(axis="both", labelsize=FONTSIZE_TICK)
             if show_legend:
-                ax.legend()
+                ax.legend(fontsize=FONTSIZE_LEGEND)
             output_basename = f"{plot_prefix}_{joint_index:02d}_{v}"
             saved_figures = save_figure(
                 fig,
@@ -327,17 +336,27 @@ def plot_mean_err(
     fmt: str,
     capsize: int,
     label: str | None,
+    *,
+    color: ColorType | None = None,
 ) -> Line2D:
     mask = get_tlim_mask(t, tlim)
     if err_type is None or err_type == "none":
         mean, _, _ = calculate_mean_err(y)
-        lines = ax.plot(t[mask], mean[mask], fmt, label=label)
+        lines = ax.plot(t[mask], mean[mask], fmt, label=label, color=color)
     else:
         mean, err1, err2 = calculate_mean_err(y, err_type=err_type)
         if err2 is None:
-            eb = ax.errorbar(t[mask], mean[mask], yerr=err1[mask], capsize=capsize, fmt=fmt, label=label)
+            eb = ax.errorbar(t[mask], mean[mask], yerr=err1[mask], capsize=capsize, fmt=fmt, label=label, color=color)
         else:
-            eb = ax.errorbar(t[mask], mean[mask], yerr=(err1[mask], err2[mask]), capsize=capsize, fmt=fmt, label=label)
+            eb = ax.errorbar(
+                t[mask],
+                mean[mask],
+                yerr=(err1[mask], err2[mask]),
+                capsize=capsize,
+                fmt=fmt,
+                label=label,
+                color=color,
+            )
         lines = eb.lines  # type: ignore[assignment]
     return lines[0]
 
@@ -384,6 +403,7 @@ def plot_all_motions(
     fill: bool,
     fill_err_type: str | None,
     fill_alpha: float,
+    publication: bool,
 ) -> list[Path]:
     all_saved_figures: list[Path] = []
     for i, joint_index in enumerate(active_joints):
@@ -398,7 +418,8 @@ def plot_all_motions(
         for v, ylabel in zip(var, ylabels, strict=True):
             ax: Axes
             fig: Figure
-            fig, ax = plt.subplots(figsize=(18, 6))
+            figsize = (12, 6) if publication else (18, 6)
+            fig, ax = plt.subplots(figsize=figsize)
             t, y = load_timeseries(motion_data_list, f"{v}{joint_index}", tshift)
 
             t_ref = t if use_motion_reference else reference_data.t - tshift
@@ -409,17 +430,30 @@ def plot_all_motions(
                 y_ref = getattr(reference_data, f"{v}{joint_index}")
             (line,) = ax.plot(t_ref[mask_ref], y_ref[mask_ref], ls="--", label="reference trajectory")
 
-            line = plot_mean_err(ax, t, y, err_type, tlim, fmt="-", capsize=2, label="mean of actual trajectories")
+            actual_color = None if publication else line.get_color()
+            line = plot_mean_err(
+                ax,
+                t,
+                y,
+                err_type,
+                tlim,
+                fmt="-",
+                capsize=2,
+                label="mean of actual trajectories",
+                color=actual_color,
+            )
             if fill:
                 fill_between_err(ax, t, y, fill_err_type, tlim, line.get_color(), fill_alpha)
 
-            ax.set_title(title)
+            if not publication:
+                ax.set_title(title, fontsize=FONTSIZE_TITLE)
             if v == "q":
                 ax.set_ylim((-5, 105))
-            ax.set_xlabel("time [s]")
-            ax.set_ylabel(ylabel)
+            ax.set_xlabel("time [s]", fontsize=FONTSIZE_LABEL)
+            ax.set_ylabel(ylabel, fontsize=FONTSIZE_LABEL)
+            ax.tick_params(axis="both", labelsize=FONTSIZE_TICK)
             if show_legend:
-                ax.legend()
+                ax.legend(fontsize=FONTSIZE_LEGEND)
             output_basename = f"{plot_prefix}_{joint_index:02d}_{v}"
             saved_figures = save_figure(
                 fig,
@@ -453,6 +487,7 @@ def run(
     fill: bool,
     fill_err_type: str | None,
     fill_alpha: float,
+    publication: bool,
 ) -> None:
     # Resolve active joints.
     active_joints = resolve_joints_str(joints_str, dof=DEFAULT_DOF) if joints_str is not None else None
@@ -501,6 +536,7 @@ def run(
                 show_legend=show_legend,
                 ext=plot_ext,
                 use_motion_reference=use_motion_reference,
+                publication=publication,
             )
             saved_figures_single_motion.extend(saved_figures)
 
@@ -530,6 +566,7 @@ def run(
             fill=fill,
             fill_err_type=fill_err_type,
             fill_alpha=fill_alpha,
+            publication=publication,
         )
         saved_figures_all_motion.extend(saved_figures)
 
@@ -625,6 +662,12 @@ def parse() -> argparse.Namespace:
         help="Boolean. If True, show the plot figure. (default: True when test data sets are small)",
     )
     parser.add_argument(
+        "--for-publication",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="whether to create publication-quality figures",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="count",
@@ -675,6 +718,7 @@ def main() -> None:
         fill=args.fill,
         fill_err_type=args.fill_err_type,
         fill_alpha=args.fill_alpha,
+        publication=args.for_publication,
     )
 
 

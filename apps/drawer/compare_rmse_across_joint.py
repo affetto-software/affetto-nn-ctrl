@@ -30,6 +30,11 @@ else:
 
 
 DEFAULT_DOF = 13
+FONTSIZE_TITLE = 20
+FONTSIZE_LABEL = 20
+FONTSIZE_TICK = 18
+FONTSIZE_LEGEND = 18
+FONTSIZE_BARLABEL = 18
 
 
 @dataclass
@@ -159,7 +164,7 @@ def _plot_rmse(
 ) -> Axes:
     rects = ax.bar(x, y, yerr=yerr, width=width, capsize=capsize, label=label)
     if show_rmse:
-        ax.bar_label(rects, label_type="center")
+        ax.bar_label(rects, label_type="center", fontsize=FONTSIZE_BARLABEL)
     if show_line and len(rects.patches):
         c = rects.patches[0].get_facecolor()
         ax.plot(x, y, "--", color=c, lw=1.0)
@@ -212,8 +217,9 @@ def plot_rmse(
     ylim = make_limit(ylim)
     if ylim is not None:
         ax.set_ylim(ylim)
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel, fontsize=FONTSIZE_LABEL)
+    ax.set_ylabel(ylabel, fontsize=FONTSIZE_LABEL)
+    ax.tick_params(axis="both", labelsize=FONTSIZE_TICK)
     if show_grid in ("x", "y", "both"):
         ax.grid(axis=show_grid, visible=True)
     if show_legend:
@@ -223,9 +229,42 @@ def plot_rmse(
             ncols=len(rmse_mean_list),
             mode="expand",
             borderaxespad=0.0,
+            fontsize=FONTSIZE_LEGEND,
         )
     output_basename = f"{plot_prefix}"
     return save_figure(fig, output_dir_path, output_basename, ext, loaded_from=None, dpi=dpi)
+
+
+def save_rmse_csv(
+    output_dir_path: Path,
+    filename_prefix: str,
+    active_joints: list[int],
+    rmse_mean_list: list[list[float]],
+    rmse_err_list: list[list[float]],
+    labels: list[str] | None,
+) -> Path:
+    output_dir_path.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir_path / f"{filename_prefix}.csv"
+
+    if labels is None:
+        labels = [f"model_{i}" for i in range(len(rmse_mean_list))]
+
+    header = ["joint"]
+    for label in labels:
+        header.extend([f"{label}_mean", f"{label}_std"])
+
+    lines = [",".join(header)]
+    for j, joint_idx in enumerate(active_joints):
+        row = [f"#{joint_idx}"]
+        for i in range(len(rmse_mean_list)):
+            row.extend([f"{rmse_mean_list[i][j]}", f"{rmse_err_list[i][j]}"])
+        lines.append(",".join(row))
+
+    with output_path.open("w") as f:
+        f.write("\n".join(lines) + "\n")
+
+    event_logger().info("RMSE CSV saved: %s", output_path)
+    return output_path
 
 
 def run(
@@ -245,6 +284,7 @@ def run(
     show_grid: Literal["both", "x", "y"],
     show_rmse: bool,
     show_screen: bool | None,
+    publication: bool,
 ) -> None:
     # Resolve active joints.
     active_joints = resolve_joints_str(joints_str, dof=DEFAULT_DOF)
@@ -260,6 +300,9 @@ def run(
         bar_plot_dir = output_dir_path / reference_key / output_prefix
         rmse_mean_list = [rmse_data.rmse_mean_list[reference_key] for rmse_data in rmse_data_set]
         rmse_err_list = [rmse_data.rmse_std_list[reference_key] for rmse_data in rmse_data_set]
+        if publication:
+            save_rmse_csv(bar_plot_dir, plot_prefix, active_joints, rmse_mean_list, rmse_err_list, labels)
+
         saved_figures = plot_rmse(
             bar_plot_dir,
             plot_prefix,
@@ -282,6 +325,9 @@ def run(
     bar_plot_dir = output_dir_path / output_prefix
     rmse_mean_list = [rmse_data.all_rmse_mean_list for rmse_data in rmse_data_set]
     rmse_err_list = [rmse_data.all_rmse_std_list for rmse_data in rmse_data_set]
+    if publication:
+        save_rmse_csv(bar_plot_dir, plot_prefix, active_joints, rmse_mean_list, rmse_err_list, labels)
+
     saved_figures = plot_rmse(
         bar_plot_dir,
         plot_prefix,
@@ -386,6 +432,12 @@ def parse() -> argparse.Namespace:
         help="Boolean. If True, show the plot figure. (default: True when test data sets are small)",
     )
     parser.add_argument(
+        "--for-publication",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="whether to create publication-quality figures",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="count",
@@ -433,6 +485,7 @@ def main() -> None:
         show_grid=args.show_grid,
         show_rmse=args.show_rmse,
         show_screen=args.show_screen,
+        publication=args.for_publication,
     )
 
 

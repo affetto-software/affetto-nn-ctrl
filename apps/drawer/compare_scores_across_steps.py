@@ -255,13 +255,13 @@ def make_xlabel(adapter_list: list[str]) -> str:
     preview_bool = [a.startswith("preview") for a in adapter_list]
     delay_bool = [a.startswith("delay") for a in adapter_list]
     if any(preview_bool) and any(delay_bool):
-        xlabel = r"Preview/Delay steps, $\kappa$"
+        xlabel = r"Preview/Delay steps, $\tau$"
     elif all(preview_bool):
-        xlabel = r"Preview steps, $\kappa$"
+        xlabel = r"Preview steps, $\tau$"
     elif all(delay_bool):
-        xlabel = r"Delay steps, $\kappa$"
+        xlabel = r"Delay steps, $\tau$"
     else:
-        xlabel = r"Steps, $\kappa$"
+        xlabel = r"Steps, $\tau$"
     return xlabel
 
 
@@ -289,7 +289,9 @@ def plot_figure(
     show_arrows: bool,
     show_grid: Literal["both", "x", "y"],
     fill_alpha: float | None,
+    publication: bool,
 ) -> tuple[Figure, Axes]:
+    _ = publication
     figsize = (8, 6)
     fig, ax = plt.subplots(figsize=figsize)
     list_args = [basedir_list, adapter_list, regressor_list, scaler_list, dataset_tag_list]
@@ -324,7 +326,7 @@ def plot_figure(
         ax.grid(axis=show_grid, visible=True)
     if show_legend:
         ax.legend()
-    if title:
+    if title and len(title) > 0:
         ax.set_title(title)
     return fig, ax
 
@@ -350,6 +352,7 @@ def plot(
     show_grid: Literal["both", "x", "y"],
     fill_alpha: float | None,
     show_screen: bool,
+    publication: bool,
 ) -> None:
     fig, _ = plot_figure(
         basedir_list,
@@ -366,6 +369,7 @@ def plot(
         show_arrows=show_arrows,
         show_grid=show_grid,
         fill_alpha=fill_alpha,
+        publication=publication,
     )
     if output_prefix is None:
         output_prefix = make_output_prefix(
@@ -435,6 +439,12 @@ def parse() -> argparse.Namespace:
         help="use fill_between to show errors with supplied alpha",
     )
     parser.add_argument(
+        "--for-publication",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="whether to create publication-quality figures",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="count",
@@ -481,6 +491,7 @@ def main() -> None:
         show_grid=args.show_grid,
         fill_alpha=args.fill_alpha,
         show_screen=args.show_screen,
+        publication=args.for_publication,
     )
 
 

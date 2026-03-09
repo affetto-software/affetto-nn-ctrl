@@ -8,7 +8,7 @@ import warnings
 from dataclasses import dataclass
 from itertools import product
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, TypeAlias
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -212,10 +212,14 @@ def _plot_scores(
     *,
     show_r2: bool,
     show_line: bool,
+    publication: bool,
 ) -> Axes:
     rects = ax.bar(x, y, yerr=yerr, width=width, capsize=capsize, label=label)
     if show_r2:
-        ax.bar_label(rects, label_type="center")
+        if publication:
+            ax.bar_label(rects, label_type="center", fmt="%.2f", fontsize=18)
+        else:
+            ax.bar_label(rects, label_type="center")
     if show_line and len(rects.patches):
         c = rects.patches[0].get_facecolor()
         ax.plot(x, y, "--", color=c, lw=1.0)
@@ -232,6 +236,7 @@ def plot_scores(
     *,
     show_r2: bool,
     show_lines: list[str],
+    publication: bool,
 ) -> Axes:
     x = np.arange(len(dataset_tag_list))
     n = len(adapter_list)
@@ -242,7 +247,18 @@ def plot_scores(
     for i, (adapter, label) in enumerate(zip(adapter_list, labels, strict=True)):
         y = [collected_score_data[tag][adapter].score_mean for tag in dataset_tag_list]
         yerr = [collected_score_data[tag][adapter].score_std for tag in dataset_tag_list]
-        _plot_scores(ax, x + i * width, y, yerr, width, 6, label, show_r2=show_r2, show_line=adapter in show_lines)
+        _plot_scores(
+            ax,
+            x + i * width,
+            y,
+            yerr,
+            width,
+            6,
+            label,
+            show_r2=show_r2,
+            show_line=adapter in show_lines,
+            publication=publication,
+        )
 
     xticks_offset = 0.5 * (1.0 - 2.0 * width)
     ax.set_xticks(x + xticks_offset, xlabels)
@@ -271,9 +287,14 @@ def make_xlabels(
     scaler_list: list[str],
     dataset_tag_list: list[str],
     score_tag: str,
+    *,
+    publication: bool,
 ) -> list[str]:
     _ = basedir_list, step, adapter_list, regressor_list, scaler_list, score_tag
-    return [dataset_tag_names.get(x, x) for x in dataset_tag_list]
+    if not publication:
+        return [dataset_tag_names.get(x, x) for x in dataset_tag_list]
+    # Remove the last component for publication
+    return [dataset_tag_names.get(x, x).rsplit("/", 1)[0] for x in dataset_tag_list]
 
 
 def make_title(
@@ -341,6 +362,7 @@ def plot_figure(
     show_grid: Literal["both", "x", "y"],
     show_r2: bool,
     show_lines: list[str] | None,
+    publication: bool,
 ) -> tuple[Figure, Axes]:
     figsize = (3.5 * max(len(dataset_tag_list), len(adapter_list)), 6)
     fig, ax = plt.subplots(figsize=figsize)
@@ -363,6 +385,7 @@ def plot_figure(
             scaler_list,
             dataset_tag_list,
             score_tag,
+            publication=publication,
         )
     if title is not None and title.lower() == "default":
         title = make_title(
@@ -396,20 +419,31 @@ def plot_figure(
         xlabels,
         show_r2=show_r2,
         show_lines=show_lines,
+        publication=publication,
     )
 
-    ax.set_ylabel(r"Coefficient of determination, $R^2$")
+    if publication:
+        ax.set_ylabel(r"Coefficient of determination, $R^2$", fontsize=20)
+        ax.tick_params(axis="both", labelsize=20)
+    else:
+        ax.set_ylabel(r"Coefficient of determination, $R^2$")
     ax.set_ylim(ylim)
     if show_grid in ("x", "y", "both"):
         ax.grid(axis=show_grid, visible=True)
     if show_legend:
-        ax.legend(
-            bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
-            loc="lower left",
-            ncols=len(adapter_list),
-            mode="expand",
-            borderaxespad=0.0,
-        )
+        legend_kwargs: dict[str, Any] = {
+            "bbox_to_anchor": (0.0, 1.02, 1.0, 0.102),
+            "loc": "lower left",
+            "ncols": len(adapter_list),
+            "mode": "expand",
+            "borderaxespad": 0.0,
+        }
+        if publication:
+            legend_kwargs["fontsize"] = 20
+            legend_kwargs["ncols"] = 2
+            legend_kwargs["mode"] = None
+            legend_kwargs["loc"] = "lower center"
+        ax.legend(**legend_kwargs)
     if title:
         fig.suptitle(title)
     return fig, ax
@@ -438,6 +472,7 @@ def plot(
     show_screen: bool,
     show_r2: bool,
     show_lines: list[str] | None,
+    publication: bool,
 ) -> None:
     fig, _ = plot_figure(
         basedir_list,
@@ -456,6 +491,7 @@ def plot(
         show_grid=show_grid,
         show_r2=show_r2,
         show_lines=show_lines,
+        publication=publication,
     )
     if output_prefix is None:
         output_prefix = make_output_prefix(
@@ -534,6 +570,12 @@ def parse() -> argparse.Namespace:
         help="Never show line plots.",
     )
     parser.add_argument(
+        "--for-publication",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="whether to create publication-quality figures",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="count",
@@ -584,6 +626,7 @@ def main() -> None:
         show_screen=args.show_screen,
         show_r2=args.show_r2,
         show_lines=args.show_lines,
+        publication=args.for_publication,
     )
 
 

@@ -39,6 +39,10 @@ else:
 
 
 DEFAULT_DOF = 13
+FONTSIZE_TITLE = 20
+FONTSIZE_LABEL = 20
+FONTSIZE_TICK = 18
+FONTSIZE_LEGEND = 18
 
 
 @dataclass
@@ -221,6 +225,7 @@ def plot_all_motions(
     fill: bool,
     fill_err_type: str | None,
     fill_alpha: float,
+    publication: bool,
 ) -> list[Path]:
     title = f"Joint: {joint_index} | Reference: {reference_data.datapath.stem} | RMSE: "
     title += ",".join([f"{x:.2f}±{y:.2f}" for x, y in zip(rmse_mean_list, rmse_err_list, strict=True)])
@@ -228,7 +233,8 @@ def plot_all_motions(
 
     ax: Axes
     fig: Figure
-    fig, ax = plt.subplots(figsize=(18, 6))
+    figsize = (12, 6) if publication else (18, 6)
+    fig, ax = plt.subplots(figsize=figsize)
 
     # Plot reference
     t, y = load_timeseries(motion_data_list[0], f"q{joint_index}", tshift)
@@ -248,12 +254,14 @@ def plot_all_motions(
         if fill:
             fill_between_err(ax, t, y, fill_err_type, tlim, line.get_color(), fill_alpha)
 
-    ax.set_title(title)
+    if not publication:
+        ax.set_title(title, fontsize=FONTSIZE_TITLE)
     ax.set_ylim((-5, 105))
-    ax.set_xlabel("time [s]")
-    ax.set_ylabel(ylabel)
+    ax.set_xlabel("time [s]", fontsize=FONTSIZE_LABEL)
+    ax.set_ylabel(ylabel, fontsize=FONTSIZE_LABEL)
+    ax.tick_params(axis="both", labelsize=FONTSIZE_TICK)
     if show_legend:
-        ax.legend()
+        ax.legend(fontsize=FONTSIZE_LEGEND)
     output_basename = f"{plot_prefix}_{joint_index:02d}_q"
     return save_figure(fig, output_dir_path, output_basename, ext, loaded_from=None, dpi=dpi)
 
@@ -280,6 +288,7 @@ def run(
     fill: bool,
     fill_err_type: str | None,
     fill_alpha: float,
+    publication: bool,
 ) -> None:
     # Resolve active joints.
     all_saved_figures: list[Path] = []
@@ -325,6 +334,7 @@ def run(
                 fill=fill,
                 fill_err_type=fill_err_type,
                 fill_alpha=fill_alpha,
+                publication=publication,
             )
             all_saved_figures.extend(saved_figures)
             if not show_screen:
@@ -423,6 +433,12 @@ def parse() -> argparse.Namespace:
         help="Boolean. If True, show the plot figure. (default: True when test data sets are small)",
     )
     parser.add_argument(
+        "--for-publication",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="whether to create publication-quality figures",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="count",
@@ -475,6 +491,7 @@ def main() -> None:
         fill=args.fill,
         fill_err_type=args.fill_err_type,
         fill_alpha=args.fill_alpha,
+        publication=args.for_publication,
     )
 
 
