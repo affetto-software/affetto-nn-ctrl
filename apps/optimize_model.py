@@ -73,15 +73,17 @@ def optimize(
 
     def objective(trial: Trial) -> float | Unknown:
         scaler_selector = trial.suggest_categorical("scaler_selector", scaler_selectors)
-        hidden_layer_size = trial.suggest_int("hidden_layer_size", 100, 3000, step=100)
+        n_layers = trial.suggest_int("n_layers", 1, 3)
+        layers: list[int] = []
+        for i in range(n_layers):
+            layers.append(trial.suggest_int(f"n_units_l{i}", 100, 1000, step=10))  # noqa: PERF401
         activation = trial.suggest_categorical("activation", ["relu", "tanh", "logistic"])
         alpha = trial.suggest_float("alpha", 1e-5, 1e-3, log=True)
         learning_rate_init = trial.suggest_float("learning_rate_init", 1e-5, 1e-2, log=True)
 
         scaler = load_scaler(config["scaler"], scaler_selector)
-        hidden_layer_sizes = (hidden_layer_size,)
         regressor = MLPRegressor(
-            hidden_layer_sizes=hidden_layer_sizes,
+            hidden_layer_sizes=tuple(layers),
             activation=activation,
             alpha=alpha,
             learning_rate_init=learning_rate_init,
