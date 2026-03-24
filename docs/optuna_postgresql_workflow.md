@@ -42,6 +42,12 @@ CREATE DATABASE optuna_db OWNER optuna_user;
    sudo ufw allow 5432/tcp
    ```
 
+### 1.5. Connection Verification (Test from PC-B)
+Before running the optimization, verify that the remote computer (192.168.5.65) can talk to the database on the host (192.168.5.77):
+
+1. **Check Port:** `nc -zv 192.168.5.77 5432`
+2. **Check Access:** `psql -h 192.168.5.77 -U optuna_user -d optuna_db`
+
 ---
 
 ## 2. Python Environment Setup (All PCs)
@@ -60,22 +66,24 @@ Your Host PC (PC-A) IP is **192.168.5.77**.
 
 ### On the Host PC (PC-A: 192.168.5.77)
 ```bash
+# Example: Use a date suffix to distinguish studies (e.g., mlp_opt_20260324T150723)
 python apps/optimize_model.py <other_args> \
   --storage postgresql://optuna_user:password@localhost/optuna_db \
-  --study-name mlp_optimization \
+  --study-name mlp_opt_20260324T150723 \
   --n-jobs 4
 ```
 
 ### On the Remote Worker (PC-B: 192.168.5.65)
 ```bash
+# Use the EXACT SAME study-name as on PC-A
 python apps/optimize_model.py <other_args> \
   --storage postgresql://optuna_user:password@192.168.5.77/optuna_db \
-  --study-name mlp_optimization \
+  --study-name mlp_opt_20260324T150723 \
   --n-jobs 4
 ```
 
 *   **`--storage`**: The connection string to the PostgreSQL database.
-*   **`--study-name`**: Must be the same on both PCs to share the same study.
+*   **`--study-name`**: Use a descriptive name with a date (e.g., `mlp_opt_$(date +%Y%m%dT%H%M%S)`). This ensures that if you start a new optimization tomorrow, you won't accidentally mix the results with today's run.
 *   **`--n-jobs`**: Number of parallel jobs per PC.
 
 ---
@@ -115,15 +123,38 @@ df.to_csv("optimization_results.csv")
 
 ---
 
-## 6. Maintenance
+## 6. Managing and Listing Studies
 
-### Deleting a Study
+### List all studies in the database
+```bash
+optuna studies --storage postgresql://optuna_user:password@192.168.5.77/optuna_db
+```
+
+### Delete a specific study
 If you want to start fresh without deleting the whole database:
 ```bash
-optuna delete-study --study-name mlp_optimization --storage postgresql://optuna_user:password@localhost/optuna_db
+optuna delete-study --study-name mlp_opt_20260324T150723 --storage postgresql://optuna_user:password@192.168.5.77/optuna_db
 ```
 
 ### Backing up the Database
 ```bash
 pg_dump -U optuna_user optuna_db > optuna_backup.sql
 ```
+
+---
+
+## 7. System Maintenance
+
+### Restarting after Reboot
+PostgreSQL usually starts automatically. If it doesn't, use these commands:
+
+*   **Check Status:** `sudo systemctl status postgresql`
+*   **Start Manually:** `sudo systemctl start postgresql`
+*   **Enable Auto-start on Boot:** `sudo systemctl enable postgresql`
+
+### Viewing Logs
+If you have connection issues, check the PostgreSQL logs:
+```bash
+sudo tail -f /var/log/postgresql/postgresql-16-main.log
+```
+*(Adjust the version number `16` as needed for your system)*
