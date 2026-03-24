@@ -63,6 +63,9 @@ def optimize(
     scaler_selectors: list[str],
     active_joints: list[int],
     seed: int | None,
+    storage: str | None = None,
+    study_name: str | None = None,
+    n_jobs: int = 1,
 ) -> Study:
     train_datasets = load_datasets(train_dataset_files)
     x_train, y_train = load_train_datasets(train_datasets, adapter)
@@ -104,8 +107,14 @@ def optimize(
         return np.mean(mse)
 
     sampler = TPESampler(seed=seed) if seed is not None else None
-    study = optuna.create_study(sampler=sampler, direction="minimize")
-    study.optimize(objective, n_trials=n_trials)
+    study = optuna.create_study(
+        storage=storage,
+        study_name=study_name,
+        sampler=sampler,
+        direction="minimize",
+        load_if_exists=True,
+    )
+    study.optimize(objective, n_trials=n_trials, n_jobs=n_jobs)
     return study
 
 
@@ -243,6 +252,9 @@ def run(
     scaler_selectors: list[str],
     output_dir_path: Path,
     output_prefix: str,
+    storage: str | None,
+    study_name: str | None,
+    n_jobs: int,
     *,
     shuffle: bool,
     split_in_each_directory: bool,
@@ -282,6 +294,9 @@ def run(
         scaler_selectors,
         active_joints,
         opt_seed,
+        storage=storage,
+        study_name=study_name,
+        n_jobs=n_jobs,
     )
     event_logger().debug("Optimization has done")
 
@@ -417,6 +432,21 @@ def parse() -> argparse.Namespace:
         default=["none"],
         help="List of scaler selector candidates.",
     )
+    # Optimization Backend
+    parser.add_argument(
+        "--storage",
+        help="Database URL for optuna optimization (e.g., sqlite:///optuna.db).",
+    )
+    parser.add_argument(
+        "--study-name",
+        help="Study name for optuna optimization.",
+    )
+    parser.add_argument(
+        "--n-jobs",
+        default=1,
+        type=int,
+        help="Number of parallel jobs for optimization process.",
+    )
     # Output
     parser.add_argument(
         "-o",
@@ -516,6 +546,10 @@ def main() -> None:
         # output
         output_dir,
         args.output_prefix,
+        # optimization backend
+        args.storage,
+        args.study_name,
+        args.n_jobs,
         # boolean arguments
         shuffle=args.shuffle,
         split_in_each_directory=args.split_in_each_directory,
