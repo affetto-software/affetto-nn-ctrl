@@ -81,8 +81,9 @@ def optimize(
         for i in range(n_layers):
             layers.append(trial.suggest_int(f"n_units_l{i}", 200, 1000, step=10))  # noqa: PERF401
         activation = trial.suggest_categorical("activation", ["relu", "tanh", "logistic"])
-        alpha = 0.0001
-        learning_rate_init = 0.001
+        # Align params here with `best_params` in `save_optimization_result`
+        alpha = 0.0001  # default
+        learning_rate_init = 0.001  # default
 
         scaler = load_scaler(config["scaler"], scaler_selector)
         regressor = MLPRegressor(
@@ -163,11 +164,16 @@ def save_optimization_result(
 
     best_params = study.best_params.copy()
     best_scaler = best_params.pop("scaler_selector")
-    best_hidden_layer_size = best_params.pop("hidden_layer_size")
-    best_params.update({"hidden_layer_sizes": (best_hidden_layer_size,)})
+    best_n_layers = best_params.pop("n_layers")
+    best_layers: list[int] = [best_params.pop(f"n_units_l{i}") for i in range(best_n_layers)]
+    best_params.update({"hidden_layer_sizes": tuple(best_layers)})
+    # Align best params here with objective function
+    best_params.update({"max_iter": 1000, "alpha": 0.0001, "learning_rate_init": 0.001})
     text_lines = [
         "[optimization]\n",
         f"best_scaler = {_toml_string(best_scaler)}\n",
+        f"best_n_layers = {_toml_string(best_n_layers)}\n",
+        f"best_layers = [{', '.join(map(str, best_layers))}]\n",
         f"best_value = {study.best_value}\n",
         f"trials = {len(study.trials)}\n",
         f"seed = {_toml_string(seed)}\n",
@@ -559,5 +565,5 @@ if __name__ == "__main__":
     main()
 
 # Local Variables:
-# jinx-local-words: "csv ctrl dir dqdes dt env esn init joblib minmax mlp noqa params regressor relu scaler sublabel symlink tanh usr vv" # noqa: E501
+# jinx-local-words: "csv ctrl dir dqdes dt env esn init iter joblib minmax mlp noqa params regressor relu scaler sublabel symlink tanh usr vv" # noqa: E501
 # End:
