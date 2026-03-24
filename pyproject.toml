@@ -22,6 +22,8 @@ dependencies = [
     "pypdf>=5.1.0",
     "scienceplots>=2.1.1",
     "optuna>=4.2.1",
+    "optuna-dashboard>=0.20.0",
+    "psycopg2-binary>=2.9.11",
 ]
 readme = "README.md"
 requires-python = ">= 3.10"
