@@ -86,6 +86,9 @@ python apps/optimize_model.py <other_args> \
 *   **`--study-name`**: Use a descriptive name with a date (e.g., `mlp_opt_$(date +%Y%m%dT%H%M%S)`). This ensures that if you start a new optimization tomorrow, you won't accidentally mix the results with today's run.
 *   **`--n-jobs`**: Number of parallel jobs per PC.
 
+> **Pro-Tip: Seeds in Distributed Optimization**
+> For the best results, use **different** `--opt-seed` values (or no seed) on each PC. This prevents multiple workers from starting with the exact same initial "random" trials, ensuring better exploration of the search space.
+
 ---
 
 ## 4. Resuming or Extending a Study
