@@ -47,6 +47,7 @@ Before running the optimization, verify that the remote computer (192.168.5.65) 
 
 1. **Check Port:** `nc -zv 192.168.5.77 5432`
 2. **Check Access:** `psql -h 192.168.5.77 -U optuna_user -d optuna_db`
+3. **List Users Remotely:** `psql -h 192.168.5.77 -U optuna_user -d optuna_db -c "\du"`
 
 ---
 
@@ -57,6 +58,15 @@ Ensure each PC has the necessary Python packages installed:
 ```bash
 pip install optuna optuna-dashboard psycopg2-binary
 ```
+
+### 2.5. Handling Passwords (PC-B)
+To avoid typing your password every time, create a `.pgpass` file on the remote worker:
+
+1. **Create file:** `nano ~/.pgpass`
+2. **Add entry:** `192.168.5.77:5432:optuna_db:optuna_user:YOUR_PASSWORD`
+3. **Set permissions:** `chmod 0600 ~/.pgpass`
+
+Now, you can omit the password from your commands for better security.
 
 ---
 
@@ -161,3 +171,11 @@ If you have connection issues, check the PostgreSQL logs:
 sudo tail -f /var/log/postgresql/postgresql-16-main.log
 ```
 *(Adjust the version number `16` as needed for your system)*
+
+### Version Compatibility & Backup Tip
+It is perfectly fine to have different PostgreSQL versions on different PCs (e.g., v16 and v17). The network protocol is backward and forward compatible.
+
+**Tip:** If versions differ, it is best to run `pg_dump` from the PC with the **newer** version (e.g., PC-B with v17) to back up the database on the host server:
+```bash
+pg_dump -h 192.168.5.77 -U optuna_user optuna_db > optuna_backup.sql
+```
