@@ -187,16 +187,14 @@ uv run python apps/record_trajectory.py -v --init-config "apps/config/init_left_
 Use `apps/track_trajectory.py` to perform the trajectory tracking using a trained model. The following command replays a specific reference trajectory:
 
 ``` shell
-model="/mnt/storage1/data/affetto_nn_ctrl/trained_model/left_arm/20250207T001027/preview-ref.step09/mlp.layer200-iter1000-logistic/std/trapez_async_all/trained_model.joblib"
-uv run python apps/track_trajectory.py -v "$model" --init-config "apps/config/init_left_arm.toml" --joints 2-5 -r "./demo/date_time_when_recorded/reference_trajectory_000.csv" -n 1 --base-dir "." --output "demo/$(date '+%Y%m%dT%H%M%S')" --output-prefix "tracked_trajectory_mlp"
+model="/mnt/storage1/data/affetto_nn_ctrl/trained_model/left_arm/20250207T001027/preview-ref.step09/mlp.layer200-iter1000-logistic/std/trapez_async_all/trained_model.joblib"; uv run python apps/track_trajectory.py -v "$model" --init-config "apps/config/init_left_arm.toml" --joints 2-5 -r "./demo/latest/reference_trajectory_000.csv" -n 1 --base-dir "." --output "./demo/latest" --output-prefix "tracked_trajectory_mlp"
 ```
 #### (Optional) Plot tracked trajectories
 
 Use `apps/drawer/compare_tracked_trajectories.py` to visualize the tracked trajectories. The following commands show plots:
 
 ``` shell
-uv run python apps/calculate_rmse.py -v "./demo/date_time_when_played/tracked_trajectory_mlp.toml" -j 2-5 --output-prefix "tracked_trajectory_mlp"
-uv run python apps/drawer/compare_tracked_trajectories.py -v "./demo/date_time_when_played/tracked_trajectory_mlp.toml" -j 2-5 -e png --show-screen
+uv run python apps/calculate_rmse.py -v "./demo/latest/tracked_trajectory_mlp.toml" -j 2-5 --output-prefix "tracked_trajectory_mlp" && uv run python apps/drawer/compare_tracked_trajectories.py -v "./demo/latest/tracked_trajectory_mlp.toml" -j 2-5 -e png --show-screen
 ```
 
 #### (Optional) Playback using PID control
@@ -205,7 +203,13 @@ Depending on reactions from visitors, tracking the same recorded
 trajectory with the conventional PID controller might be convincing. The following command tracks the same reference trajectory through PID control:
 
 ``` shell
-uv run python apps/track_trajectory.py -v --init-config "apps/config/init_left_arm.toml" --joints 2-5 -r "./demo/date_time_when_recorded/reference_trajectory_000.csv" -n 1 --base-dir "." --output "demo/$(date '+%Y%m%dT%H%M%S')" --output-prefix "tracked_trajectory_pid"
+uv run python apps/track_trajectory.py -v --init-config "apps/config/init_left_arm.toml" --joints 2-5 -r "./demo/latest/reference_trajectory_000.csv" -n 1 --base-dir "." --output "demo/latest" --output-prefix "tracked_trajectory_pid"
+```
+
+To visualize the tracked trajectories, run the following commands:
+
+``` shell
+uv run python apps/calculate_rmse.py -v "./demo/latest/tracked_trajectory_pid.toml" -j 2-5 --output-prefix "tracked_trajectory_pid" && uv run python apps/drawer/compare_tracked_trajectories.py -v "./demo/latest/tracked_trajectory_pid.toml" -j 2-5 -e png --show-screen
 ```
 
 ## License
