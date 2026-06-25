@@ -164,7 +164,7 @@ def _plot_rmse(
 ) -> Axes:
     rects = ax.bar(x, y, yerr=yerr, width=width, capsize=capsize, label=label)
     if show_rmse:
-        ax.bar_label(rects, label_type="center", fontsize=FONTSIZE_BARLABEL)
+        ax.bar_label(rects, label_type="center", fmt="%.2f", fontsize=FONTSIZE_BARLABEL)
     if show_line and len(rects.patches):
         c = rects.patches[0].get_facecolor()
         ax.plot(x, y, "--", color=c, lw=1.0)
@@ -195,7 +195,7 @@ def plot_rmse(
 
     ax: Axes
     fig: Figure
-    figsize = (3.5 * max(len(rmse_mean_list), len(active_joints)), 6)
+    figsize = (2.5 * max(len(rmse_mean_list), len(active_joints)), 6)
     fig, ax = plt.subplots(figsize=figsize)
 
     x = np.arange(len(active_joints))
@@ -205,8 +205,8 @@ def plot_rmse(
     y: list[float]
     yerr: list[float]
     for i, (rmse_mean, rmse_err) in enumerate(zip(rmse_mean_list, rmse_err_list, strict=True)):
-        y = [rmse_mean[j] for j in range(len(active_joints))]
-        yerr = [rmse_err[j] for j in range(len(active_joints))]
+        y = [rmse_mean[j] for j in active_joints]
+        yerr = [rmse_err[j] for j in active_joints]
         label = labels[i] if labels is not None else None
         _plot_rmse(ax, x + i * width, y, yerr, width, 6, label, show_rmse=show_rmse, show_line=False)
 

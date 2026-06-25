@@ -292,7 +292,7 @@ def plot_figure(
     publication: bool,
 ) -> tuple[Figure, Axes]:
     _ = publication
-    figsize = (8, 6)
+    figsize = (8, 4)
     fig, ax = plt.subplots(figsize=figsize)
     list_args = [basedir_list, adapter_list, regressor_list, scaler_list, dataset_tag_list]
     if labels is None or len(labels) == 0:

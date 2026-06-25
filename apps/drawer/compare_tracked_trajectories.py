@@ -168,15 +168,24 @@ def plot_mean_err(
     label: str | None,
 ) -> Line2D:
     mask = get_tlim_mask(t, tlim)
+    lw = 2
     if err_type is None or err_type == "none":
         mean, _, _ = calculate_mean_err(y)
-        lines = ax.plot(t[mask], mean[mask], fmt, label=label)
+        lines = ax.plot(t[mask], mean[mask], fmt, lw=lw, label=label)
     else:
         mean, err1, err2 = calculate_mean_err(y, err_type=err_type)
         if err2 is None:
-            eb = ax.errorbar(t[mask], mean[mask], yerr=err1[mask], capsize=capsize, fmt=fmt, label=label)
+            eb = ax.errorbar(t[mask], mean[mask], lw=lw, yerr=err1[mask], capsize=capsize, fmt=fmt, label=label)
         else:
-            eb = ax.errorbar(t[mask], mean[mask], yerr=(err1[mask], err2[mask]), capsize=capsize, fmt=fmt, label=label)
+            eb = ax.errorbar(
+                t[mask],
+                mean[mask],
+                lw=lw,
+                yerr=(err1[mask], err2[mask]),
+                capsize=capsize,
+                fmt=fmt,
+                label=label,
+            )
         lines = eb.lines  # type: ignore[assignment]
     return lines[0]
 
@@ -226,6 +235,8 @@ def plot_all_motions(
     fill_err_type: str | None,
     fill_alpha: float,
     publication: bool,
+    pickup: list[int] | None,
+    color: list[str] | None,
 ) -> list[Path]:
     title = f"Joint: {joint_index} | Reference: {reference_data.datapath.stem} | RMSE: "
     title += ",".join([f"{x:.2f}±{y:.2f}" for x, y in zip(rmse_mean_list, rmse_err_list, strict=True)])
@@ -233,7 +244,9 @@ def plot_all_motions(
 
     ax: Axes
     fig: Figure
-    figsize = (12, 6) if publication else (18, 6)
+    figsize = (10, 4) if publication else (18, 6)
+    if pickup is not None:
+        figsize = (8, 5)
     fig, ax = plt.subplots(figsize=figsize)
 
     # Plot reference
@@ -244,15 +257,23 @@ def plot_all_motions(
         y_ref = getattr(motion_data_list[0], f"qdes{joint_index}")
     else:
         y_ref = getattr(reference_data, f"q{joint_index}")
-    (line,) = ax.plot(t_ref[mask_ref], y_ref[mask_ref], ls="--", label=ref_label)
+    (line,) = ax.plot(t_ref[mask_ref], y_ref[mask_ref], ls="--", lw=2, label=ref_label)
 
     # Plot tracked trajectories
     for i, motion_data_set in enumerate(motion_data_list):
         t, y = load_timeseries(motion_data_set, f"q{joint_index}", tshift)
         label = labels[i] if labels is not None else None
-        line = plot_mean_err(ax, t, y, err_type, tlim, fmt="-", capsize=2, label=label)
-        if fill:
-            fill_between_err(ax, t, y, fill_err_type, tlim, line.get_color(), fill_alpha)
+        print(f"y.shape = {y.shape}")
+        print(f"{mask_ref.shape=}")
+        if pickup is None:
+            line = plot_mean_err(ax, t, y, err_type, tlim, fmt="-", capsize=2, label=label)
+            if fill:
+                fill_between_err(ax, t, y, fill_err_type, tlim, line.get_color(), fill_alpha)
+        else:
+            print(f"{pickup[i]=}")
+            print(f"{y[pickup[i]].shape}")
+            c = color[i] if color is not None else None
+            (line,) = ax.plot(t[mask_ref], y[pickup[i]][mask_ref], ls="-", lw=2, c=c, label=label)
 
     if not publication:
         ax.set_title(title, fontsize=FONTSIZE_TITLE)
@@ -289,6 +310,8 @@ def run(
     fill_err_type: str | None,
     fill_alpha: float,
     publication: bool,
+    pickup: list[int] | None,
+    color: list[str] | None,
 ) -> None:
     # Resolve active joints.
     all_saved_figures: list[Path] = []
@@ -335,6 +358,8 @@ def run(
                 fill_err_type=fill_err_type,
                 fill_alpha=fill_alpha,
                 publication=publication,
+                pickup=pickup,
+                color=color,
             )
             all_saved_figures.extend(saved_figures)
             if not show_screen:
@@ -438,6 +463,8 @@ def parse() -> argparse.Namespace:
         default=False,
         help="whether to create publication-quality figures",
     )
+    parser.add_argument("--pickup", nargs="+", type=int, help="List of picked up plot in each trajectory.toml.")
+    parser.add_argument("--color", nargs="+", help="List of line color of the picked up plot.")
     parser.add_argument(
         "-v",
         "--verbose",
@@ -492,6 +519,8 @@ def main() -> None:
         fill_err_type=args.fill_err_type,
         fill_alpha=args.fill_alpha,
         publication=args.for_publication,
+        pickup=args.pickup,
+        color=args.color,
     )
 
 
