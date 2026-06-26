@@ -320,7 +320,7 @@ def plot_figure(
 
     xlabel = make_xlabel(adapter_list)
     ax.set_xlabel(xlabel)
-    ax.set_ylabel(r"Coefficient of determination, $R^2$")
+    ax.set_ylabel(r"Coeff. of determination, $R^2$")
     ax.set_ylim(ylim)
     if show_grid in ("x", "y", "both"):
         ax.grid(axis=show_grid, visible=True)
